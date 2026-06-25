@@ -1,202 +1,435 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<!doctype html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bedrock — A Self-Building Software Company</title>
-<meta name="description" content="Bedrock — a self-building software company. People set the direction; everything else, it builds itself.">
-<meta property="og:title" content="Bedrock — A Self-Building Software Company">
-<meta property="og:description" content="People set the direction. Everything else, it builds itself.">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>bedrock · self-modifying agent substrate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
 <style>
-  /* ===== theme tokens — shared with the CV ===== */
-  :root[data-theme="dark"] {
-    --bg:#0a0a0a; --bg-elev:#121212; --fg:#ededed; --fg-strong:#ffffff;
-    --muted:#8a8a8a; --hair:rgba(255,255,255,.14); --hair-strong:rgba(255,255,255,.30);
-    --accent:#e8643c; --sel:rgba(232,100,60,.30);
+  :root{
+    --bg:#020203;
+    --ink:#ECECEF;
+    --dim:#8A8A93;
+    --faint:#4A4A52;
+    --serif:"Instrument Serif", Georgia, "Times New Roman", serif;
+    --sans:"Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono:"Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   }
-  :root[data-theme="light"] {
-    --bg:#f4f2ec; --bg-elev:#ffffff; --fg:#18130f; --fg-strong:#000000;
-    --muted:#6b6258; --hair:rgba(0,0,0,.16); --hair-strong:rgba(0,0,0,.42);
-    --accent:#c2461f; --sel:rgba(194,70,31,.22);
-  }
-  *,*::before,*::after{box-sizing:border-box}
-  html{-webkit-text-size-adjust:100%}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
   body{
-    margin:0; background:var(--bg); color:var(--fg);
-    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
-    font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased;
-    text-rendering:optimizeLegibility; transition:background .25s ease,color .25s ease;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-weight:300;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
   }
-  ::selection{background:var(--sel)}
-  a{color:inherit;text-decoration:none}
-  .mono{font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace}
 
-  .wrap{max-width:1080px;margin:0 auto;padding:0 clamp(1.25rem,4vw,3rem)}
-
-  /* ===== two-column Swiss row (shared with the CV) ===== */
-  .row{
-    display:grid; grid-template-columns:200px 1fr; gap:clamp(1rem,4vw,3rem);
-    padding:2.6rem 0; border-top:1px solid var(--hair);
+  /* animated dot-matrix field, fades in like the page you liked */
+  #crt-frame{
+    position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none;
+    opacity:0; transition:opacity 2.4s cubic-bezier(.25,.1,.25,1) .4s;
   }
-  .row-label{
-    font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
-    font-size:.8rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
-    position:sticky; top:1.5rem; align-self:start; height:fit-content;
-  }
-  .row-label .num{color:var(--accent);font-weight:700}
-  .row-body{min-width:0}
+  #crt-frame.visible{opacity:1}
+  #gl{display:block; width:100%!important; height:100%!important}
 
-  /* ===== hero ===== */
-  header.hero{padding:clamp(3.5rem,11vw,7rem) 0 2.4rem}
+  /* radial vignette to seat the form */
+  #vignette{
+    position:fixed; inset:0; z-index:1; pointer-events:none;
+    background:
+      radial-gradient(72% 62% at 19% 84%, rgba(2,2,3,.88) 0%, rgba(2,2,3,.42) 46%, transparent 74%),
+      radial-gradient(130% 110% at 72% 34%, transparent 52%, rgba(2,2,3,.42) 100%);
+  }
+
+  main{
+    position:relative; z-index:2;
+    height:100%;
+    display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-start;
+    text-align:left;
+    padding:6vh max(30px,5vw) 11vh max(30px,5vw);
+    max-width:min(680px, 92vw);
+    opacity:0; transform:translateY(10px);
+    transition:opacity 1.6s ease 1.0s, transform 1.6s cubic-bezier(.25,.1,.25,1) 1.0s;
+  }
+  main.visible{opacity:1; transform:none}
+
   .kicker{
-    font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
-    font-size:.8rem; letter-spacing:.22em; text-transform:uppercase; color:var(--muted);
-    display:flex; align-items:center; gap:.7em; margin-bottom:1.4rem;
+    font-family:var(--mono); font-size:12.5px; font-weight:500;
+    letter-spacing:.34em; text-transform:uppercase;
+    color:var(--dim);
+    margin-bottom:.9rem;
+    display:flex; align-items:center; gap:.7em;
   }
-  .pulse{width:7px;height:7px;border-radius:50%;background:var(--accent);
-    box-shadow:0 0 10px 1px var(--accent); animation:breathe 2.6s ease-in-out infinite}
-  @keyframes breathe{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+  .kicker .pulse{
+    width:6px; height:6px; border-radius:50%;
+    background:#7C6BFF; box-shadow:0 0 10px 1px #7C6BFF;
+    animation:breathe 2.6s ease-in-out infinite;
+  }
+  @keyframes breathe{0%,100%{opacity:.35; transform:scale(.85)}50%{opacity:1; transform:scale(1.15)}}
+
   h1{
-    margin:0; font-size:clamp(3rem,15vw,9rem); font-weight:800; line-height:.88;
-    letter-spacing:-.04em; text-transform:uppercase; color:var(--fg-strong);
+    font-family:var(--serif); font-weight:400; font-style:normal;
+    font-size:clamp(52px, 9.5vw, 132px);
+    line-height:.92; letter-spacing:-.01em;
+    background:linear-gradient(180deg,#FFFFFF 0%, #C9C7D6 62%, #8E8AA8 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
   }
-  .tagline{
-    margin-top:1.6rem; font-size:clamp(1.3rem,3vw,2.1rem); font-weight:500;
-    line-height:1.25; letter-spacing:-.015em; color:var(--fg-strong); max-width:24ch;
-  }
-  .tagline b{color:var(--accent);font-weight:500}
-  .lede{
-    margin-top:1.8rem; font-size:clamp(1.02rem,1.5vw,1.2rem); line-height:1.6;
-    color:var(--fg); max-width:62ch;
-  }
-  .lede b{color:var(--fg-strong);font-weight:700}
+  h1 em{font-style:italic; color:#B9B4FF; -webkit-text-fill-color:#B9B4FF}
 
-  /* ===== content ===== */
-  h2{
-    margin:0 0 .9rem; font-size:1.5rem; font-weight:800; letter-spacing:-.02em;
-    color:var(--fg-strong); text-transform:none;
+  .sub{
+    font-family:var(--serif); font-style:italic; font-weight:400;
+    font-size:clamp(20px, 3.1vw, 32px);
+    color:#D6D4E0; max-width:21ch; margin-top:1.1rem; line-height:1.25;
   }
-  p.body{font-size:1rem;line-height:1.6;color:var(--fg);max-width:64ch;margin:0}
-  p.body b{color:var(--fg-strong);font-weight:700}
-  ul.bullets{list-style:none;margin:.4rem 0 0;padding:0}
-  ul.bullets li{position:relative;padding-left:1.2rem;margin-bottom:.6rem;max-width:64ch;color:var(--fg)}
-  ul.bullets li::before{content:"—";position:absolute;left:0;color:var(--accent)}
-  ul.bullets li b{color:var(--fg-strong);font-weight:700}
+  .body{
+    font-family:var(--sans); font-weight:300;
+    font-size:clamp(14px,1.5vw,16px); color:var(--dim);
+    max-width:46ch; margin-top:1.6rem; line-height:1.6;
+  }
 
-  /* ===== footer / status ===== */
-  footer{
-    border-top:1px solid var(--hair); margin-top:1rem; padding:2.2rem 0 4rem;
-    display:flex; flex-wrap:wrap; justify-content:space-between; gap:1rem 1.5rem;
-    font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
-    font-size:.74rem; letter-spacing:.04em; color:var(--muted);
+  .actions{display:flex; gap:.8rem; margin-top:2.2rem; flex-wrap:wrap; justify-content:flex-start}
+  .btn{
+    font-family:var(--mono); font-size:12.5px; font-weight:500; letter-spacing:.02em;
+    color:var(--ink); text-decoration:none;
+    padding:.72rem 1.15rem; border-radius:999px;
+    border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.03);
+    backdrop-filter:blur(8px); transition:border-color .25s, background .25s, transform .25s;
   }
-  .status{display:flex;flex-wrap:wrap;gap:1.4em}
-  .status b{color:var(--fg);font-weight:500}
-  .status .grn{color:var(--accent)}
-  footer a.back{border-bottom:1px solid var(--hair)}
-  footer a.back:hover{color:var(--accent);border-color:var(--accent)}
+  .btn:hover{border-color:rgba(185,180,255,.55); background:rgba(124,107,255,.12); transform:translateY(-1px)}
+  .btn.primary{background:rgba(124,107,255,.16); border-color:rgba(124,107,255,.45)}
 
-  /* ===== theme toggle (shared with the CV) ===== */
-  .toggle{
-    position:fixed; top:1rem; right:1rem; z-index:10;
-    font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
-    font-size:.72rem; letter-spacing:.1em; color:var(--muted);
-    background:var(--bg-elev); border:1px solid var(--hair); padding:.5em .8em;
-    cursor:pointer; text-transform:uppercase; transition:color .15s,border-color .15s;
+  /* faux status line bottom-left, mono */
+  .status{
+    position:fixed; right:max(18px,4vw); bottom:max(16px,3.2vh); z-index:2;
+    font-family:var(--mono); font-size:11.5px; color:var(--faint);
+    letter-spacing:.04em; display:flex; gap:1.4em; flex-wrap:wrap; justify-content:flex-end;
+    opacity:0; transition:opacity 1.4s ease 1.8s;
   }
-  .toggle:hover{color:var(--fg-strong);border-color:var(--hair-strong)}
-  .toggle b{color:var(--accent)}
-
-  @media (max-width:720px){
-    .row{grid-template-columns:1fr;gap:.9rem;padding:2rem 0}
-    .row-label{position:static}
-  }
+  .status.visible{opacity:1}
+  .status b{color:var(--dim); font-weight:500}
+  .status .grn{color:#6FE3A8}
 </style>
 </head>
 <body>
+  <div id="crt-frame"><canvas id="gl"></canvas></div>
+  <div id="vignette"></div>
 
-<button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">
-  THEME · <b id="themeName">DARK</b>
-</button>
-
-<div class="wrap">
-
-  <header class="hero">
-    <div class="kicker"><span class="pulse"></span>A self-building software company</div>
-    <h1>Bedrock</h1>
-    <p class="tagline">People set the direction. <b>Everything else, it builds itself.</b></p>
-    <p class="lede">
-      Bedrock writes, reviews, and ships its own software — then rewrites how it does all
-      three. Every service, every agent, every rule is one build graph, including the runner
-      that deploys it. Work arrives only as <b>proposals</b>: sandboxed, reviewed, recorded,
-      and upload-only — nothing merges itself. It climbs, level by level, from a single
-      hand-run seed toward a company that runs itself.
+  <main>
+    <div class="kicker"><span class="pulse"></span>a self-building software company</div>
+    <h1>bed<em>rock</em></h1>
+    <p class="sub">People set the direction. Everything else, it builds&nbsp;itself.</p>
+    <p class="body">
+      Every service, every agent, every rule is one build graph — including the
+      runner that deploys it. Work arrives only as proposals: sandboxed, reviewed,
+      recorded, upload-only; nothing merges itself. It writes, reviews, and ships its
+      own software, then rewrites how it does all three — climbing, level by level,
+      from a single hand-run seed toward a company that runs itself.
     </p>
-  </header>
-
-  <section class="row">
-    <div class="row-label"><span class="num">01</span> / The Flywheel</div>
-    <div class="row-body">
-      <h2>It generates the data that improves it.</h2>
-      <p class="body">
-        The engineering process emits its own data — every change, dispatch, review, and
-        agent conversation is a logged, provenance-tagged <b>trajectory</b>. That data
-        improves the harness today, and it's the same substrate designed to improve the
-        model tomorrow. A <b>Voyager-style lifelong-learning loop</b>, applied to a whole
-        software company rather than a single agent.
-      </p>
+    <div class="actions">
+      <a class="btn primary" href="#">Read the RFCs</a>
+      <a class="btn" href="#">Watch the loop</a>
     </div>
-  </section>
+  </main>
 
-  <section class="row">
-    <div class="row-label"><span class="num">02</span> / Safe by Construction</div>
-    <div class="row-body">
-      <h2>Self-modifying, but never unsupervised.</h2>
-      <ul class="bullets">
-        <li><b>Deny-first sandboxing</b> — agents get nothing they aren't explicitly granted</li>
-        <li><b>Per-agent isolation and identity</b> — every actor is contained and attributable</li>
-        <li><b>A human gate on the trust base</b> — the root of trust only ever moves by hand</li>
-        <li><b>An explicitly advisory review judge</b> — an LLM can't be a hard gate on adversarial change, so it never is one</li>
-      </ul>
-    </div>
-  </section>
+  <div class="status">
+    <span><b>level 0</b> <span class="grn">●</span> seed&nbsp;live</span>
+    <span><b>history</b> append-only&nbsp;@&nbsp;tip</span>
+    <span><b>graph</b> //substrate:loop</span>
+  </div>
 
-  <section class="row">
-    <div class="row-label"><span class="num">03</span> / The Climb</div>
-    <div class="row-body">
-      <h2>From a hand-run seed, level by level.</h2>
-      <p class="body">
-        Level 0 is a seed a human runs by hand. At each level the system earns more autonomy
-        over its <b>own process</b> — auditing its frictions, proposing improvements, and
-        ratcheting them in — without ever removing the human from the trust base. The goal
-        isn't a faster agent; it's a software organization that improves how it improves.
-      </p>
-    </div>
-  </section>
+<script type="module">
+/* ------------------------------------------------------------------ *
+ *  bedrock — morphing multi-SDF field, rendered as a dot-matrix.
+ *  The "scene" is just math: several primitives that interpolate
+ *  (mix), combine (smooth-union), divide (smooth-subtraction) and
+ *  scale over time — a body that eats itself and rebuilds.
+ * ------------------------------------------------------------------ */
+const canvas = document.getElementById('gl');
+const gl = canvas.getContext('webgl', { antialias:false, alpha:false, powerPreference:'high-performance' });
+if(!gl){ document.body.innerHTML = '<p style="color:#aaa;font-family:monospace;padding:2rem">WebGL not available.</p>'; }
 
-  <footer>
-    <div class="status">
-      <span><b>level 0</b> <span class="grn">●</span> seed&nbsp;live</span>
-      <span><b>history</b> append-only</span>
-      <span><b>graph</b> //substrate:loop</span>
-    </div>
-    <a class="back" href="/">← Michal Hornicky · CV</a>
-  </footer>
+const VERT = `
+attribute vec2 aPos;
+void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
 
-</div>
+const FRAG = `
+precision highp float;
+const float PHI_ = 1.61803398875;               // golden ratio, for the solids
+uniform vec2  uRes;
+uniform float uTime;
+uniform float uDotSize;
+uniform float uDotGap;
 
-<script>
-  (function () {
-    var root = document.documentElement, btn = document.getElementById('themeToggle'),
-        label = document.getElementById('themeName'), KEY = 'cv-theme';
-    function apply(t){ root.setAttribute('data-theme', t); label.textContent = t.toUpperCase();
-      try{ localStorage.setItem(KEY, t); }catch(e){} }
-    var stored=null; try{ stored=localStorage.getItem(KEY); }catch(e){}
-    if(stored) apply(stored);
-    else if(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) apply('light');
-    else apply('dark');
-    btn.addEventListener('click', function(){ apply(root.getAttribute('data-theme')==='dark'?'light':'dark'); });
-  })();
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+
+float sdSphere(vec3 p, float r){ return length(p) - r; }
+float sdOcta(vec3 p, float s){ p = abs(p); return (p.x+p.y+p.z - s) * 0.57735026; }
+float sdBox(vec3 p, vec3 b, float r){
+  vec3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
+}
+// the rest of the Platonic solids (cube = sdBox, octahedron = sdOcta above)
+float sdTetrahedron(vec3 p, float r){
+  return (max(abs(p.x+p.y)-p.z, abs(p.x-p.y)+p.z) - r) * 0.57735026;
+}
+float sdDodecahedron(vec3 p, float r){
+  p = abs(p);
+  vec3 n = normalize(vec3(0.0, 1.0, PHI_));
+  return max(max(dot(p,n), dot(p,n.yzx)), dot(p,n.zxy)) - r;
+}
+float sdIcosahedron(vec3 p, float r){
+  p = abs(p);
+  vec3 a = normalize(vec3(1.0));
+  vec3 b = normalize(vec3(0.0, 1.0/PHI_, PHI_));
+  float d = dot(p,a);
+  d = max(d, dot(p,b));
+  d = max(d, dot(p,b.yzx));
+  d = max(d, dot(p,b.zxy));
+  return d - r;
+}
+
+float opUnion(float d1, float d2, float k){
+  float h = clamp(0.5 + 0.5*(d2-d1)/k, 0.0, 1.0);
+  return mix(d2, d1, h) - k*h*(1.0-h);
+}
+float opSub(float d1, float d2, float k){   // carve d1 out of d2
+  float h = clamp(0.5 - 0.5*(d2+d1)/k, 0.0, 1.0);
+  return mix(d2, -d1, h) + k*h*(1.0-h);
+}
+
+// distance to a (2,3) trefoil torus knot — a tube following the analytic
+// knot curve. We exploit periodicity: the toroidal angle pins down which
+// strand is nearest, so only a few curve samples are needed (cheap).
+float sdKnot(vec3 p, float tube, float scale){
+  p /= scale;
+  const float P = 2.0;                 // loops around the main axis
+  const float Q = 3.0;                 // loops around the tube
+  float phi = atan(p.y, p.x);
+  float best = 1.0e5;
+  for(int k=0;k<2;k++){                // P candidate strands at this meridian
+    float t0 = (phi + 6.2831853*float(k)) / P;
+    for(int j=-2;j<=2;j++){            // local refine around the candidate
+      float tt = t0 + float(j)*0.12;
+      float rr = 2.0 + cos(Q*tt);
+      vec3 c = vec3(rr*cos(P*tt), rr*sin(P*tt), sin(Q*tt));
+      best = min(best, length(p - c));
+    }
+  }
+  return (best - tube) * scale;        // tube = radius in knot space
+}
+
+// the body. returns distance to the morphing form at p.
+float map(vec3 p){
+  float t = uTime * 0.22;
+
+  // the knot starts hidden (phase tuned so it's at minimum at load) and
+  // first emerges ~10s in, then breathes how dominant it is on each cycle.
+  float knotAmt   = smoothstep(0.20, 0.92, sin(t*0.80 - 1.571));
+
+  float d = 1.0e5;
+
+  // the five Platonic solids on a TIGHT orbit around the centre — close
+  // enough that they always overlap and never leave one another. A strong
+  // smooth-union melts them into one gooey, connected mass that gently
+  // re-arranges as they orbit.
+  const int N = 5;
+  for(int i=0;i<N;i++){
+    float fi = float(i);
+    float ang = t*(0.45 + 0.11*fi) + fi*1.7;
+    float orb = (0.20 + 0.05*sin(t*0.5 + fi*1.5)) * (1.0 - 0.6*knotAmt);
+    vec3 c = vec3(
+      cos(ang)*orb,
+      sin(ang*1.13 + fi)*orb*0.9,
+      cos(ang*0.71 + fi*1.3)*orb
+    );
+    // per-item rotation: each solid tumbles on its own axis & speed
+    vec3 q = p - c;
+    q.xz *= rot(t*(0.60 + 0.22*fi) + fi*2.1);
+    q.xy *= rot(t*(0.40 + 0.16*fi) - fi*1.3);
+    q.yz *= rot(t*(0.50 - 0.10*fi) + fi*0.7);
+
+    // each orbiter is a Platonic solid; tetra & octa stay crisp, the cube /
+    // dodecahedron / icosahedron get rounded edges (subtracting a rounding
+    // radius softens the facets) — a spectrum from sharp to smooth.
+    // each solid's size drifts slowly, out of phase with the others
+    float rr = 0.22 + 0.07*sin(t*0.33 + fi*1.7);
+    float shape;
+    if(i==0)      shape = sdTetrahedron(q, rr*0.95);                 // sharp
+    else if(i==1) shape = sdBox(q, vec3(rr*0.56), rr*0.06) - 0.035;  // soft cube
+    else if(i==2) shape = sdOcta(q, rr*1.10);                        // sharp
+    else if(i==3) shape = sdDodecahedron(q, rr*0.66) - 0.045;        // soft
+    else          shape = sdIcosahedron(q, rr*0.62) - 0.055;         // softest
+
+    d = opUnion(d, shape, 0.24);                                     // flowy blend
+  }
+
+  // a spherical heart the solids and knot all melt into — its radius drifts
+  // slowly, giving the whole mass a soft, unified, flowing base.
+  float coreR = 0.30 + 0.05*sin(t*0.40);
+  d = opUnion(d, sdSphere(p, coreR), 0.28);
+
+  // a gentle self-eating dimple — kept subtle so nothing ever fully detaches
+  float bite = (0.09 + 0.05*(0.5+0.5*sin(t*0.9 + 2.0))) * (1.0 - 0.9*knotAmt);
+  vec3 bc = vec3(cos(t*1.30)*0.46, sin(t*1.07)*0.4, sin(t*0.83)*0.46);
+  d = opSub(sdSphere(p - bc, bite), d, 0.16);
+
+  // ---- the trefoil knot is a PERMANENT part of the form: a thread woven
+  // through the solids that connects them. Its tube breathes from a thin
+  // skeleton to a thick dominant shape, so the cluster periodically
+  // consolidates onto the knot and then blooms back into orbiting solids.
+  vec3 kp = p;
+  kp.xy *= rot(t*0.45);
+  kp.yz *= rot(t*0.30);
+  // the knot also grows from tiny (tucked inside the sphere, unseen) to full
+  // size, so it is genuinely small/hidden at the start and emerges outward.
+  float knotScale = mix(0.085, 0.20, knotAmt);
+  float knot = sdKnot(kp, mix(0.25, 1.05, knotAmt), knotScale);
+  d = opUnion(d, knot, 0.24);
+
+  return d;
+}
+
+vec3 calcNormal(vec3 p){
+  vec2 e = vec2(0.0016, 0.0);
+  return normalize(vec3(
+    map(p+e.xyy) - map(p-e.xyy),
+    map(p+e.yxy) - map(p-e.yxy),
+    map(p+e.yyx) - map(p-e.yyx)
+  ));
+}
+
+// iridescent cosine palette (magenta / violet / cyan / amber family)
+vec3 pal(float t){
+  return 0.5 + 0.5*cos(6.28318*(vec3(1.0,1.0,1.0)*t + vec3(0.00, 0.35, 0.62)));
+}
+
+// march the cell-center ray and return lit colour (black if it misses)
+vec3 shade(vec3 ro, vec3 rd){
+  float t = 0.0;
+  float hit = -1.0;
+  vec3 p = ro;
+  for(int i=0;i<64;i++){
+    p = ro + rd*t;
+    float d = map(p);
+    if(d < 0.0012){ hit = t; break; }
+    t += d * 0.85;            // understep a touch — the warp bends the field
+    if(t > 7.0) break;
+  }
+  if(hit < 0.0) return vec3(0.0);
+
+  vec3 n = calcNormal(p);
+  vec3 lpos = normalize(vec3(0.55, 0.75, 0.45));
+  float diff = clamp(dot(n, lpos), 0.0, 1.0);
+  float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 2.4);
+
+  float hue = 0.56 + 0.16*sin(uTime*0.18) + 0.22*fres + 0.10*p.y + 0.06*n.x;
+  vec3 base = pal(hue);
+
+  vec3 col = base*(0.22 + 0.95*diff);
+  col += fres * vec3(0.55, 0.62, 1.0) * 0.9;     // cool rim light
+  col += base * pow(diff, 6.0) * 0.5;            // soft specular-ish lift
+  return col;
+}
+
+void main(){
+  vec2 frag = gl_FragCoord.xy;
+
+  // --- dot-matrix quantization: one sample per grid cell ----------
+  float spacing = uDotSize + uDotGap;
+  vec2 cell = floor(frag / spacing);
+  vec2 cc   = (cell + 0.5) * spacing;            // cell centre, in pixels
+
+  // build the camera ray for the CELL CENTRE (so a whole cell shares one
+  // scene sample — this is what makes the form read as glowing pixels)
+  vec2 focus = vec2(0.71, 0.66) * uRes;           // anchor the form top-right
+  vec2 uv = (cc - focus) / uRes.y;
+  vec3 ro = vec3(0.0, 0.0, 3.25);                 // further back -> smaller form
+  vec3 rd = normalize(vec3(uv, -1.70));
+  float ca = uTime * 0.045;                       // lazy camera orbit
+  ro.xz *= rot(ca);  rd.xz *= rot(ca);
+  ro.yz *= rot(0.14); rd.yz *= rot(0.14);
+
+  vec3 lit = shade(ro, rd);
+  float lum = clamp(dot(lit, vec3(0.299, 0.587, 0.114)) * 1.35, 0.0, 1.0);
+
+  // --- draw the dot for this cell ---------------------------------
+  float minR = spacing * 0.055;                   // faint baseline grid dot
+  float maxR = spacing * 0.46;                    // fat where the form is bright
+  float r = mix(minR, maxR, pow(lum, 0.7));
+  float dd = length(frag - cc);
+  float dot = 1.0 - smoothstep(r - 0.7, r + 0.7, dd);
+
+  // fade the resting dot-grid toward the bottom-left so the text there
+  // sits on clean black; the lit form stays bright wherever it is.
+  vec2 nf = frag / uRes;
+  float bias = smoothstep(-0.05, 1.05, nf.x*0.58 + nf.y*0.62);
+  vec3 bg   = vec3(0.0078, 0.0078, 0.0118);
+  vec3 grid = vec3(0.055, 0.055, 0.075) * bias;   // resting dots concentrate top-right
+  vec3 dotCol = mix(grid, lit*1.25 + 0.04, smoothstep(0.02, 0.22, lum));
+
+  vec3 col = mix(bg, dotCol, dot);
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+function compile(type, src){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+const aPos = gl.getAttribLocation(prog, 'aPos');
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+const uRes  = gl.getUniformLocation(prog, 'uRes');
+const uTime = gl.getUniformLocation(prog, 'uTime');
+const uDot  = gl.getUniformLocation(prog, 'uDotSize');
+const uGap  = gl.getUniformLocation(prog, 'uDotGap');
+
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.floor(innerWidth * DPR), h = Math.floor(innerHeight * DPR);
+  canvas.width = w; canvas.height = h;
+  gl.viewport(0,0,w,h);
+  gl.uniform2f(uRes, w, h);
+  // dot grid scales with DPR so the matrix looks the same density everywhere
+  gl.uniform1f(uDot, 7.0 * DPR);
+  gl.uniform1f(uGap, 3.0 * DPR);
+}
+addEventListener('resize', resize); resize();
+
+const t0 = performance.now();
+function frame(now){
+  gl.uniform1f(uTime, (now - t0) * 0.001);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// entrance sequence
+addEventListener('load', () => {
+  requestAnimationFrame(() => {
+    document.getElementById('crt-frame').classList.add('visible');
+    document.querySelector('main').classList.add('visible');
+    document.querySelector('.status').classList.add('visible');
+  });
+});
 </script>
 </body>
 </html>
