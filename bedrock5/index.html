@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>bedrock · a self-building software company</title>
+<meta name="description" content="Bedrock — a self-building software company. You set goals and constraints; the platform evolves to satisfy them." />
+<style>
+  /* ===== theme tokens — shared with the CV ===== */
+  :root[data-theme="dark"]{
+    --bg:#0a0a0a; --bg-elev:#121212; --ink:#ededed; --fg-strong:#ffffff;
+    --dim:#8a8a8a; --faint:#54545a;
+    --accent:#e8643c; --accent-rgb:232,100,60;
+    --hair:rgba(255,255,255,.14); --hair-strong:rgba(255,255,255,.30); --chip:rgba(255,255,255,.03);
+    --veil:10,10,10; --h1-top:#ffffff; --h1-mid:#cdccca;
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f2ec; --bg-elev:#ffffff; --ink:#18130f; --fg-strong:#000000;
+    --dim:#6b6258; --faint:#9a8f82;
+    --accent:#c2461f; --accent-rgb:194,70,31;
+    --hair:rgba(0,0,0,.16); --hair-strong:rgba(0,0,0,.42); --chip:rgba(0,0,0,.04);
+    --veil:244,242,236; --h1-top:#18130f; --h1-mid:#5a534b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth; background:var(--bg); transition:background .25s ease}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif; font-weight:300;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    transition:background .25s ease, color .25s ease;
+  }
+  /* full-viewport background layer — paints into every iOS safe area, at any scroll position */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:-1;
+    background:var(--bg); transition:background .25s ease;
+  }
+  a{color:inherit;text-decoration:none}
+  .mono,.kicker,.btn,.status,.toggle,.row-label,.sample-cap,pre.code,.scroll-cue{
+    font-family:ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+
+  /* ===== HERO (scrolls out of view) ===== */
+  .hero{
+    position:relative; min-height:100vh;
+    display:flex; flex-direction:column; justify-content:flex-end;
+  }
+  #gl{
+    position:absolute; left:0; right:0; width:100%; z-index:0; display:block;
+    top:calc(-1 * env(safe-area-inset-top));
+    height:calc(100% + env(safe-area-inset-top));
+    animation:fadein 2.2s ease .3s both;
+  }
+  @keyframes fadein{from{opacity:0}to{opacity:1}}
+  .hero-veil{
+    position:absolute; inset:0; z-index:1; pointer-events:none;
+    background:
+      radial-gradient(72% 62% at 19% 84%, rgba(var(--veil),.90) 0%, rgba(var(--veil),.45) 46%, transparent 76%),
+      radial-gradient(130% 120% at 72% 30%, transparent 50%, rgba(var(--veil),.55) 100%);
+  }
+  .hero-content{
+    position:relative; z-index:2;
+    padding:6vh max(30px,5vw) 9vh max(30px,5vw); max-width:min(720px,92vw);
+  }
+  html.reveal .hero-content{opacity:0; transform:translateY(10px);
+    transition:opacity 1.4s ease .3s, transform 1.4s cubic-bezier(.25,.1,.25,1) .3s}
+  html.reveal .hero-content.visible{opacity:1; transform:none}
+
+  .kicker{
+    font-size:12.5px; font-weight:500; letter-spacing:.34em; text-transform:uppercase;
+    color:var(--dim); margin-bottom:.9rem; display:flex; align-items:center; gap:.7em;
+  }
+  .kicker .pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 10px 1px var(--accent); animation:breathe 2.6s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+
+  h1.title{
+    font-weight:600; font-size:clamp(52px, 13vw, 150px); line-height:.9; letter-spacing:-.035em;
+    background:linear-gradient(180deg,var(--h1-top) 0%, var(--h1-mid) 62%, var(--dim) 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  h1.title em{font-style:normal; color:var(--accent); -webkit-text-fill-color:var(--accent)}
+  .sub{
+    font-weight:500; font-size:clamp(20px, 3.1vw, 32px);
+    color:var(--ink); max-width:23ch; margin-top:1.2rem; line-height:1.25;
+  }
+  .scroll-cue{
+    margin-top:2.2rem; font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--dim); display:inline-flex; align-items:center; gap:.6em;
+  }
+  .scroll-cue .arrow{color:var(--accent); animation:nudge 2.2s ease-in-out infinite}
+  @keyframes nudge{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+
+  /* ===== BODY (brutalist, like bedrock3) ===== */
+  .wrap{max-width:1080px; margin:0 auto; padding:0 clamp(1.25rem,4vw,3rem)}
+  .row{
+    display:grid; grid-template-columns:200px 1fr; gap:clamp(1rem,4vw,3rem);
+    padding:3rem 0; border-top:1px solid var(--hair);
+  }
+  .row:first-child{border-top:none}
+  .row-label{
+    font-size:.8rem; letter-spacing:.08em; text-transform:uppercase; color:var(--dim);
+    position:sticky; top:1.5rem; align-self:start; height:fit-content;
+  }
+  .row-label .num{color:var(--accent); font-weight:700}
+  .row-body{min-width:0}
+  h2{margin:0 0 .9rem; font-size:1.5rem; font-weight:800; letter-spacing:-.02em; color:var(--fg-strong)}
+  p.body{font-size:1rem; line-height:1.6; color:var(--ink); max-width:64ch; margin:0}
+  p.body b{color:var(--fg-strong); font-weight:700}
+  ul.bullets{list-style:none; margin:.4rem 0 0; padding:0}
+  ul.bullets li{position:relative; padding-left:1.2rem; margin-bottom:.6rem; max-width:64ch; color:var(--ink)}
+  ul.bullets li::before{content:"—"; position:absolute; left:0; color:var(--accent)}
+  ul.bullets li b{color:var(--fg-strong); font-weight:700}
+
+  /* code / command / UI samples */
+  .sample{margin-top:1.5rem}
+  .sample-cap{font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin-bottom:.5rem}
+  pre.code{
+    font-size:.8rem; line-height:1.6; color:var(--ink);
+    background:var(--bg-elev); border:1px solid var(--hair); border-left:2px solid var(--accent);
+    border-radius:5px; padding:.95rem 1.1rem; overflow-x:auto; white-space:pre;
+  }
+  pre.code .c{color:var(--dim)}
+  pre.code .a{color:var(--accent)}
+  pre.code .s{color:var(--fg-strong)}
+  /* python tokens — applied by the inline highlighter at the end of <body> */
+  pre.code .com{color:var(--dim); font-style:italic}
+  pre.code .str{color:var(--accent)}
+  pre.code .fn {color:var(--fg-strong); font-weight:500}
+  pre.code .kw {color:var(--accent); font-weight:500}
+  pre.code .num{color:var(--accent)}
+  pre.code .arg{color:var(--ink)}
+  pre.code .pun{color:var(--dim)}
+
+  footer{
+    border-top:1px solid var(--hair); margin-top:1rem; padding:2.4rem 0 4rem;
+    display:flex; flex-wrap:wrap; justify-content:space-between; gap:1rem 1.5rem;
+    font-size:.74rem; letter-spacing:.04em; color:var(--faint);
+  }
+  .status{display:flex; flex-wrap:wrap; gap:1.4em}
+  .status b{color:var(--dim); font-weight:500}
+  .status .grn{color:var(--accent)}
+  footer a.back{border-bottom:1px solid var(--hair)}
+  footer a.back:hover{color:var(--accent); border-color:var(--accent)}
+
+  /* ===== toggle ===== */
+  .toggle{
+    position:absolute; top:max(1rem, env(safe-area-inset-top)); right:max(1rem, env(safe-area-inset-right)); z-index:20;
+    font-size:.72rem; letter-spacing:.1em; color:var(--dim);
+    background:var(--bg-elev); border:1px solid var(--hair); padding:.5em .8em;
+    cursor:pointer; text-transform:uppercase; transition:color .15s, border-color .15s;
+  }
+  .toggle:hover{color:var(--fg-strong); border-color:var(--hair-strong)}
+  .toggle b{color:var(--accent)}
+
+  @media (max-width:720px){
+    .row{grid-template-columns:1fr; gap:.9rem; padding:2.2rem 0}
+    .row-label{position:static}
+  }
+</style>
+</head>
+<body>
+  <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <canvas id="gl"></canvas>
+    <div class="hero-veil"></div>
+    <div class="hero-content">
+      <div class="kicker"><span class="pulse"></span>a self-building software company</div>
+      <h1 class="title">bed<em>rock</em></h1>
+      <p class="sub">You set goals &amp; constraints, the platform evolves to satisfy&nbsp;them.</p>
+      <a class="scroll-cue" href="#read"><span class="arrow">↓</span> scroll</a>
+    </div>
+  </section>
+
+  <!-- ===== BODY ===== -->
+  <div class="wrap" id="read">
+
+    <section class="row">
+      <div class="row-label"><span class="num">01</span> / One Kind of Thing</div>
+      <div class="row-body">
+        <h2>The system is written in the same language as its work.</h2>
+        <p class="body">
+          A service, a check, an AI agent — each is the <b>same kind of object</b>: a declared
+          entity in one build graph, shipped by one command. The workers that build the system
+          aren't bolted on from outside; they're described in the very language the system is
+          built from. Adding a capability, a rule, or a whole new kind of worker is the same
+          motion as adding a line of code — so there's <b>nothing to integrate</b>, because
+          there's only ever one kind of thing.
+        </p>
+        <div class="sample">
+          <div class="sample-cap">everything is an entity</div>
+<pre class="code python"># a running service
+bedrock_service(
+    name          = "integrator",
+    service_label = "com.bedrock.integrator",
+    program       = ":main",
+)
+
+# an agent that writes code — declared like the service
+agent_spec(
+    name    = "implementer",
+    prompts = ["//agents/prompts:implementer"],
+    harness = "codex",
+)</pre>
+        </div>
+        <div class="sample">
+          <div class="sample-cap">one command — humans + agents alike</div>
+<pre class="code"><span class="c">$</span> repo publish <span class="c">-m</span> <span class="a">"ship it"</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="row">
+      <div class="row-label"><span class="num">02</span> / Rules as Reflexes</div>
+      <div class="row-body">
+        <h2>A standard is just an agent wired to an event.</h2>
+        <p class="body">
+          Governance isn't a document people promise to follow — it's an orchestrating agent
+          declared to wake on a class of events. The wiring <b>is</b> the rule: it names who
+          reacts, and to what. Raising the bar means adding one of these entities, not standing
+          up a new system — so every standard you care about becomes a reflex the environment
+          can't skip.
+        </p>
+        <ul class="bullets">
+          <li>a <b>reviewer</b> on a code pattern — every Python change gets a Fable security audit</li>
+          <li>a <b>presubmit agent</b> on every proposed change — it must pass before anything merges</li>
+          <li><b>background agents</b> on idle capacity — improvement work that never blocks the queue</li>
+          <li>a <b>meta-process</b> on the trace archive — the system reading itself <span class="c">(§04)</span></li>
+        </ul>
+        <div class="sample">
+          <div class="sample-cap">the audit is an agent on an event</div>
+<pre class="code python"># DEFINE the agent — a security auditor on Fable 5
+agent_spec(
+    name    = "fable-auditor",
+    prompts = ["//agents/prompts:security-review"],
+    model   = "claude-fable-5",
+    effort  = "high",
+)
+
+# WIRE it to an event — audit every Python change
+agent_trigger(
+    name    = "security-audit",
+    agent   = ":fable-auditor",    # ← rule meets agent
+    pattern = "**/*.py",           # matched at run time
+    on      = ["added", "modified"],
+)</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="row">
+      <div class="row-label"><span class="num">03</span> / The Loop</div>
+      <div class="row-body">
+        <h2>It builds, reviews, and ships itself.</h2>
+        <p class="body">
+          A generator agent writes the change — code, a service, even a <b>new agent</b>. Other
+          agents review it and vote; nothing merges itself. Then it deploys, reshaping the
+          running system — including the very process that produced the change. Every step is
+          append-only and attributable, so the system is also, continuously, its own audit log.
+        </p>
+        <div class="sample">
+          <div class="sample-cap">nothing merges itself · diagram → svg</div>
+<!-- SVG slot: the process loop (nested box) -->
+<pre class="code"> ╭─ THE PROCESS ───────────────────────────────────────────────────────╮
+ │                                                                      │
+ │   generator ──▶ review ──▶ submit ──▶ deploy ──▶ new environment     │
+ │   agent         agents                           (incl. the          │
+ │   writes code,  vote                              process itself)     │
+ │       ▲                                                  │           │
+ │       ╰───────────── the change reshapes the loop ────────╯           │
+ │                                                                      │
+ ╰──────────────────────────────────────────────────────────────────────╯</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="row">
+      <div class="row-label"><span class="num">04</span> / The Mirror</div>
+      <div class="row-body">
+        <h2>Lived friction becomes filed work.</h2>
+        <p class="body">
+          The same machinery turns inward. A layer of meta-processes reads the agents' own
+          <b>execution traces</b> — not what they were told to do, but what actually happened —
+          and converts recurring trouble into filed work. The system doesn't just do the work;
+          it studies <b>how the work goes</b> and improves how it improves.
+        </p>
+        <div class="sample">
+          <div class="sample-cap">the system reading itself · diagram → svg</div>
+<!-- SVG slot: process feeds meta-processes, meta-processes file work back -->
+<pre class="code"> ╭─ THE PROCESS ───────────────────────────────────────────────────────╮
+ │   generate ──▶ review ──▶ submit ──▶ deploy ──▶ new environment      │
+ │                                                  (incl. itself)      │
+ ╰───────▲──────────────────────────────────────────────┬──────────────╯
+         │  new work                                     │  execution traces
+         │                                               ▼
+ ╭─ THE META-PROCESSES ────────────────────────────────────────────────╮
+ │   ╭ friction ─╮ ╭ missing docs ─╮ ╭ outdated docs ─╮ ╭ conflicts ─╮  │
+ │   ╰─────┬─────╯ ╰──────┬────────╯ ╰───────┬────────╯ ╰─────┬──────╯  │
+ │         ╰──────────────┴── file bug ──▶ new work ──┴───────╯         │
+ ╰──────────────────────────────────────────────────────────────────────╯</pre>
+        </div>
+        <div class="sample">
+          <div class="sample-cap">a meta-process is an agent on a clock</div>
+<pre class="code python">agent_spec(
+    name    = "process-auditor",
+    prompts = ["//agents/prompts:process-auditor"],
+    model   = "claude-fable-5",
+    effort  = "high",
+)
+
+agent_schedule(
+    name  = "process-audit",
+    agent = ":process-auditor",
+    every = "1h",
+)</pre>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="status">
+        <span><b>level 0</b> <span class="grn">●</span> seed&nbsp;live</span>
+        <span><b>history</b> append-only</span>
+        <span><b>graph</b> //substrate:loop</span>
+      </div>
+      <a class="back" href="/">← Michal Hornicky · CV</a>
+    </footer>
+
+  </div>
+
+<script type="module">
+/* ------------------------------------------------------------------ *
+ *  bedrock — lean metaball (smooth-unioned spheres) as a dot-matrix,
+ *  anchored top-right of the hero. Colours arrive as uniforms so the
+ *  form tracks the CV's dark / light theme. Render pauses when the
+ *  hero scrolls out of view.
+ * ------------------------------------------------------------------ */
+const root = document.documentElement;
+root.classList.add('reveal');
+const heroEl = document.querySelector('.hero');
+
+const VERT = `
+attribute vec2 aPos;
+void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+
+const FRAG = `
+precision mediump float;
+uniform vec2  uRes;
+uniform float uTime;
+uniform float uDotSize;
+uniform float uDotGap;
+uniform vec3  uBg;
+uniform vec3  uRest;
+uniform vec3  uForm;
+
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+float sdSphere(vec3 p, float r){ return length(p) - r; }
+float opU(float a, float b, float k){
+  float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
+  return mix(b, a, h) - k*h*(1.0-h);
+}
+float map(vec3 p){
+  float t = uTime * 0.20;
+  float d = sdSphere(p, 0.30);
+  for(int i=0;i<5;i++){
+    float fi = float(i);
+    float ang = t*(0.5 + 0.12*fi) + fi*1.7;
+    float orb = 0.34 + 0.06*sin(t*0.6 + fi*1.4);
+    vec3 c = vec3(cos(ang)*orb, sin(ang*1.1+fi)*orb*0.85, cos(ang*0.7+fi*1.3)*orb*0.7);
+    float r = 0.24 + 0.06*sin(t*0.4 + fi*1.9);
+    d = opU(d, sdSphere(p - c, r), 0.34);
+  }
+  return d;
+}
+vec3 nrm(vec3 p){
+  vec2 e = vec2(0.0022, 0.0);
+  return normalize(vec3(
+    map(p+e.xyy) - map(p-e.xyy),
+    map(p+e.yxy) - map(p-e.yxy),
+    map(p+e.yyx) - map(p-e.yyx)));
+}
+void main(){
+  vec2 frag = gl_FragCoord.xy;
+  float spacing = uDotSize + uDotGap;
+  vec2 cell = floor(frag / spacing);
+  vec2 cc   = (cell + 0.5) * spacing;
+
+  vec2 focus = vec2(0.73, 0.86) * uRes;
+  vec2 uv = (cc - focus) / uRes.y;
+  vec3 ro = vec3(0.0, 0.0, 3.0);
+  vec3 rd = normalize(vec3(uv, -1.7));
+  float ca = uTime * 0.04;
+  ro.xz *= rot(ca); rd.xz *= rot(ca);
+  ro.yz *= rot(0.12); rd.yz *= rot(0.12);
+
+  float t = 0.0, hit = -1.0; vec3 p = ro;
+  for(int i=0;i<48;i++){
+    p = ro + rd*t;
+    float d = map(p);
+    if(d < 0.002){ hit = t; break; }
+    t += d * 0.9;
+    if(t > 6.0) break;
+  }
+  float lum = 0.0;
+  if(hit > 0.0){
+    vec3 n = nrm(p);
+    float diff = clamp(dot(n, normalize(vec3(0.4, 0.7, 0.5))), 0.0, 1.0);
+    float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 2.0);
+    lum = clamp(0.25 + 0.70*diff + 0.45*fres, 0.0, 1.0);
+  }
+  float minR = spacing * 0.05;
+  float maxR = spacing * 0.34;
+  float r  = mix(minR, maxR, (hit > 0.0) ? 0.15 + 0.85*lum : 0.0);
+  float dd = length(frag - cc);
+  float dotv = 1.0 - smoothstep(r - 0.7, r + 0.7, dd);
+  vec3 dotCol = (hit > 0.0) ? mix(uRest, uForm, lum) : uRest;
+  gl_FragColor = vec4(mix(uBg, dotCol, dotv), 1.0);
+}
+`;
+
+const THEMES = {
+  dark:  { bg:[0.039,0.039,0.039], rest:[0.060,0.056,0.052], form:[0.309,0.133,0.080] },
+  light: { bg:[0.957,0.949,0.925], rest:[0.900,0.890,0.860], form:[0.858,0.612,0.523] },
+};
+
+const canvas = document.getElementById('gl');
+const gl = canvas.getContext('webgl', { antialias:false, alpha:false, powerPreference:'high-performance' });
+let setThemeUniforms = function(){};
+
+if(gl){
+  function compile(type, src){
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+  const aPos = gl.getAttribLocation(prog, 'aPos');
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  const uRes  = gl.getUniformLocation(prog, 'uRes');
+  const uTime = gl.getUniformLocation(prog, 'uTime');
+  const uDot  = gl.getUniformLocation(prog, 'uDotSize');
+  const uGap  = gl.getUniformLocation(prog, 'uDotGap');
+  const uBg   = gl.getUniformLocation(prog, 'uBg');
+  const uRest = gl.getUniformLocation(prog, 'uRest');
+  const uForm = gl.getUniformLocation(prog, 'uForm');
+
+  setThemeUniforms = function(theme){
+    const c = THEMES[theme] || THEMES.dark;
+    gl.useProgram(prog);
+    gl.uniform3fv(uBg, c.bg); gl.uniform3fv(uRest, c.rest); gl.uniform3fv(uForm, c.form);
+  };
+
+  function resize(){
+    const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+    const w = Math.floor(canvas.clientWidth * DPR), h = Math.floor(canvas.clientHeight * DPR);
+    canvas.width = w; canvas.height = h;
+    gl.viewport(0,0,w,h);
+    gl.uniform2f(uRes, w, h);
+    gl.uniform1f(uDot, 7.0 * DPR);
+    gl.uniform1f(uGap, 3.0 * DPR);
+  }
+  addEventListener('resize', resize); resize();
+
+  const t0 = performance.now();
+  let raf = null;
+  function loop(now){ gl.uniform1f(uTime, (now - t0) * 0.001); gl.drawArrays(gl.TRIANGLES, 0, 3); raf = requestAnimationFrame(loop); }
+  function start(){ if(!raf) raf = requestAnimationFrame(loop); }
+  function stop(){ if(raf){ cancelAnimationFrame(raf); raf = null; } }
+
+  // pause the GPU when the hero is scrolled away
+  if('IntersectionObserver' in window){
+    new IntersectionObserver((es)=>{ es[0].isIntersecting ? start() : stop(); }, {threshold:0}).observe(heroEl);
+  } else { start(); }
+}
+
+/* ===== theme toggle — shares the CV's localStorage key ===== */
+const btn = document.getElementById('themeToggle');
+const label = document.getElementById('themeName');
+const KEY = 'cv-theme';
+function applyTheme(theme){
+  root.setAttribute('data-theme', theme);
+  label.textContent = theme.toUpperCase();
+  try{ localStorage.setItem(KEY, theme); }catch(e){}
+  setThemeUniforms(theme);
+}
+let stored=null; try{ stored=localStorage.getItem(KEY); }catch(e){}
+const initial = stored || ((window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+btn.addEventListener('click', ()=> applyTheme(root.getAttribute('data-theme')==='dark' ? 'light' : 'dark'));
+applyTheme(initial);
+
+addEventListener('load', ()=>{ requestAnimationFrame(()=> document.querySelector('.hero-content').classList.add('visible')); });
+</script>
+
+<script>
+/* self-contained python highlighter — tokenises pre.code.python blocks, no deps */
+(function(){
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  var KW = {True:1,False:1,None:1,and:1,or:1,not:1,is:1,'in':1,'if':1,'else':1,elif:1,'for':1,'while':1,def:1,'return':1,'import':1,from:1,'class':1};
+  var RE = /(#[^\n]*)|("(?:[^"\\]|\\.)*")|('(?:[^'\\]|\\.)*')|([A-Za-z_][A-Za-z0-9_]*)|(\d+)|([(){}\[\],:=.])|(\s+)|([\s\S])/g;
+  function hl(code){
+    var toks=[], m; RE.lastIndex=0;
+    while((m=RE.exec(code))){
+      if(m[1]!=null) toks.push(['com',m[1]]);
+      else if(m[2]!=null) toks.push(['str',m[2]]);
+      else if(m[3]!=null) toks.push(['str',m[3]]);
+      else if(m[4]!=null) toks.push(['id',m[4]]);
+      else if(m[5]!=null) toks.push(['num',m[5]]);
+      else if(m[6]!=null) toks.push(['pun',m[6]]);
+      else toks.push(['ws', m[7]!=null ? m[7] : m[8]]);
+    }
+    var out='';
+    for(var i=0;i<toks.length;i++){
+      var t=toks[i][0], txt=toks[i][1];
+      if(t==='id'){
+        var j=i+1; while(j<toks.length && toks[j][0]==='ws') j++;
+        var nxt = j<toks.length ? toks[j][1] : '';
+        if(KW[txt]) t='kw'; else if(nxt==='(') t='fn'; else if(nxt==='=') t='arg'; else t='id';
+      }
+      if(t==='id'||t==='ws') out+=esc(txt);
+      else out+='<span class="'+t+'">'+esc(txt)+'</span>';
+    }
+    return out;
+  }
+  var blocks=document.querySelectorAll('pre.code.python');
+  for(var i=0;i<blocks.length;i++){ blocks[i].innerHTML = hl(blocks[i].textContent); }
+})();
+</script>
+</body>
+</html>
