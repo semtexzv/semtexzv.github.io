@@ -150,40 +150,83 @@ uniform float uTime;
 uniform float uDotSize;
 uniform float uDotGap;
 
-// cheap smooth scalar field in ~[-1,1] — a few slowly drifting sine layers
-float field(vec2 p, float t){
-  float v = sin(p.x*2.4 + t*0.55)
-          + sin(p.y*3.1 - t*0.42)
-          + sin((p.x + p.y)*1.7 + t*0.33)
-          + 0.7*sin(length(p - vec2(2.1, 1.8))*1.6 - t*0.60);
-  return v / 3.7;
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+float sdSphere(vec3 p, float r){ return length(p) - r; }
+// smooth-union — the metaball merge operator
+float opU(float a, float b, float k){
+  float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
+  return mix(b, a, h) - k*h*(1.0-h);
+}
+
+// a gooey metaball: spheres on tight orbits melted into one body
+float map(vec3 p){
+  float t = uTime * 0.20;
+  float d = sdSphere(p, 0.30);                      // core the others melt into
+  for(int i=0;i<5;i++){
+    float fi = float(i);
+    float ang = t*(0.5 + 0.12*fi) + fi*1.7;
+    float orb = 0.34 + 0.06*sin(t*0.6 + fi*1.4);
+    vec3 c = vec3(cos(ang)*orb, sin(ang*1.1+fi)*orb*0.85, cos(ang*0.7+fi*1.3)*orb*0.7);
+    float r = 0.24 + 0.06*sin(t*0.4 + fi*1.9);
+    d = opU(d, sdSphere(p - c, r), 0.34);           // strong blend -> metaball
+  }
+  return d;
+}
+
+vec3 nrm(vec3 p){
+  vec2 e = vec2(0.0022, 0.0);
+  return normalize(vec3(
+    map(p+e.xyy) - map(p-e.xyy),
+    map(p+e.yxy) - map(p-e.yxy),
+    map(p+e.yyx) - map(p-e.yyx)));
 }
 
 void main(){
   vec2 frag = gl_FragCoord.xy;
 
-  // one field sample per grid cell -> the field reads as a matrix of dots
+  // one ray per grid cell -> the body reads as a matrix of dots
   float spacing = uDotSize + uDotGap;
   vec2 cell = floor(frag / spacing);
   vec2 cc   = (cell + 0.5) * spacing;
-  vec2 uv   = cc / uRes;
 
-  float n = 0.5 + 0.5*field(uv*3.0, uTime);        // 0..1, smooth + slow
+  vec2 focus = vec2(0.71, 0.66) * uRes;             // anchor the form top-right
+  vec2 uv = (cc - focus) / uRes.y;
+  vec3 ro = vec3(0.0, 0.0, 3.0);
+  vec3 rd = normalize(vec3(uv, -1.7));
+  float ca = uTime * 0.04;
+  ro.xz *= rot(ca); rd.xz *= rot(ca);
+  ro.yz *= rot(0.12); rd.yz *= rot(0.12);
 
-  // keep the lower-left calm (the text lives there); energy drifts top-right
-  float region = smoothstep(0.10, 1.20, uv.x*0.62 + uv.y*0.55);
-  float lum = mix(0.12, 0.60, n) * (0.40 + 0.60*region);
+  // lean raymarch (spheres only, 48 steps)
+  float t = 0.0, hit = -1.0; vec3 p = ro;
+  for(int i=0;i<48;i++){
+    p = ro + rd*t;
+    float d = map(p);
+    if(d < 0.002){ hit = t; break; }
+    t += d * 0.9;
+    if(t > 6.0) break;
+  }
 
-  // dot size AND brightness shift gently with lum
+  float lum = 0.0;
+  if(hit > 0.0){
+    vec3 n = nrm(p);
+    float diff = clamp(dot(n, normalize(vec3(0.4, 0.7, 0.5))), 0.0, 1.0);
+    float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 2.0);
+    lum = clamp(0.25 + 0.70*diff + 0.45*fres, 0.0, 1.0);
+  }
+
+  // dot size grows within the form
   float minR = spacing * 0.05;
   float maxR = spacing * 0.34;
-  float r  = mix(minR, maxR, lum);
+  float r  = mix(minR, maxR, (hit > 0.0) ? 0.15 + 0.85*lum : 0.0);
   float dd = length(frag - cc);
   float dot = 1.0 - smoothstep(r - 0.7, r + 0.7, dd);
 
-  vec3 ACCENT = vec3(0.910, 0.392, 0.235);          // #e8643c
-  vec3 bg     = vec3(0.039);                         // #0a0a0a
-  vec3 dotCol = max(ACCENT * (0.16 + 1.05*lum), ACCENT*0.05);
+  // colours kept CLOSE to the background — a dim warm form, not a glow
+  vec3 bg   = vec3(0.039);                            // #0a0a0a
+  vec3 rest = vec3(0.060, 0.056, 0.052);              // faint resting dots
+  vec3 ACC  = vec3(0.910, 0.392, 0.235);              // #e8643c
+  vec3 dotCol = (hit > 0.0) ? mix(rest, ACC*0.34, lum) : rest;
 
   gl_FragColor = vec4(mix(bg, dotCol, dot), 1.0);
 }
@@ -214,9 +257,9 @@ const uTime = gl.getUniformLocation(prog, 'uTime');
 const uDot  = gl.getUniformLocation(prog, 'uDotSize');
 const uGap  = gl.getUniformLocation(prog, 'uDotGap');
 
-let DPR = Math.min(window.devicePixelRatio || 1, 2);
+let DPR = Math.min(window.devicePixelRatio || 1, 1.5);
 function resize(){
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  DPR = Math.min(window.devicePixelRatio || 1, 1.5);
   const w = Math.floor(innerWidth * DPR), h = Math.floor(innerHeight * DPR);
   canvas.width = w; canvas.height = h;
   gl.viewport(0,0,w,h);
