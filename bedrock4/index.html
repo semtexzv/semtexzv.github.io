@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a0a" id="themeColor" />
 <title>bedrock · a self-building software company</title>
 <meta name="description" content="Bedrock — a self-building software company. You set goals and constraints; the platform evolves to satisfy them." />
 <style>
@@ -22,7 +23,7 @@
     --veil:244,242,236; --h1-top:#18130f; --h1-mid:#5a534b;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
+  html{scroll-behavior:smooth; background:var(--bg); transition:background .25s ease}
   body{
     background:var(--bg); color:var(--ink);
     font-family:"Helvetica Neue", Helvetica, Arial, sans-serif; font-weight:300;
@@ -36,7 +37,7 @@
 
   /* ===== HERO (scrolls out of view) ===== */
   .hero{
-    position:relative; min-height:100vh; overflow:hidden;
+    position:relative; min-height:100vh; min-height:100dvh; overflow:hidden;
     display:flex; flex-direction:column; justify-content:flex-end;
   }
   #gl{
@@ -129,7 +130,7 @@
 
   /* ===== toggle ===== */
   .toggle{
-    position:fixed; top:1rem; right:1rem; z-index:20;
+    position:absolute; top:max(1rem, env(safe-area-inset-top)); right:max(1rem, env(safe-area-inset-right)); z-index:20;
     font-size:.72rem; letter-spacing:.1em; color:var(--dim);
     background:var(--bg-elev); border:1px solid var(--hair); padding:.5em .8em;
     cursor:pointer; text-transform:uppercase; transition:color .15s, border-color .15s;
@@ -401,10 +402,12 @@ if(gl){
 /* ===== theme toggle — shares the CV's localStorage key ===== */
 const btn = document.getElementById('themeToggle');
 const label = document.getElementById('themeName');
+const themeColorMeta = document.getElementById('themeColor');
 const KEY = 'cv-theme';
 function applyTheme(theme){
   root.setAttribute('data-theme', theme);
   label.textContent = theme.toUpperCase();
+  if(themeColorMeta) themeColorMeta.setAttribute('content', theme==='dark' ? '#0a0a0a' : '#f4f2ec');
   try{ localStorage.setItem(KEY, theme); }catch(e){}
   setThemeUniforms(theme);
 }
