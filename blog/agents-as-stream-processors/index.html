@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Agents as Stream Processors · notes</title>
+<meta name="description" content="Stop picturing an agent as a chatbot. Picture it as a node in a topology — consuming events, keeping state, emitting new events. The mental model is Kafka Streams." />
+<link rel="stylesheet" href="/site.css" />
+<link rel="stylesheet" href="/blog/blog.css" />
+</head>
+<body>
+  <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>
+
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="/blog/">
+        <span class="name"><b>/</b> notes</span>
+        <span class="tag">Michal Hornicky</span>
+      </a>
+      <nav class="nav">
+        <div class="section">writing</div>
+        <a href="/blog/">all posts</a>
+        <div class="section">posts</div>
+        <a href="/blog/agents-as-stream-processors/" class="active">Agents as stream processors</a>
+        <div class="section">elsewhere</div>
+        <a href="/">CV <span class="ext">&#8599;</span></a>
+        <a href="/bedrock/">bedrock <span class="ext">&#8599;</span></a>
+      </nav>
+      <div class="sidebar-foot">&copy; 2026 · <a href="/">michal hornicky</a></div>
+    </aside>
+
+    <div class="backdrop" id="backdrop"></div>
+
+    <main class="main">
+      <div class="topbar">
+        <button class="nav-toggle" id="navToggle" type="button" aria-label="Open navigation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="tb-title">/ notes</span>
+      </div>
+
+      <article class="content">
+        <div class="post-kicker">stream processing</div>
+        <h1 class="post-title">Agents as Stream Processors</h1>
+        <div class="post-meta"><span>2026</span><span>draft</span><span>~4 min</span></div>
+
+        <div class="post-body">
+          <p class="lede">
+            Stop picturing an agent as a chatbot answering a prompt. Picture it as a node in a
+            <em>topology</em>: it consumes a stream of events, keeps state, and emits new events.
+            The right mental model isn't request/response — it's <b>Kafka Streams</b>.
+          </p>
+
+          <p>
+            A chatbot is request/response: a question goes in, an answer comes out, the world
+            resets. That framing falls apart the moment an agent has to run <b>continuously</b> —
+            watching for work, remembering what it already did, reacting to things other agents
+            emit. Request/response has nowhere to put any of that.
+          </p>
+
+          <p>
+            Stream processing has had the answer for a decade. In Kafka Streams a program is a
+            <b>topology</b>: source nodes read records off a log, processor nodes transform them,
+            <b>state stores</b> hold the running context, and sink nodes write results back out —
+            usually onto another log that something downstream consumes. Records flow through
+            continuously; the program <em>is</em> the wiring.
+          </p>
+
+          <p>Agents map onto that wiring almost one-to-one.</p>
+
+          <figure class="fig">
+            <svg id="topology" class="diagram" role="img" aria-label="An agent as a stream-processing topology: events flow into the agent, which reads and writes a state store and emits actions, some of which are re-enqueued as new events."></svg>
+            <figcaption>an agent is one processor node in a topology</figcaption>
+          </figure>
+
+          <ul>
+            <li>a Kafka record <b>→</b> an <b>event</b>: a trigger, a message, a review comment, a webhook</li>
+            <li>a processor node <b>→</b> the <b>agent</b>: read an event, call the model and its tools, decide</li>
+            <li>a state store <b>→</b> the agent's <b>memory</b>: context, scratchpad, what it has already done</li>
+            <li>a sink topic <b>→</b> the agent's <b>actions</b>: a change, a comment, a new task — often <b>re-enqueued</b> as events others consume</li>
+            <li>partitions <b>→</b> <b>isolation</b>: one key (one CL, one conversation) handled in order, independent of the rest</li>
+          </ul>
+
+          <p>
+            Once you see agents this way, the hard problems stop being <em>prompt</em> problems and
+            start being <em>stream</em> problems: backpressure when the model is the bottleneck;
+            at-least-once vs exactly-once when a tool call has real side effects; keying so related
+            events stay ordered; replay when you want to re-run history against a better model.
+            These are solved problems in stream processing — we get to borrow the solutions.
+          </p>
+
+          <h2><span class="h2num">01</span>Backpressure: the model is the slow consumer</h2>
+          <p>How a topology handles a processor that can't keep up — and why the agent is always that processor. <em>(coming soon)</em></p>
+
+          <h2><span class="h2num">02</span>State, memory, and changelogs</h2>
+          <p>Durable memory as a compacted changelog topic; rebuilding an agent's context by replaying it. <em>(coming soon)</em></p>
+
+          <h2><span class="h2num">03</span>Exactly-once, side effects, and idempotency</h2>
+          <p>What "exactly-once" can and can't mean when the side effect is a git push or an email. <em>(coming soon)</em></p>
+
+          <div class="draft-note">
+            <b>draft</b> — the topology is the skeleton; the numbered sections get filled in next.
+            Nothing to subscribe to; just check back.
+          </div>
+        </div>
+      </article>
+    </main>
+  </div>
+
+  <script src="/site.js"></script>
+  <script src="/blog/blog.js"></script>
+  <script src="/blog/d3.v7.min.js"></script>
+  <script>
+  /* the topology — fully d3, orthogonal connectors, theme-aware via CSS vars */
+  (function () {
+    if (!window.d3) return;
+    var W = 760, H = 256, ny = 78, nh = 58;
+    var svg = d3.select('#topology').attr('viewBox', '0 0 ' + W + ' ' + H);
+    var defs = svg.append('defs');
+    [['a', '--accent'], ['d', '--dim']].forEach(function (m) {
+      defs.append('marker').attr('id', 'm' + m[0]).attr('markerWidth', 10).attr('markerHeight', 8)
+        .attr('refX', 9).attr('refY', 4).attr('orient', 'auto').attr('markerUnits', 'userSpaceOnUse')
+        .append('path').attr('d', 'M0,0 L9,4 L0,8 Z').attr('fill', 'var(' + m[1] + ')');
+    });
+    function crisp(s) { return s.attr('shape-rendering', 'crispEdges'); }
+    function node(x, y, w, h, cls, label, sub) {
+      var g = svg.append('g');
+      g.append('rect').attr('class', cls).attr('x', x).attr('y', y).attr('width', w).attr('height', h);
+      g.append('text').attr('class', cls === 'node-accent' ? 't-acc' : 't')
+        .attr('x', x + w / 2).attr('y', y + h * 0.40).text(label);
+      if (sub) g.append('text').attr('class', 'sub').attr('x', x + w / 2).attr('y', y + h * 0.72).text(sub);
+    }
+    var midY = ny + nh / 2, botY = ny + nh, stY = 196, stH = 46;
+    // nodes
+    node(24, ny, 150, nh, 'node', 'events', 'source');
+    node(305, ny, 150, nh, 'node-accent', 'agent', 'processor');
+    node(586, ny, 150, nh, 'node', 'actions', 'sink');
+    node(305, stY, 150, stH, 'store', 'memory', 'state store');
+    // record flow (accent)
+    crisp(svg.append('path').attr('class', 'accent').attr('d', 'M178 ' + midY + ' H 305').attr('marker-end', 'url(#ma)'));
+    crisp(svg.append('path').attr('class', 'accent').attr('d', 'M459 ' + midY + ' H 586').attr('marker-end', 'url(#ma)'));
+    // state read / write (dim)
+    crisp(svg.append('path').attr('class', 'flow').attr('d', 'M372 ' + botY + ' V ' + stY).attr('marker-end', 'url(#md)'));
+    crisp(svg.append('path').attr('class', 'flow').attr('d', 'M388 ' + stY + ' V ' + botY).attr('marker-end', 'url(#md)'));
+    svg.append('text').attr('class', 'lbl').attr('x', 412).attr('y', (botY + stY) / 2 + 3).style('text-anchor', 'start').text('read / write');
+    // re-enqueue loop (agent -> events), dashed accent, along the top
+    crisp(svg.append('path').attr('class', 'accent').style('stroke-dasharray', '5 4')
+      .attr('d', 'M380 ' + ny + ' V 40 H 99 V ' + ny).attr('marker-end', 'url(#ma)'));
+    svg.append('text').attr('class', 'lbl-acc').attr('x', 240).attr('y', 33).text('emit · re-enqueue');
+  })();
+  </script>
+</body>
+</html>
