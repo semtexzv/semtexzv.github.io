@@ -644,8 +644,8 @@ function vLink(svg, x, yTail, yTip, cls, head, p){
     .map((l,i)=>({x:mxs(i)-mnw/2, y:mny, w:mnw, h:mnh, label:l, cls:'t-sm'}));
 
   drawBoxes(svg,[
-    {x:bx, y:pbY, w:bw, h:pbH, legend:'the process'},
-    {x:bx, y:mbY, w:bw, h:mbH, legend:'the meta-processes'},
+    {x:bx, y:pbY, w:bw, h:pbH, legend:'process'},
+    {x:bx, y:mbY, w:bw, h:mbH, legend:'meta-processes'},
   ]);
 
   forwardLinks(svg, proc, 'b');
@@ -654,8 +654,8 @@ function vLink(svg, x, yTail, yTip, cls, head, p){
 
   // --- cross-box arrows in node gaps (clear of the legends) ---
   const gapTop = pbY+pbH, gapBot = mbY, gapMid = (gapTop+gapBot)/2;
-  const xWork  = (cx(proc[1])+cx(proc[2]))/2;       // left-of-centre, clear of the long meta legend
-  const xTrace = (cx(proc[3])+cx(proc[4]))/2;       // far-right gap
+  const xWork  = (cx(proc[0])+cx(proc[1]))/2;       // left outer gap
+  const xTrace = (cx(proc[3])+cx(proc[4]))/2;       // right outer gap — mirror of xWork about centre
   vLink(svg, xTrace, gapTop+GAP, gapBot, 'flow',   'D','b');   // traces: down, tip on meta top
   vLink(svg, xWork,  gapBot-GAP, gapTop, 'accent', 'A','b');   // new work: up, tip on process bottom
   svg.append('text').attr('class','lblA').attr('x',xWork+14).attr('y',gapMid)
