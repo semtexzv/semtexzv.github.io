@@ -676,8 +676,8 @@ function vLink(svg, x, yTail, yTip, cls, head, p){
   const xTrace = (cx(proc[3])+cx(proc[4]))/2;       // right outer gap — mirror of xWork about centre
   vLink(svg, xTrace, gapTop+GAP, gapBot, 'flow',   'D','b');   // traces: down, tip on meta top
   vLink(svg, xWork,  gapBot-GAP, gapTop, 'accent', 'A','b');   // new work: up, tip on process bottom
-  svg.append('text').attr('class','lblA').attr('x',xWork+14).attr('y',gapMid)
-    .style('text-anchor','start').style('text-transform','uppercase').style('letter-spacing','.12em').text('new work');
+  svg.append('text').attr('class','lblD').attr('x',xWork+14).attr('y',gapMid)
+    .style('text-anchor','start').style('fill','var(--accent)').text('new work');
   svg.append('text').attr('class','lblD').attr('x',xTrace-14).attr('y',gapMid)
     .style('text-anchor','end').text('execution traces');
 
