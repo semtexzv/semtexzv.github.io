@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>bedrock · a self-building software company</title>
-<meta name="description" content="Bedrock — an agentic, self-modifying environment where AI agents write, review, ship, and improve the software they run on, with one human on the final gate." />
+<meta name="description" content="Bedrock — an agentic, self-modifying environment where AI agents write, review, ship, and improve the software they run on." />
 <style>
   /* ===== theme tokens — shared with the CV ===== */
   :root[data-theme="dark"]{
@@ -88,11 +88,17 @@
     color:var(--dim); max-width:50ch; margin-top:1.1rem; line-height:1.55;
   }
   .lede b{color:var(--ink); font-weight:500}
-  .coda{
-    padding:3rem 0; border-top:1px solid var(--hair);
-    font-size:1.1rem; line-height:1.5; color:var(--ink); max-width:64ch;
+  .teaser{
+    display:flex; align-items:center; justify-content:center; gap:.75em;
+    padding:5rem 0 3.5rem; border-top:1px solid var(--hair);
+    font-family:ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+    font-size:clamp(18px, 3.6vw, 30px); font-weight:500; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--fg-strong);
   }
-  .coda b{color:var(--fg-strong); font-weight:600}
+  .teaser .pulse{
+    width:7px; height:7px; border-radius:50%; background:var(--accent);
+    box-shadow:0 0 10px 1px var(--accent); animation:breathe 2.6s ease-in-out infinite;
+  }
   .scroll-cue{
     margin-top:2.2rem; font-size:11px; letter-spacing:.22em; text-transform:uppercase;
     color:var(--dim); display:inline-flex; align-items:center; gap:.6em;
@@ -195,7 +201,7 @@
       <div class="kicker"><span class="pulse"></span>a self-building software company</div>
       <h1 class="title">bed<em>rock</em></h1>
       <p class="sub">An agentic, self-modifying environment.</p>
-      <p class="lede">Kubernetes for agents: the agents write, review, ship, and improve the software — and the machinery they run on. One person holds the final&nbsp;gate.</p>
+      <p class="lede">Kubernetes for agents: the agents write, review, ship, and improve the software — and the machinery they run on. A human approves the critical changes and the high-level designs; the rest runs on its&nbsp;own.</p>
       <a class="scroll-cue" href="#read"><span class="arrow">↓</span> scroll</a>
     </div>
   </section>
@@ -232,7 +238,7 @@ agent_spec(
 )</pre>
         </div>
         <div class="sample">
-          <div class="sample-cap">one command — humans + agents alike</div>
+          <div class="sample-cap">one verb ships anything in the graph</div>
 <pre class="code"><span class="c">$</span> repo publish <span class="c">-m</span> <span class="a">"ship it"</span></pre>
         </div>
       </div>
@@ -278,14 +284,14 @@ agent_trigger(
     <section class="row">
       <div class="row-label"><span class="num">03</span> / The Loop</div>
       <div class="row-body">
-        <h2>It proposes, reviews, and ships — with you on the gate.</h2>
+        <h2>It proposes, reviews, and ships — a human approves only what's critical.</h2>
         <p class="body">
           One agent writes a change — code, a service, even a <b>new agent</b>. Other agents review
-          it and vote, and any reviewer you mark required can block it. <b>Nothing merges itself</b>;
-          changes to the core machinery — the deploy system, the rules, who's allowed to approve —
-          always wait for a human yes. Once approved, it ships and the running system updates,
-          including the very machinery that produced the change. A failed deploy rolls back to the
-          last good version.
+          it and vote; <b>if they judge it sound, it merges and ships automatically</b> — no human in
+          the loop. A human steps in for two things only: the <b>critical changes</b> — to the deploy
+          machinery, the rules, who's allowed to approve — and the <b>high-level designs</b> that set
+          direction. Once a change ships, the running system updates, including the machinery that
+          produced it; a failed deploy rolls back to the last good version.
         </p>
         <div class="sample">
           <div class="sample-cap">nothing merges itself</div>
@@ -326,12 +332,11 @@ agent_schedule(
       </div>
     </section>
 
-    <div class="coda">Today <b>bedrock</b> is run by one person and builds itself under their direction. It's built to climb — each level needing that person less — toward a software company that runs itself.</div>
+    <div class="teaser"><span class="pulse"></span> coming soon</div>
 
     <footer>
       <div class="status">
         <span><b>self-hosted</b></span>
-        <span><b>one human</b> on the final gate</span>
       </div>
       <a class="back" href="/">← Michal Hornicky · CV</a>
     </footer>
@@ -672,7 +677,7 @@ function vLink(svg, x, yTail, yTip, cls, head, p){
   vLink(svg, xTrace, gapTop+GAP, gapBot, 'flow',   'D','b');   // traces: down, tip on meta top
   vLink(svg, xWork,  gapBot-GAP, gapTop, 'accent', 'A','b');   // new work: up, tip on process bottom
   svg.append('text').attr('class','lblA').attr('x',xWork+14).attr('y',gapMid)
-    .style('text-anchor','start').text('new work');
+    .style('text-anchor','start').style('text-transform','uppercase').style('letter-spacing','.12em').text('new work');
   svg.append('text').attr('class','lblD').attr('x',xTrace-14).attr('y',gapMid)
     .style('text-anchor','end').text('execution traces');
 
