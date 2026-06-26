@@ -7,6 +7,7 @@
 <meta name="description" content="Notes on agent infrastructure, stream processing, and the systems that make autonomous loops fast and legible." />
 <link rel="stylesheet" href="/site.css" />
 <link rel="stylesheet" href="/blog/blog.css" />
+<script>try{if(localStorage.getItem('blog-nav-collapsed')==='1')document.documentElement.classList.add('nav-collapsed');}catch(e){}</script>
 </head>
 <body>
   <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>
@@ -20,11 +21,6 @@
       <nav class="nav">
         <div class="section">writing</div>
         <a href="/blog/" class="active">all posts</a>
-        <div class="section">posts</div>
-        <a href="/blog/agents-as-stream-processors/">Agents as stream processors</a>
-        <div class="section">elsewhere</div>
-        <a href="/">CV <span class="ext">&#8599;</span></a>
-        <a href="/bedrock/">bedrock <span class="ext">&#8599;</span></a>
       </nav>
       <div class="sidebar-foot">&copy; 2026 · <a href="/">michal hornicky</a></div>
     </aside>
@@ -46,32 +42,21 @@
           harness around the model.
         </p>
 
-        <div class="post-list" id="postList"></div>
+        <div class="post-list">
+          <!--posts:start-->
+          <a class="post-card" href="/blog/agents-as-stream-processors/">
+            <div class="pc-date">2026 · draft</div>
+            <div class="pc-title">Agents as Stream Processors</div>
+            <div class="pc-excerpt">Stop picturing an agent as a chatbot. Picture it as a node in a topology — consuming events, keeping state, emitting new events. The mental model is Kafka Streams, not request/response.</div>
+            <div class="pc-tags"><span class="tag-chip">agents</span><span class="tag-chip">stream processing</span><span class="tag-chip">architecture</span></div>
+          </a>
+          <!--posts:end-->
+        </div>
       </div>
     </main>
   </div>
 
   <script src="/site.js"></script>
   <script src="/blog/blog.js"></script>
-  <script>
-  /* render the post list from posts.json — keeps the index in sync with what the editor publishes */
-  (function () {
-    var el = document.getElementById('postList'); if (!el) return;
-    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-    fetch('/blog/posts.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
-      var posts = (d && d.posts) || [];
-      el.innerHTML = posts.map(function (p) {
-        var tags = (p.tags || []).map(function (t) { return '<span class="tag-chip">' + esc(t) + '</span>'; }).join('');
-        return '<a class="post-card" href="/blog/' + encodeURIComponent(p.slug) + '/">' +
-          '<div class="pc-date">' + esc(p.date || '') + '</div>' +
-          '<div class="pc-title">' + esc(p.title || '') + '</div>' +
-          '<div class="pc-excerpt">' + esc(p.excerpt || '') + '</div>' +
-          '<div class="pc-tags">' + tags + '</div></a>';
-      }).join('');
-    }).catch(function () {
-      el.innerHTML = '<a class="post-card" href="/blog/agents-as-stream-processors/"><div class="pc-title">Agents as Stream Processors</div></a>';
-    });
-  })();
-  </script>
 </body>
 </html>

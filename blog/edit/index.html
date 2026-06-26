@@ -66,6 +66,11 @@
   .hint{ font-size:.78rem; color:var(--muted); line-height:1.5; }
   .hint a{ color:var(--accent); border-bottom:1px solid var(--hair); }
   .ok{ color:var(--accent); } .err{ color:#e5484d; }
+  #openList .open-item{ display:block; width:100%; text-align:left; background:var(--bg); border:1px solid var(--hair);
+    border-radius:7px; padding:.6rem .8rem; margin:.4rem 0; cursor:pointer; color:var(--fg); font:inherit; }
+  #openList .open-item:hover{ border-color:var(--accent); }
+  #openList .open-item .oi-title{ font-weight:700; color:var(--fg-strong); }
+  #openList .open-item .oi-slug{ font-family:ui-monospace,Menlo,monospace; font-size:.7rem; color:var(--muted); margin-top:.15rem; }
 
   @media (max-width:820px){
     .ed-main{ grid-template-columns:1fr; }
@@ -86,6 +91,8 @@
         <button id="tabPrev" type="button">preview</button>
       </div>
       <span class="spacer"></span>
+      <button class="btn" id="btnNew" type="button">New</button>
+      <button class="btn" id="btnOpen" type="button">Open</button>
       <button class="btn" id="btnSettings" type="button">Settings</button>
       <button class="btn" id="btnDownload" type="button">Download</button>
       <button class="btn primary" id="btnPublish" type="button">Publish</button>
@@ -153,6 +160,11 @@
     <div class="dlg-actions"><button class="btn" id="d-cancel" type="button">Cancel</button>
       <button class="btn primary" id="d-save" type="button">Apply</button></div>
   </dialog>
+
+  <!-- open existing post -->
+  <dialog id="dlgOpen"><h3>Open a post</h3>
+    <div id="openList" class="hint">Loading…</div>
+    <div class="dlg-actions"><button class="btn" id="o-cancel" type="button">Cancel</button></div></dialog>
 
   <!-- publish result -->
   <dialog id="dlgResult"><h3 id="r-title">Publishing…</h3><div id="r-body" class="hint"></div>
@@ -237,12 +249,13 @@
         '<meta charset="utf-8" />\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />\n' +
         '<title>' + esc(s.title) + ' · notes</title>\n' +
         '<meta name="description" content="' + esc(s.excerpt || '') + '" />\n' +
-        '<link rel="stylesheet" href="/site.css" />\n<link rel="stylesheet" href="/blog/blog.css" />\n</head>\n<body>\n' +
+        (tags.length ? '<meta name="keywords" content="' + esc(tags.join(', ')) + '" />\n' : '') +
+        '<link rel="stylesheet" href="/site.css" />\n<link rel="stylesheet" href="/blog/blog.css" />\n' +
+        '<script>try{if(localStorage.getItem("blog-nav-collapsed")==="1")document.documentElement.classList.add("nav-collapsed");}catch(e){}<\/script>\n</head>\n<body>\n' +
         '  <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>\n' +
         '  <div class="app">\n    <aside class="sidebar" id="sidebar">\n' +
         '      <a class="brand" href="/blog/"><span class="name"><b>/</b> notes</span><span class="tag">Michal Hornicky</span></a>\n' +
-        '      <nav class="nav">\n        <div class="section">writing</div>\n        <a href="/blog/">all posts</a>\n' +
-        '        <div class="section">elsewhere</div>\n        <a href="/">CV <span class="ext">&#8599;</span></a>\n        <a href="/bedrock/">bedrock <span class="ext">&#8599;</span></a>\n      </nav>\n' +
+        '      <nav class="nav">\n        <div class="section">writing</div>\n        <a href="/blog/">all posts</a>\n      </nav>\n' +
         '      <div class="sidebar-foot">&copy; 2026 · <a href="/">michal hornicky</a></div>\n    </aside>\n' +
         '    <div class="backdrop" id="backdrop"></div>\n    <main class="main">\n' +
         '      <div class="topbar"><button class="nav-toggle" id="navToggle" type="button" aria-label="Open navigation">' +
@@ -327,6 +340,103 @@
       dlgS.close();
     });
 
+    /* ---- open an existing post: the post's HTML *is* the source (no JSON) ---- */
+    var dlgO = $('#dlgOpen'), HOME = '/blog/';
+    function setState(s) {
+      slugTouched = true;
+      for (var k in fields) $(fields[k]).value = (s && s[k] != null) ? s[k] : '';
+      body.innerHTML = (s && s.body) || '';
+      try { localStorage.setItem(KEY, JSON.stringify(collect())); } catch (e) {}
+      renderPreview();
+    }
+    $('#btnNew').addEventListener('click', function () {
+      if (!confirm('Start a new post? The current draft will be cleared from this browser.')) return;
+      setState(null); $('#status').textContent = 'new draft'; slugTouched = false;
+    });
+    // the post cards on the home page ARE the index — read them, no JSON
+    function parseCards(homeHtml) {
+      var doc = new DOMParser().parseFromString(homeHtml, 'text/html');
+      return Array.prototype.map.call(doc.querySelectorAll('.post-list .post-card'), function (card) {
+        var t = function (sel) { var e = card.querySelector(sel); return e ? e.textContent.trim() : ''; };
+        return {
+          slug: (card.getAttribute('href') || '').replace(/^\/blog\//, '').replace(/\/$/, ''),
+          title: t('.pc-title'), date: t('.pc-date'), excerpt: t('.pc-excerpt'),
+          tags: Array.prototype.map.call(card.querySelectorAll('.tag-chip'), function (c) { return c.textContent.trim(); }).join(', ')
+        };
+      });
+    }
+    // parse a published post's HTML back into editor state (the editable patterns)
+    function deserialize(html, slug) {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var t = function (sel) { var e = doc.querySelector(sel); return e ? e.textContent.trim() : ''; };
+      var attr = function (sel, a) { var e = doc.querySelector(sel); return e ? (e.getAttribute(a) || '') : ''; };
+      var spans = doc.querySelectorAll('.post-meta span');
+      var s = {
+        title: t('.post-title'), kicker: t('.post-kicker'),
+        date: spans[0] ? spans[0].textContent.trim() : '', read: spans[1] ? spans[1].textContent.trim() : '',
+        excerpt: attr('meta[name="description"]', 'content'), tags: attr('meta[name="keywords"]', 'content'), slug: slug
+      };
+      var bodyEl = doc.querySelector('.post-body');
+      if (bodyEl) {
+        bodyEl.querySelectorAll('figure.fig').forEach(function (fig) {
+          var svg = fig.querySelector('svg.diagram[data-topology]'); if (!svg) return;
+          var c = fig.querySelector('figcaption'), cap = c ? c.textContent.trim() : '';
+          var block = document.createElement('figure');
+          block.className = 'fig diag-block'; block.setAttribute('contenteditable', 'false');
+          block.setAttribute('data-topology', svg.getAttribute('data-topology'));
+          block.setAttribute('data-caption', cap);
+          block.innerHTML = '<span class="diag-ph">&#9671; diagram — click to edit</span><figcaption>' + esc(cap) + '</figcaption>';
+          fig.replaceWith(block);
+        });
+        s.body = bodyEl.innerHTML.trim();
+      } else s.body = '';
+      return s;
+    }
+    $('#btnOpen').addEventListener('click', function () {
+      dlgO.showModal();
+      var list = $('#openList'); list.textContent = 'Loading…';
+      fetch(HOME, { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (html) {
+        var cards = parseCards(html);
+        if (!cards.length) { list.textContent = 'No posts yet.'; return; }
+        list.innerHTML = '';
+        cards.forEach(function (p) {
+          var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'open-item';
+          btn.innerHTML = '<div class="oi-title">' + esc(p.title || p.slug) + '</div><div class="oi-slug">/blog/' + esc(p.slug) + '/</div>';
+          btn.addEventListener('click', function () { openPost(p.slug); });
+          list.appendChild(btn);
+        });
+      }).catch(function () { list.textContent = 'Could not load the index.'; });
+    });
+    function openPost(slug) {
+      var list = $('#openList'); list.textContent = 'Loading ' + slug + '…';
+      fetch('/blog/' + slug + '/', { cache: 'no-store' }).then(function (r) {
+        if (!r.ok) throw new Error('not found'); return r.text();
+      }).then(function (html) { setState(deserialize(html, slug)); $('#status').textContent = 'opened ' + slug; dlgO.close(); })
+        .catch(function () { list.innerHTML = '<span class="err">Could not open &ldquo;' + esc(slug) + '&rdquo;.</span>'; });
+    }
+    $('#o-cancel').addEventListener('click', function () { dlgO.close(); });
+
+    /* ---- home index = post cards in HTML (between markers); upsert on publish ---- */
+    function cardHTML(s, slug) {
+      var tags = (s.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean)
+        .map(function (t) { return '<span class="tag-chip">' + esc(t) + '</span>'; }).join('');
+      return '          <a class="post-card" href="/blog/' + esc(slug) + '/">\n' +
+        '            <div class="pc-date">' + esc(s.date || '') + '</div>\n' +
+        '            <div class="pc-title">' + esc(s.title || '') + '</div>\n' +
+        '            <div class="pc-excerpt">' + esc(s.excerpt || '') + '</div>\n' +
+        '            <div class="pc-tags">' + tags + '</div>\n' +
+        '          </a>';
+    }
+    function upsertCard(homeText, s, slug) {
+      var M = /(<!--posts:start-->)([\s\S]*?)(<!--posts:end-->)/;
+      if (!M.test(homeText)) return homeText;
+      var existing = parseCards('<div class="post-list">' + homeText.match(M)[2] + '</div>')
+        .filter(function (p) { return p.slug !== slug; });
+      existing.unshift({ slug: slug, title: s.title, date: s.date || '', excerpt: s.excerpt || '', tags: s.tags || '' });
+      var cards = existing.map(function (p) { return cardHTML(p, p.slug); }).join('\n');
+      return homeText.replace(M, function (_, a, mid, c) { return a + '\n' + cards + '\n          ' + c; });
+    }
+
     /* ---- download fallback ---- */
     $('#btnDownload').addEventListener('click', function () {
       var s = collect(); var blob = new Blob([postHTML(s, serializeBody())], { type: 'text/html' });
@@ -361,13 +471,11 @@
       try {
         var ps = await getSha(repo, postPath, token);
         await putFile(repo, postPath, html, 'post: ' + s.title, ps.sha, branch, token);
-        // update posts.json
-        var pj = await getSha(repo, 'blog/posts.json', token);
-        var data = { posts: [] };
-        if (pj.content) { try { data = JSON.parse(unb64(pj.content.replace(/\n/g, ''))); } catch (e) {} }
-        var posts = (data.posts || []).filter(function (p) { return p.slug !== slug; });
-        posts.unshift({ slug: slug, title: s.title, date: s.date || '', excerpt: s.excerpt || '', tags: (s.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean) });
-        await putFile(repo, 'blog/posts.json', JSON.stringify({ posts: posts }, null, 2) + '\n', 'index: ' + s.title, pj.sha, branch, token);
+        // update the home index — its post cards ARE the index (no JSON sidecar)
+        var hp = await getSha(repo, 'blog/index.html', token);
+        if (!hp.content) throw new Error('blog/index.html not found');
+        var homeText = unb64(hp.content.replace(/\n/g, ''));
+        await putFile(repo, 'blog/index.html', upsertCard(homeText, s, slug), 'index: ' + s.title, hp.sha, branch, token);
         showResult('<span class="ok">Published ✓</span>',
           'Live shortly at <a href="/blog/' + esc(slug) + '/" target="_blank" rel="noopener">/blog/' + esc(slug) + '/</a> — GitHub Pages rebuilds in ~30–60s.');
       } catch (err) { showResult('<span class="err">Failed</span>', esc(err.message)); }

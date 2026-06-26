@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Agents as Stream Processors · notes</title>
 <meta name="description" content="Stop picturing an agent as a chatbot. Picture it as a node in a topology — consuming events, keeping state, emitting new events. The mental model is Kafka Streams." />
+<meta name="keywords" content="agents, stream processing, architecture" />
 <link rel="stylesheet" href="/site.css" />
 <link rel="stylesheet" href="/blog/blog.css" />
+<script>try{if(localStorage.getItem('blog-nav-collapsed')==='1')document.documentElement.classList.add('nav-collapsed');}catch(e){}</script>
 </head>
 <body>
   <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>
@@ -20,11 +22,6 @@
       <nav class="nav">
         <div class="section">writing</div>
         <a href="/blog/">all posts</a>
-        <div class="section">posts</div>
-        <a href="/blog/agents-as-stream-processors/" class="active">Agents as stream processors</a>
-        <div class="section">elsewhere</div>
-        <a href="/">CV <span class="ext">&#8599;</span></a>
-        <a href="/bedrock/">bedrock <span class="ext">&#8599;</span></a>
       </nav>
       <div class="sidebar-foot">&copy; 2026 · <a href="/">michal hornicky</a></div>
     </aside>
@@ -33,7 +30,7 @@
 
     <main class="main">
       <div class="topbar">
-        <button class="nav-toggle" id="navToggle" type="button" aria-label="Open navigation">
+        <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
         <span class="tb-title">/ notes</span>
@@ -42,7 +39,7 @@
       <article class="content">
         <div class="post-kicker">stream processing</div>
         <h1 class="post-title">Agents as Stream Processors</h1>
-        <div class="post-meta"><span>2026</span><span>draft</span><span>~4 min</span></div>
+        <div class="post-meta"><span>2026 · draft</span><span>~4 min</span></div>
 
         <div class="post-body">
           <p class="lede">
@@ -69,7 +66,7 @@
           <p>Agents map onto that wiring almost one-to-one.</p>
 
           <figure class="fig">
-            <svg id="topology" class="diagram" role="img" aria-label="An agent as a stream-processing topology: events flow into the agent, which reads and writes a state store and emits actions, some of which are re-enqueued as new events."></svg>
+            <svg class="diagram" role="img" aria-label="An agent as a stream-processing topology: events flow into the agent, which reads and writes a state store and emits actions, some of which are re-enqueued as new events." data-topology='{"viewBox":[0,0,760,256],"nodes":[{"id":"events","x":24,"y":78,"w":150,"h":58,"label":"events","sub":"source"},{"id":"agent","x":305,"y":78,"w":150,"h":58,"label":"agent","sub":"processor","kind":"accent"},{"id":"actions","x":586,"y":78,"w":150,"h":58,"label":"actions","sub":"sink"},{"id":"memory","x":305,"y":196,"w":150,"h":46,"label":"memory","sub":"state store","kind":"store"}],"edges":[{"from":"events","to":"agent","kind":"accent"},{"from":"agent","to":"actions","kind":"accent"},{"from":"agent","to":"memory","offset":-8},{"from":"memory","to":"agent","offset":8,"label":"read / write"},{"from":"agent","to":"events","kind":"accent","dash":true,"route":"over","rise":38,"label":"emit · re-enqueue"}]}'></svg>
             <figcaption>an agent is one processor node in a topology</figcaption>
           </figure>
 
@@ -110,44 +107,6 @@
   <script src="/site.js"></script>
   <script src="/blog/blog.js"></script>
   <script src="/blog/d3.v7.min.js"></script>
-  <script>
-  /* the topology — fully d3, orthogonal connectors, theme-aware via CSS vars */
-  (function () {
-    if (!window.d3) return;
-    var W = 760, H = 256, ny = 78, nh = 58;
-    var svg = d3.select('#topology').attr('viewBox', '0 0 ' + W + ' ' + H);
-    var defs = svg.append('defs');
-    [['a', '--accent'], ['d', '--dim']].forEach(function (m) {
-      defs.append('marker').attr('id', 'm' + m[0]).attr('markerWidth', 10).attr('markerHeight', 8)
-        .attr('refX', 9).attr('refY', 4).attr('orient', 'auto').attr('markerUnits', 'userSpaceOnUse')
-        .append('path').attr('d', 'M0,0 L9,4 L0,8 Z').attr('fill', 'var(' + m[1] + ')');
-    });
-    function crisp(s) { return s.attr('shape-rendering', 'crispEdges'); }
-    function node(x, y, w, h, cls, label, sub) {
-      var g = svg.append('g');
-      g.append('rect').attr('class', cls).attr('x', x).attr('y', y).attr('width', w).attr('height', h);
-      g.append('text').attr('class', cls === 'node-accent' ? 't-acc' : 't')
-        .attr('x', x + w / 2).attr('y', y + h * 0.40).text(label);
-      if (sub) g.append('text').attr('class', 'sub').attr('x', x + w / 2).attr('y', y + h * 0.72).text(sub);
-    }
-    var midY = ny + nh / 2, botY = ny + nh, stY = 196, stH = 46;
-    // nodes
-    node(24, ny, 150, nh, 'node', 'events', 'source');
-    node(305, ny, 150, nh, 'node-accent', 'agent', 'processor');
-    node(586, ny, 150, nh, 'node', 'actions', 'sink');
-    node(305, stY, 150, stH, 'store', 'memory', 'state store');
-    // record flow (accent)
-    crisp(svg.append('path').attr('class', 'accent').attr('d', 'M178 ' + midY + ' H 305').attr('marker-end', 'url(#ma)'));
-    crisp(svg.append('path').attr('class', 'accent').attr('d', 'M459 ' + midY + ' H 586').attr('marker-end', 'url(#ma)'));
-    // state read / write (dim)
-    crisp(svg.append('path').attr('class', 'flow').attr('d', 'M372 ' + botY + ' V ' + stY).attr('marker-end', 'url(#md)'));
-    crisp(svg.append('path').attr('class', 'flow').attr('d', 'M388 ' + stY + ' V ' + botY).attr('marker-end', 'url(#md)'));
-    svg.append('text').attr('class', 'lbl').attr('x', 412).attr('y', (botY + stY) / 2 + 3).style('text-anchor', 'start').text('read / write');
-    // re-enqueue loop (agent -> events), dashed accent, along the top
-    crisp(svg.append('path').attr('class', 'accent').style('stroke-dasharray', '5 4')
-      .attr('d', 'M380 ' + ny + ' V 40 H 99 V ' + ny).attr('marker-end', 'url(#ma)'));
-    svg.append('text').attr('class', 'lbl-acc').attr('x', 240).attr('y', 33).text('emit · re-enqueue');
-  })();
-  </script>
+  <script src="/blog/diagram.js"></script>
 </body>
 </html>

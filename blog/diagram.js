@@ -21,9 +21,13 @@
   function crisp(s) { return s.attr('shape-rendering', 'crispEdges'); }
   var cx = function (n) { return n.x + n.w / 2; }, cy = function (n) { return n.y + n.h / 2; };
 
-  function edgePath(F, T, off) {
-    off = off || 0;
-    var gap = 4;
+  function edgePath(F, T, e) {
+    var off = e.offset || 0, gap = 4;
+    if (e.route === 'over' || e.route === 'under') {     // back-edge routed above/below the row
+      var up = e.route === 'over', rise = e.rise || 34;
+      var y0 = up ? F.y : F.y + F.h, peak = up ? F.y - rise : F.y + F.h + rise, yEnd = up ? T.y : T.y + T.h;
+      return 'M' + (cx(F) + off) + ' ' + y0 + ' V ' + peak + ' H ' + cx(T) + ' V ' + yEnd;
+    }
     if (F.y === T.y) {                                   // horizontal
       var ltr = T.x >= F.x;
       var x1 = ltr ? F.x + F.w + gap : F.x - gap, x2 = ltr ? T.x : T.x + T.w, y = cy(F) + off;
@@ -59,11 +63,13 @@
       var F = byId[e.from], T = byId[e.to]; if (!F || !T) return;
       var acc = e.kind === 'accent';
       var path = crisp(svg.append('path').attr('class', acc ? 'accent' : 'flow')
-        .attr('d', edgePath(F, T, e.offset || 0)).attr('marker-end', 'url(#' + p + (acc ? 'a' : 'd') + ')'));
+        .attr('d', edgePath(F, T, e)).attr('marker-end', 'url(#' + p + (acc ? 'a' : 'd') + ')'));
       if (e.dash) path.style('stroke-dasharray', '5 4');
       if (e.label) {
-        var lx, ly, anchor;
-        if (F.y === T.y) { lx = (cx(F) + cx(T)) / 2; ly = cy(F) + (e.offset || 0) - 9; anchor = 'middle'; }
+        var lx, ly, anchor = 'middle';
+        if (e.route === 'over') { lx = (cx(F) + cx(T)) / 2; ly = F.y - (e.rise || 34) - 6; }
+        else if (e.route === 'under') { lx = (cx(F) + cx(T)) / 2; ly = F.y + F.h + (e.rise || 34) + 14; }
+        else if (F.y === T.y) { lx = (cx(F) + cx(T)) / 2; ly = cy(F) + (e.offset || 0) - 9; }
         else { var o = e.offset || 0; lx = cx(F) + o + (o < 0 ? -8 : 12); ly = (cy(F) + cy(T)) / 2 + 3; anchor = (o < 0 ? 'end' : 'start'); }
         svg.append('text').attr('class', acc ? 'lbl-acc' : 'lbl').attr('x', lx).attr('y', ly)
           .style('text-anchor', e.side || anchor).text(e.label);
