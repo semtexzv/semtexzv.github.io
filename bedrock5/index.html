@@ -156,6 +156,22 @@
     .row{grid-template-columns:1fr; gap:.9rem; padding:2.2rem 0}
     .row-label{position:static}
   }
+
+  /* ===== diagram styling — theme-aware via vars, square corners ===== */
+  svg.diagram{width:100%; height:auto; display:block; overflow:visible}
+  svg.diagram .node{fill:var(--bg-elev); stroke:var(--hair-strong); stroke-width:1}
+  svg.diagram .box{fill:none; stroke:var(--hair); stroke-width:1}
+  svg.diagram .tag{fill:var(--chip); stroke:var(--accent); stroke-width:1.2}
+  svg.diagram text{font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace; text-anchor:middle}
+  svg.diagram .t{fill:var(--fg-strong); font-size:13px; font-weight:500; dominant-baseline:middle}
+  svg.diagram .t-sm{fill:var(--fg-strong); font-size:11.5px; font-weight:500; dominant-baseline:middle}
+  svg.diagram .sub{fill:var(--dim); font-size:10px; font-family:"Helvetica Neue",Arial,sans-serif; dominant-baseline:middle}
+  svg.diagram .tagtext{fill:var(--accent); font-size:12px; font-weight:500; dominant-baseline:middle}
+  svg.diagram .legend{fill:var(--dim); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; text-anchor:start}
+  svg.diagram .flow{fill:none; stroke:var(--dim); stroke-width:1.4}
+  svg.diagram .accent{fill:none; stroke:var(--accent); stroke-width:1.7}
+  svg.diagram .lblA{fill:var(--accent); font-size:11px; letter-spacing:.03em}
+  svg.diagram .lblD{fill:var(--dim); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -260,17 +276,8 @@ agent_trigger(
           append-only and attributable, so the system is also, continuously, its own audit log.
         </p>
         <div class="sample">
-          <div class="sample-cap">nothing merges itself · diagram → svg</div>
-<!-- SVG slot: the process loop (nested box) -->
-<pre class="code"> ╭─ THE PROCESS ───────────────────────────────────────────────────────╮
- │                                                                      │
- │   generator ──▶ review ──▶ submit ──▶ deploy ──▶ new environment     │
- │   agent         agents                           (incl. the          │
- │   writes code,  vote                              process itself)     │
- │       ▲                                                  │           │
- │       ╰───────────── the change reshapes the loop ────────╯           │
- │                                                                      │
- ╰──────────────────────────────────────────────────────────────────────╯</pre>
+          <div class="sample-cap">nothing merges itself</div>
+<svg id="d1" class="diagram" role="img" aria-label="the loop: generator, review, submit, deploy, new environment — feeding back into the loop"></svg>
         </div>
       </div>
     </section>
@@ -286,19 +293,8 @@ agent_trigger(
           it studies <b>how the work goes</b> and improves how it improves.
         </p>
         <div class="sample">
-          <div class="sample-cap">the system reading itself · diagram → svg</div>
-<!-- SVG slot: process feeds meta-processes, meta-processes file work back -->
-<pre class="code"> ╭─ THE PROCESS ───────────────────────────────────────────────────────╮
- │   generate ──▶ review ──▶ submit ──▶ deploy ──▶ new environment      │
- │                                                  (incl. itself)      │
- ╰───────▲──────────────────────────────────────────────┬──────────────╯
-         │  new work                                     │  execution traces
-         │                                               ▼
- ╭─ THE META-PROCESSES ────────────────────────────────────────────────╮
- │   ╭ friction ─╮ ╭ missing docs ─╮ ╭ outdated docs ─╮ ╭ conflicts ─╮  │
- │   ╰─────┬─────╯ ╰──────┬────────╯ ╰───────┬────────╯ ╰─────┬──────╯  │
- │         ╰──────────────┴── file bug ──▶ new work ──┴───────╯         │
- ╰──────────────────────────────────────────────────────────────────────╯</pre>
+          <div class="sample-cap">the system reading itself</div>
+<svg id="d2" class="diagram" role="img" aria-label="the process emits execution traces; meta-processes analyse them and file work back into the process"></svg>
         </div>
         <div class="sample">
           <div class="sample-cap">a meta-process is an agent on a clock</div>
@@ -537,6 +533,152 @@ addEventListener('load', ()=>{ requestAnimationFrame(()=> document.querySelector
   }
   var blocks=document.querySelectorAll('pre.code.python');
   for(var i=0;i<blocks.length;i++){ blocks[i].innerHTML = hl(blocks[i].textContent); }
+})();
+</script>
+
+<script src="d3.v7.min.js"></script>
+<script>
+/* ============================================================================
+   tiny d3 diagram kit — fully data-driven, theme-aware via CSS vars.
+   ALL connectors are orthogonal (H/V right-angle elbows); no curves.
+   ============================================================================ */
+const GAP = 4;                         // consistent gap between a source edge and a link's tail
+const cx = n => n.x + n.w/2, cy = n => n.y + n.h/2;
+const CRISP = sel => sel.attr('shape-rendering','crispEdges');
+
+/* sharp triangular arrowheads as d3 markers; refX at the tip so the tip lands
+   exactly on the path's end point. one consistent size for both colors. */
+function defsArrows(svg, p){
+  const defs = svg.append('defs');
+  defs.selectAll('marker')
+    .data([['A','--accent'],['D','--dim']])
+    .join('marker')
+      .attr('id', d => p + d[0])
+      .attr('markerWidth', 10).attr('markerHeight', 8)
+      .attr('refX', 9).attr('refY', 4)
+      .attr('orient','auto').attr('markerUnits','userSpaceOnUse')
+    .append('path')
+      .attr('d','M0,0 L9,4 L0,8 Z')
+      .attr('fill', d => 'var(' + d[1] + ')');
+}
+
+/* outline container + its uppercase legend (legend baseline sits above the box) */
+function drawBoxes(svg, boxes){
+  const g = svg.append('g').selectAll('g').data(boxes).join('g');
+  g.append('rect').attr('class','box')
+    .attr('x',d=>d.x).attr('y',d=>d.y).attr('width',d=>d.w).attr('height',d=>d.h);
+  g.filter(d=>d.legend).append('text').attr('class','legend')
+    .attr('x',d=>d.x+4).attr('y',d=>d.y-8).text(d=>d.legend);
+}
+
+/* filled node box + bright label (+ optional dim sublabel) */
+function drawNodes(svg, nodes){
+  const g = svg.append('g').selectAll('g').data(nodes).join('g');
+  g.append('rect').attr('class','node')
+    .attr('x',d=>d.x).attr('y',d=>d.y).attr('width',d=>d.w).attr('height',d=>d.h);
+  g.append('text').attr('class',d=>d.cls||'t')
+    .attr('x',d=>cx(d)).attr('y',d=>d.sub ? d.y+d.h*0.40 : cy(d)).text(d=>d.label);
+  g.filter(d=>d.sub).append('text').attr('class','sub')
+    .attr('x',d=>cx(d)).attr('y',d=>d.y+d.h*0.72).text(d=>d.sub);
+}
+
+/* horizontal forward links between consecutive nodes (orthogonal, crisp).
+   tail sits GAP off the source's right edge; tip lands on the target's left edge. */
+function forwardLinks(svg, nodes, p){
+  CRISP(svg.append('g').selectAll('path').data(d3.pairs(nodes)).join('path')
+    .attr('class','flow')
+    .attr('d',([a,b]) => `M${a.x+a.w+GAP} ${cy(a)} H ${b.x}`)
+    .attr('marker-end',`url(#${p}D)`));
+}
+
+/* a single straight vertical arrowed link (orthogonal, crisp) */
+function vLink(svg, x, yTail, yTip, cls, head, p){
+  CRISP(svg.append('path').attr('class', cls)
+    .attr('d',`M${x} ${yTail} V ${yTip}`)
+    .attr('marker-end',`url(#${p}${head})`));
+}
+
+/* ============ DIAGRAM 1 · THE LOOP ============ */
+(function(){
+  const W=760, H=184, nw=118, nh=56, ny=24;
+  const yBot = ny+nh, returnY = ny+nh+66;          // elbow return rail, well below the row
+  const svg = d3.select('#d1').attr('viewBox',`0 0 ${W} ${H}`);
+  defsArrows(svg,'a');
+
+  const labels=[['generator','writes the change'],['review','agents vote'],['submit','to trunk'],
+                ['deploy','& restart'],['new env','incl. the process']];
+  const xs = d3.scalePoint().domain(d3.range(5)).range([22+nw/2, W-22-nw/2]);
+  const nodes = labels.map((l,i)=>({x:xs(i)-nw/2, y:ny, w:nw, h:nh, label:l[0], sub:l[1]}));
+
+  forwardLinks(svg, nodes, 'a');
+  drawNodes(svg, nodes);
+
+  // ACCENT feedback elbow: down from new env, left along the rail, up into generator.
+  const x4 = cx(nodes[4]), x0 = cx(nodes[0]);
+  CRISP(svg.append('path').attr('class','accent')
+    .attr('d',`M${x4} ${yBot+GAP} V ${returnY} H ${x0} V ${yBot}`)
+    .attr('marker-end','url(#aA)'));
+  svg.append('text').attr('class','lblA').attr('x',W/2).attr('y',returnY+19)
+    .text('the change reshapes the loop');
+})();
+
+/* ============ DIAGRAM 2 · THE MIRROR ============ */
+(function(){
+  const W=760, H=336;
+  const svg = d3.select('#d2').attr('viewBox',`0 0 ${W} ${H}`);
+  defsArrows(svg,'b');
+
+  // shared horizontal extent for both containers
+  const bx=16, bw=728, pad=20;
+
+  // --- process box + pipeline ---
+  const pbY=22, pbH=90, pnw=116, pnh=40, pny=50;
+  const pxs = d3.scalePoint().domain(d3.range(5)).range([bx+pad+pnw/2, bx+bw-pad-pnw/2]);
+  const proc = ['generate','review','submit','deploy','new env']
+    .map((l,i)=>({x:pxs(i)-pnw/2, y:pny, w:pnw, h:pnh, label:l, cls:'t-sm'}));
+
+  // --- meta box + analyzers ---
+  const mbY=178, mbH=150, mnw=150, mnh=40, mny=206;
+  const mxs = d3.scalePoint().domain(d3.range(4)).range([bx+pad+mnw/2, bx+bw-pad-mnw/2]);
+  const meta = ['friction','missing docs','outdated docs','conflicts']
+    .map((l,i)=>({x:mxs(i)-mnw/2, y:mny, w:mnw, h:mnh, label:l, cls:'t-sm'}));
+
+  drawBoxes(svg,[
+    {x:bx, y:pbY, w:bw, h:pbH, legend:'the process'},
+    {x:bx, y:mbY, w:bw, h:mbH, legend:'the meta-processes'},
+  ]);
+
+  forwardLinks(svg, proc, 'b');
+  drawNodes(svg, proc);
+  drawNodes(svg, meta);
+
+  // --- cross-box arrows in node gaps (clear of the legends) ---
+  const gapTop = pbY+pbH, gapBot = mbY, gapMid = (gapTop+gapBot)/2;
+  const xWork  = (cx(proc[1])+cx(proc[2]))/2;       // left-of-centre, clear of the long meta legend
+  const xTrace = (cx(proc[3])+cx(proc[4]))/2;       // far-right gap
+  vLink(svg, xTrace, gapTop+GAP, gapBot, 'flow',   'D','b');   // traces: down, tip on meta top
+  vLink(svg, xWork,  gapBot-GAP, gapTop, 'accent', 'A','b');   // new work: up, tip on process bottom
+  svg.append('text').attr('class','lblA').attr('x',xWork+14).attr('y',gapMid)
+    .style('text-anchor','start').text('new work');
+  svg.append('text').attr('class','lblD').attr('x',xTrace-14).attr('y',gapMid)
+    .style('text-anchor','end').text('execution traces');
+
+  // --- orthogonal convergence BUS: analyzers → rail → centre drop → tag ---
+  const nodeBot = mny+mnh, railY = nodeBot+26;
+  const tagW=180, tagH=28, tagX=W/2-tagW/2, tagY=railY+20;
+  const railX1 = cx(meta[0]), railX2 = cx(meta[meta.length-1]);
+
+  // each analyzer drops a vertical to the shared rail
+  CRISP(svg.append('g').selectAll('path').data(meta).join('path')
+    .attr('class','flow')
+    .attr('d',d=>`M${cx(d)} ${nodeBot} V ${railY}`));
+  // the shared horizontal rail
+  CRISP(svg.append('path').attr('class','flow').attr('d',`M${railX1} ${railY} H ${railX2}`));
+  // centre vertical drops into the tag with an arrowhead
+  vLink(svg, W/2, railY, tagY, 'flow', 'D', 'b');
+
+  svg.append('rect').attr('class','tag').attr('x',tagX).attr('y',tagY).attr('width',tagW).attr('height',tagH);
+  svg.append('text').attr('class','tagtext').attr('x',W/2).attr('y',tagY+tagH/2).text('file bug → new work');
 })();
 </script>
 </body>
