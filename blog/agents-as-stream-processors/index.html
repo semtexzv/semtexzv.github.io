@@ -8,104 +8,84 @@
 <meta name="keywords" content="agents, stream processing, architecture" />
 <link rel="stylesheet" href="/site.css" />
 <link rel="stylesheet" href="/blog/blog.css" />
-<script>try{if(localStorage.getItem('blog-nav-collapsed')==='1')document.documentElement.classList.add('nav-collapsed');}catch(e){}</script>
 </head>
 <body>
-  <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>
+  <header class="topbar">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a class="home" href="/blog/"><b>/</b> notes</a>
+      <span class="sep">/</span>
+      <span aria-current="page">Agents as Stream Processors</span>
+    </nav>
+    <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>
+  </header>
 
-  <div class="app">
-    <aside class="sidebar" id="sidebar">
-      <a class="brand" href="/blog/">
-        <span class="name"><b>/</b> notes</span>
-        <span class="tag">Michal Hornicky</span>
-      </a>
-      <nav class="nav">
-        <div class="section">writing</div>
-        <a href="/blog/">all posts</a>
-      </nav>
-      <div class="sidebar-foot">&copy; 2026 · <a href="/">michal hornicky</a></div>
-    </aside>
+  <article class="content">
+    <div class="post-kicker">stream processing</div>
+    <h1 class="post-title">Agents as Stream Processors</h1>
+    <div class="post-meta"><span>2026 · draft</span><span>~4 min</span></div>
 
-    <div class="backdrop" id="backdrop"></div>
+    <div class="post-body">
+      <p class="lede">
+        Stop picturing an agent as a chatbot answering a prompt. Picture it as a node in a
+        <em>topology</em>: it consumes a stream of events, keeps state, and emits new events.
+        The right mental model isn't request/response — it's <b>Kafka Streams</b>.
+      </p>
 
-    <main class="main">
-      <div class="topbar">
-        <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        </button>
-        <span class="tb-title">/ notes</span>
+      <p>
+        A chatbot is request/response: a question goes in, an answer comes out, the world
+        resets. That framing falls apart the moment an agent has to run <b>continuously</b> —
+        watching for work, remembering what it already did, reacting to things other agents
+        emit. Request/response has nowhere to put any of that.
+      </p>
+
+      <p>
+        Stream processing has had the answer for a decade. In Kafka Streams a program is a
+        <b>topology</b>: source nodes read records off a log, processor nodes transform them,
+        <b>state stores</b> hold the running context, and sink nodes write results back out —
+        usually onto another log that something downstream consumes. Records flow through
+        continuously; the program <em>is</em> the wiring.
+      </p>
+
+      <p>Agents map onto that wiring almost one-to-one.</p>
+
+      <figure class="fig">
+        <svg class="diagram" role="img" aria-label="An agent as a stream-processing topology: events flow into the agent, which reads and writes a state store and emits actions, some of which are re-enqueued as new events." data-topology='{"viewBox":[0,0,760,256],"nodes":[{"id":"events","x":24,"y":78,"w":150,"h":58,"label":"events","sub":"source"},{"id":"agent","x":305,"y":78,"w":150,"h":58,"label":"agent","sub":"processor","kind":"accent"},{"id":"actions","x":586,"y":78,"w":150,"h":58,"label":"actions","sub":"sink"},{"id":"memory","x":305,"y":196,"w":150,"h":46,"label":"memory","sub":"state store","kind":"store"}],"edges":[{"from":"events","to":"agent","kind":"accent"},{"from":"agent","to":"actions","kind":"accent"},{"from":"agent","to":"memory","offset":-8},{"from":"memory","to":"agent","offset":8,"label":"read / write"},{"from":"agent","to":"events","kind":"accent","dash":true,"route":"over","rise":38,"label":"emit · re-enqueue"}]}'></svg>
+        <figcaption>an agent is one processor node in a topology</figcaption>
+      </figure>
+
+      <ul>
+        <li>a Kafka record <b>→</b> an <b>event</b>: a trigger, a message, a review comment, a webhook</li>
+        <li>a processor node <b>→</b> the <b>agent</b>: read an event, call the model and its tools, decide</li>
+        <li>a state store <b>→</b> the agent's <b>memory</b>: context, scratchpad, what it has already done</li>
+        <li>a sink topic <b>→</b> the agent's <b>actions</b>: a change, a comment, a new task — often <b>re-enqueued</b> as events others consume</li>
+        <li>partitions <b>→</b> <b>isolation</b>: one key (one CL, one conversation) handled in order, independent of the rest</li>
+      </ul>
+
+      <p>
+        Once you see agents this way, the hard problems stop being <em>prompt</em> problems and
+        start being <em>stream</em> problems: backpressure when the model is the bottleneck;
+        at-least-once vs exactly-once when a tool call has real side effects; keying so related
+        events stay ordered; replay when you want to re-run history against a better model.
+        These are solved problems in stream processing — we get to borrow the solutions.
+      </p>
+
+      <h2><span class="h2num">01</span>Backpressure: the model is the slow consumer</h2>
+      <p>How a topology handles a processor that can't keep up — and why the agent is always that processor. <em>(coming soon)</em></p>
+
+      <h2><span class="h2num">02</span>State, memory, and changelogs</h2>
+      <p>Durable memory as a compacted changelog topic; rebuilding an agent's context by replaying it. <em>(coming soon)</em></p>
+
+      <h2><span class="h2num">03</span>Exactly-once, side effects, and idempotency</h2>
+      <p>What "exactly-once" can and can't mean when the side effect is a git push or an email. <em>(coming soon)</em></p>
+
+      <div class="draft-note">
+        <b>draft</b> — the topology is the skeleton; the numbered sections get filled in next.
+        Nothing to subscribe to; just check back.
       </div>
-
-      <article class="content">
-        <div class="post-kicker">stream processing</div>
-        <h1 class="post-title">Agents as Stream Processors</h1>
-        <div class="post-meta"><span>2026 · draft</span><span>~4 min</span></div>
-
-        <div class="post-body">
-          <p class="lede">
-            Stop picturing an agent as a chatbot answering a prompt. Picture it as a node in a
-            <em>topology</em>: it consumes a stream of events, keeps state, and emits new events.
-            The right mental model isn't request/response — it's <b>Kafka Streams</b>.
-          </p>
-
-          <p>
-            A chatbot is request/response: a question goes in, an answer comes out, the world
-            resets. That framing falls apart the moment an agent has to run <b>continuously</b> —
-            watching for work, remembering what it already did, reacting to things other agents
-            emit. Request/response has nowhere to put any of that.
-          </p>
-
-          <p>
-            Stream processing has had the answer for a decade. In Kafka Streams a program is a
-            <b>topology</b>: source nodes read records off a log, processor nodes transform them,
-            <b>state stores</b> hold the running context, and sink nodes write results back out —
-            usually onto another log that something downstream consumes. Records flow through
-            continuously; the program <em>is</em> the wiring.
-          </p>
-
-          <p>Agents map onto that wiring almost one-to-one.</p>
-
-          <figure class="fig">
-            <svg class="diagram" role="img" aria-label="An agent as a stream-processing topology: events flow into the agent, which reads and writes a state store and emits actions, some of which are re-enqueued as new events." data-topology='{"viewBox":[0,0,760,256],"nodes":[{"id":"events","x":24,"y":78,"w":150,"h":58,"label":"events","sub":"source"},{"id":"agent","x":305,"y":78,"w":150,"h":58,"label":"agent","sub":"processor","kind":"accent"},{"id":"actions","x":586,"y":78,"w":150,"h":58,"label":"actions","sub":"sink"},{"id":"memory","x":305,"y":196,"w":150,"h":46,"label":"memory","sub":"state store","kind":"store"}],"edges":[{"from":"events","to":"agent","kind":"accent"},{"from":"agent","to":"actions","kind":"accent"},{"from":"agent","to":"memory","offset":-8},{"from":"memory","to":"agent","offset":8,"label":"read / write"},{"from":"agent","to":"events","kind":"accent","dash":true,"route":"over","rise":38,"label":"emit · re-enqueue"}]}'></svg>
-            <figcaption>an agent is one processor node in a topology</figcaption>
-          </figure>
-
-          <ul>
-            <li>a Kafka record <b>→</b> an <b>event</b>: a trigger, a message, a review comment, a webhook</li>
-            <li>a processor node <b>→</b> the <b>agent</b>: read an event, call the model and its tools, decide</li>
-            <li>a state store <b>→</b> the agent's <b>memory</b>: context, scratchpad, what it has already done</li>
-            <li>a sink topic <b>→</b> the agent's <b>actions</b>: a change, a comment, a new task — often <b>re-enqueued</b> as events others consume</li>
-            <li>partitions <b>→</b> <b>isolation</b>: one key (one CL, one conversation) handled in order, independent of the rest</li>
-          </ul>
-
-          <p>
-            Once you see agents this way, the hard problems stop being <em>prompt</em> problems and
-            start being <em>stream</em> problems: backpressure when the model is the bottleneck;
-            at-least-once vs exactly-once when a tool call has real side effects; keying so related
-            events stay ordered; replay when you want to re-run history against a better model.
-            These are solved problems in stream processing — we get to borrow the solutions.
-          </p>
-
-          <h2><span class="h2num">01</span>Backpressure: the model is the slow consumer</h2>
-          <p>How a topology handles a processor that can't keep up — and why the agent is always that processor. <em>(coming soon)</em></p>
-
-          <h2><span class="h2num">02</span>State, memory, and changelogs</h2>
-          <p>Durable memory as a compacted changelog topic; rebuilding an agent's context by replaying it. <em>(coming soon)</em></p>
-
-          <h2><span class="h2num">03</span>Exactly-once, side effects, and idempotency</h2>
-          <p>What "exactly-once" can and can't mean when the side effect is a git push or an email. <em>(coming soon)</em></p>
-
-          <div class="draft-note">
-            <b>draft</b> — the topology is the skeleton; the numbered sections get filled in next.
-            Nothing to subscribe to; just check back.
-          </div>
-        </div>
-      </article>
-    </main>
-  </div>
+    </div>
+  </article>
 
   <script src="/site.js"></script>
-  <script src="/blog/blog.js"></script>
   <script src="/blog/d3.v7.min.js"></script>
   <script src="/blog/diagram.js"></script>
 </body>

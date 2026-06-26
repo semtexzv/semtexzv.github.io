@@ -171,7 +171,6 @@
     <div class="dlg-actions"><button class="btn" id="r-close" type="button">Close</button></div></dialog>
 
   <script src="/site.js"></script>
-  <script src="/blog/blog.js"></script>
   <script src="/blog/d3.v7.min.js"></script>
   <script src="/blog/diagram.js"></script>
   <script>
@@ -251,23 +250,18 @@
         '<meta name="description" content="' + esc(s.excerpt || '') + '" />\n' +
         (tags.length ? '<meta name="keywords" content="' + esc(tags.join(', ')) + '" />\n' : '') +
         '<link rel="stylesheet" href="/site.css" />\n<link rel="stylesheet" href="/blog/blog.css" />\n' +
-        '<script>try{if(localStorage.getItem("blog-nav-collapsed")==="1")document.documentElement.classList.add("nav-collapsed");}catch(e){}<\/script>\n</head>\n<body>\n' +
-        '  <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>\n' +
-        '  <div class="app">\n    <aside class="sidebar" id="sidebar">\n' +
-        '      <a class="brand" href="/blog/"><span class="name"><b>/</b> notes</span><span class="tag">Michal Hornicky</span></a>\n' +
-        '      <nav class="nav">\n        <div class="section">writing</div>\n        <a href="/blog/">all posts</a>\n      </nav>\n' +
-        '      <div class="sidebar-foot">&copy; 2026 · <a href="/">michal hornicky</a></div>\n    </aside>\n' +
-        '    <div class="backdrop" id="backdrop"></div>\n    <main class="main">\n' +
-        '      <div class="topbar"><button class="nav-toggle" id="navToggle" type="button" aria-label="Open navigation">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>' +
-        '</button><span class="tb-title">/ notes</span></div>\n' +
-        '      <article class="content">\n' +
-        (s.kicker ? '        <div class="post-kicker">' + esc(s.kicker) + '</div>\n' : '') +
-        '        <h1 class="post-title">' + esc(s.title) + '</h1>\n' +
-        (meta ? '        <div class="post-meta">' + meta + '</div>\n' : '') +
-        '        <div class="post-body">\n' + bodyHTML + '\n        </div>\n' +
-        '      </article>\n    </main>\n  </div>\n' +
-        '  <script src="/site.js"><\/script>\n  <script src="/blog/blog.js"><\/script>\n' +
+        '</head>\n<body>\n' +
+        '  <header class="topbar">\n    <nav class="crumbs" aria-label="Breadcrumb">\n' +
+        '      <a class="home" href="/blog/"><b>/</b> notes</a>\n' +
+        '      <span class="sep">/</span>\n      <span aria-current="page">' + esc(s.title) + '</span>\n    </nav>\n' +
+        '    <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>\n  </header>\n\n' +
+        '  <article class="content">\n' +
+        (s.kicker ? '    <div class="post-kicker">' + esc(s.kicker) + '</div>\n' : '') +
+        '    <h1 class="post-title">' + esc(s.title) + '</h1>\n' +
+        (meta ? '    <div class="post-meta">' + meta + '</div>\n' : '') +
+        '    <div class="post-body">\n' + bodyHTML + '\n    </div>\n' +
+        '  </article>\n\n' +
+        '  <script src="/site.js"><\/script>\n' +
         '  <script src="/blog/d3.v7.min.js"><\/script>\n  <script src="/blog/diagram.js"><\/script>\n</body>\n</html>\n';
     }
 
