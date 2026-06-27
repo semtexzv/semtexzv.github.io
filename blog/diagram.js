@@ -1,94 +1,90 @@
-/* diagram.js — generic, data-driven topology renderer.
-   Any <svg class="diagram" data-topology='{...}'> on the page is drawn from its
-   JSON spec, so diagrams are editable as data (the blog editor emits this).
-   Theme-aware: colours come from CSS vars, so it follows the dark/light toggle.
+/* diagram.js — d3 diagram renderer.
+   A diagram is a JSON spec on a 0–10 grid:
+     { gridH:6,
+       shapes:[{id,x,y,w,h,color,text,sub}],            // color: primary|secondary|accent1|accent2
+       connectors:[{from,to,color,label,dash,route}],    // route: auto|over|under
+       labels:[{x,y,text,color,anchor}] }                // free-floating text
+   Colours resolve to CSS tokens (var(--dg-*)) so a baked SVG is theme-aware.
+   Diagram.svgMarkup(spec) → static <svg> string (saved into the page).
+   Diagram.render(svgEl, spec, opts) → draw into a live element (the editor). */
+window.Diagram = (function () {
+  var CELL = 72, GW = 10, MONO = 'ui-monospace,"SF Mono",Menlo,monospace', seq = 0;
+  var COLORS = ['primary', 'secondary', 'accent1', 'accent2'];
+  function cvar(t) { return 'var(--dg-' + (COLORS.indexOf(t) < 0 ? 'primary' : t) + ')'; }
+  function px(u) { return Math.round(u * CELL * 100) / 100; }
+  function gridH(spec) { return spec.gridH || 6; }
+  function rectOf(s) { return { x: px(s.x), y: px(s.y), w: px(s.w || 2), h: px(s.h || 1) }; }
+  function centerOf(s) { var r = rectOf(s); return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; }
 
-   spec = {
-     viewBox: [0,0,760,200],
-     nodes: [{ id, x, y, w, h, label, sub?, kind? ("accent"|"store") }],
-     edges: [{ from, to, kind?("accent"|"flow"), dash?, label?, offset?, side?("start"|"end") }]
-   }
-*/
-(function () {
-  if (!window.d3) return;
-  var seq = 0;
-
-  function arrow(defs, id, colorVar) {
-    defs.append('marker').attr('id', id).attr('markerWidth', 10).attr('markerHeight', 8)
-      .attr('refX', 9).attr('refY', 4).attr('orient', 'auto').attr('markerUnits', 'userSpaceOnUse')
-      .append('path').attr('d', 'M0,0 L9,4 L0,8 Z').attr('fill', 'var(' + colorVar + ')');
-  }
-  function crisp(s) { return s.attr('shape-rendering', 'crispEdges'); }
-  var cx = function (n) { return n.x + n.w / 2; }, cy = function (n) { return n.y + n.h / 2; };
-
-  function edgePath(F, T, e) {
-    var off = e.offset || 0, gap = 4;
-    if (e.route === 'over' || e.route === 'under') {     // back-edge routed above/below the row
-      var up = e.route === 'over', rise = e.rise || 34;
-      var y0 = up ? F.y : F.y + F.h, peak = up ? F.y - rise : F.y + F.h + rise, yEnd = up ? T.y : T.y + T.h;
-      return 'M' + (cx(F) + off) + ' ' + y0 + ' V ' + peak + ' H ' + cx(T) + ' V ' + yEnd;
+  function connectorPath(F, T, route) {
+    var fr = rectOf(F), tr = rectOf(T), fc = centerOf(F), tc = centerOf(T);
+    if (route === 'over' || route === 'under') {
+      var up = route === 'over';
+      var peak = up ? Math.min(fr.y, tr.y) - 0.55 * CELL : Math.max(fr.y + fr.h, tr.y + tr.h) + 0.55 * CELL;
+      var fy = up ? fr.y : fr.y + fr.h, ty = up ? tr.y : tr.y + tr.h;
+      return { d: 'M' + fc.x + ' ' + fy + ' V ' + peak + ' H ' + tc.x + ' V ' + ty, lx: (fc.x + tc.x) / 2, ly: peak + (up ? -6 : 16) };
     }
-    if (F.y === T.y) {                                   // horizontal
-      var ltr = T.x >= F.x;
-      var x1 = ltr ? F.x + F.w + gap : F.x - gap, x2 = ltr ? T.x : T.x + T.w, y = cy(F) + off;
-      return 'M' + x1 + ' ' + y + ' H ' + x2;
+    var dx = tc.x - fc.x, dy = tc.y - fc.y;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      var fx = dx > 0 ? fr.x + fr.w : fr.x, tx = dx > 0 ? tr.x : tr.x + tr.w, mx = (fx + tx) / 2;
+      if (Math.abs(dy) < 1) return { d: 'M' + fx + ' ' + fc.y + ' H ' + tx, lx: (fx + tx) / 2, ly: fc.y - 7 };
+      return { d: 'M' + fx + ' ' + fc.y + ' H ' + mx + ' V ' + tc.y + ' H ' + tx, lx: mx, ly: (fc.y + tc.y) / 2 - 7 };
     }
-    if (F.x === T.x) {                                   // vertical
-      var ttb = T.y >= F.y;
-      var y1 = ttb ? F.y + F.h + gap : F.y - gap, y2 = ttb ? T.y : T.y + T.h, x = cx(F) + off;
-      return 'M' + x + ' ' + y1 + ' V ' + y2;
-    }
-    // simple elbow: down/up out of F, across, into T
-    var fx = cx(F) + off, tx = cx(T);
-    var midY = (F.y > T.y) ? T.y + T.h + (F.y - (T.y + T.h)) / 2 : F.y + F.h + (T.y - (F.y + F.h)) / 2;
-    var fy = (T.y >= F.y) ? F.y + F.h : F.y;
-    var ty = (T.y >= F.y) ? T.y : T.y + T.h;
-    return 'M' + fx + ' ' + fy + ' V ' + midY + ' H ' + tx + ' V ' + ty;
+    var fy2 = dy > 0 ? fr.y + fr.h : fr.y, ty2 = dy > 0 ? tr.y : tr.y + tr.h, my = (fy2 + ty2) / 2;
+    if (Math.abs(dx) < 1) return { d: 'M' + fc.x + ' ' + fy2 + ' V ' + ty2, lx: fc.x + 12, ly: (fy2 + ty2) / 2 + 3, anchor: 'start' };
+    return { d: 'M' + fc.x + ' ' + fy2 + ' V ' + my + ' H ' + tc.x + ' V ' + ty2, lx: tc.x, ly: my - 7 };
   }
 
-  function render(el) {
-    var spec;
-    try { spec = JSON.parse(el.getAttribute('data-topology')); } catch (e) { return; }
-    var svg = d3.select(el);
-    svg.selectAll('*').remove();
-    svg.attr('viewBox', (spec.viewBox || [0, 0, 760, 200]).join(' '));
-    var p = 'dg' + (seq++) + '-';
+  function build(spec, opts) {
+    opts = opts || {};
+    var GH = gridH(spec), W = GW * CELL, H = GH * CELL, uid = 'd' + (seq++) + '-';
+    var svg = d3.create('svg').attr('viewBox', '0 0 ' + W + ' ' + H).attr('class', 'diagram').attr('role', 'img');
     var defs = svg.append('defs');
-    arrow(defs, p + 'a', '--accent'); arrow(defs, p + 'd', '--dim');
-
-    var byId = {};
-    (spec.nodes || []).forEach(function (n) { byId[n.id] = n; });
-
-    (spec.edges || []).forEach(function (e) {
-      var F = byId[e.from], T = byId[e.to]; if (!F || !T) return;
-      var acc = e.kind === 'accent';
-      var path = crisp(svg.append('path').attr('class', acc ? 'accent' : 'flow')
-        .attr('d', edgePath(F, T, e)).attr('marker-end', 'url(#' + p + (acc ? 'a' : 'd') + ')'));
-      if (e.dash) path.style('stroke-dasharray', '5 4');
-      if (e.label) {
-        var lx, ly, anchor = 'middle';
-        if (e.route === 'over') { lx = (cx(F) + cx(T)) / 2; ly = F.y - (e.rise || 34) - 6; }
-        else if (e.route === 'under') { lx = (cx(F) + cx(T)) / 2; ly = F.y + F.h + (e.rise || 34) + 14; }
-        else if (F.y === T.y) { lx = (cx(F) + cx(T)) / 2; ly = cy(F) + (e.offset || 0) - 9; }
-        else { var o = e.offset || 0; lx = cx(F) + o + (o < 0 ? -8 : 12); ly = (cy(F) + cy(T)) / 2 + 3; anchor = (o < 0 ? 'end' : 'start'); }
-        svg.append('text').attr('class', acc ? 'lbl-acc' : 'lbl').attr('x', lx).attr('y', ly)
-          .style('text-anchor', e.side || anchor).text(e.label);
-      }
+    COLORS.forEach(function (c) {
+      defs.append('marker').attr('id', uid + 'ar-' + c).attr('markerWidth', 10).attr('markerHeight', 8)
+        .attr('refX', 9).attr('refY', 4).attr('orient', 'auto').attr('markerUnits', 'userSpaceOnUse')
+        .append('path').attr('d', 'M0,0 L9,4 L0,8 Z').attr('fill', cvar(c));
     });
-
-    (spec.nodes || []).forEach(function (n) {
-      var g = svg.append('g');
-      var cls = n.kind === 'accent' ? 'node-accent' : (n.kind === 'store' ? 'store' : 'node');
-      g.append('rect').attr('class', cls).attr('x', n.x).attr('y', n.y).attr('width', n.w).attr('height', n.h);
-      g.append('text').attr('class', n.kind === 'accent' ? 't-acc' : 't')
-        .attr('x', cx(n)).attr('y', n.y + n.h * (n.sub ? 0.40 : 0.5)).text(n.label);
-      if (n.sub) g.append('text').attr('class', 'sub').attr('x', cx(n)).attr('y', n.y + n.h * 0.72).text(n.sub);
+    if (opts.grid) {
+      var g = svg.append('g').attr('opacity', 0.6);
+      for (var gx = 0; gx <= GW; gx++) g.append('line').attr('x1', px(gx)).attr('y1', 0).attr('x2', px(gx)).attr('y2', H).attr('stroke', 'var(--hair)').attr('stroke-width', 0.5);
+      for (var gy = 0; gy <= GH; gy++) g.append('line').attr('x1', 0).attr('y1', px(gy)).attr('x2', W).attr('y2', px(gy)).attr('stroke', 'var(--hair)').attr('stroke-width', 0.5);
+    }
+    var byId = {}; (spec.shapes || []).forEach(function (s) { byId[s.id] = s; });
+    (spec.connectors || []).forEach(function (c, i) {
+      var F = byId[c.from], T = byId[c.to]; if (!F || !T) return;
+      var col = c.color || 'secondary', p = connectorPath(F, T, c.route);
+      svg.append('path').attr('d', p.d).attr('fill', 'none').attr('stroke', cvar(col)).attr('stroke-width', 1.7)
+        .attr('marker-end', 'url(#' + uid + 'ar-' + col + ')').attr('stroke-dasharray', c.dash ? '5 4' : null);
+      if (opts.interactive) svg.append('path').attr('d', p.d).attr('fill', 'none').attr('stroke', 'transparent').attr('stroke-width', 12).attr('data-conn', i).style('cursor', 'pointer');
+      if (c.label) svg.append('text').attr('x', p.lx).attr('y', p.ly).attr('fill', cvar(col)).attr('font-family', MONO).attr('font-size', 10).attr('letter-spacing', '.08em').attr('text-anchor', p.anchor || 'middle').text(c.label);
     });
+    (spec.shapes || []).forEach(function (s) {
+      var r = rectOf(s), col = cvar(s.color);
+      var g2 = svg.append('g'); if (opts.interactive) g2.attr('data-shape', s.id).style('cursor', 'move');
+      g2.append('rect').attr('x', r.x).attr('y', r.y).attr('width', r.w).attr('height', r.h)
+        .attr('fill', col).attr('fill-opacity', 0.08).attr('stroke', col).attr('stroke-width', 1.5).attr('shape-rendering', 'crispEdges');
+      g2.append('text').attr('x', r.x + r.w / 2).attr('y', r.y + r.h * (s.sub ? 0.4 : 0.5)).attr('fill', col)
+        .attr('font-family', MONO).attr('font-size', 13).attr('font-weight', 600).attr('text-anchor', 'middle').attr('dominant-baseline', 'middle').text(s.text || '');
+      if (s.sub) g2.append('text').attr('x', r.x + r.w / 2).attr('y', r.y + r.h * 0.72).attr('fill', 'var(--dg-secondary)')
+        .attr('font-family', MONO).attr('font-size', 9.5).attr('letter-spacing', '.06em').attr('text-anchor', 'middle').attr('dominant-baseline', 'middle').text((s.sub || '').toUpperCase());
+    });
+    (spec.labels || []).forEach(function (l, i) {
+      var t = svg.append('text').attr('x', px(l.x)).attr('y', px(l.y)).attr('fill', cvar(l.color || 'primary'))
+        .attr('font-family', MONO).attr('font-size', 11).attr('text-anchor', l.anchor || 'middle').text(l.text || '');
+      if (opts.interactive) t.attr('data-label', i).style('cursor', 'move');
+    });
+    return svg.node();
   }
 
-  window.renderDiagrams = function (root) {
-    (root || document).querySelectorAll('svg.diagram[data-topology]').forEach(render);
-  };
-  if (document.readyState !== 'loading') window.renderDiagrams();
-  else document.addEventListener('DOMContentLoaded', function () { window.renderDiagrams(); });
+  function render(elm, spec, opts) {
+    var n = build(spec, opts), sel = d3.select(elm);
+    sel.selectAll('*').remove();
+    sel.attr('viewBox', n.getAttribute('viewBox'));
+    Array.prototype.slice.call(n.childNodes).forEach(function (ch) { elm.appendChild(ch); });
+    return elm;
+  }
+  function svgMarkup(spec) { return new XMLSerializer().serializeToString(build(spec)); }
+
+  return { build: build, render: render, svgMarkup: svgMarkup, connectorPath: connectorPath, rectOf: rectOf, COLORS: COLORS, CELL: CELL, GW: GW, gridH: gridH };
 })();

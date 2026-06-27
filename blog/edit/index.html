@@ -72,6 +72,27 @@
   #openList .open-item .oi-title{ font-weight:700; color:var(--fg-strong); }
   #openList .open-item .oi-slug{ font-family:ui-monospace,Menlo,monospace; font-size:.7rem; color:var(--muted); margin-top:.15rem; }
 
+  /* visual diagram editor */
+  .dlg-diagram{ max-width:min(960px,96vw); }
+  .dg-head{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.7rem; }
+  .dg-head h3{ margin:0; }
+  .dg-tools{ display:flex; gap:.4rem; }
+  .dg-body{ display:grid; grid-template-columns:1fr 230px; gap:1rem; align-items:start; }
+  .dg-canvas-wrap{ background:var(--bg); border:1px solid var(--hair); border-radius:8px; padding:.6rem; }
+  #dgCanvas{ width:100%; height:auto; display:block; touch-action:none; }
+  .dg-panel{ font-size:.85rem; min-height:120px; }
+  .dg-panel .field{ margin-bottom:.7rem; }
+  .dg-swatches{ display:flex; gap:.4rem; }
+  .dg-sw{ width:26px; height:26px; border-radius:6px; border:2px solid var(--hair); cursor:pointer; padding:0; }
+  .dg-sw.on{ border-color:var(--fg-strong); }
+  .dg-step{ display:inline-flex; align-items:center; gap:.45rem; margin-right:.8rem; }
+  .dg-step span{ min-width:1.6em; text-align:center; font-family:ui-monospace,Menlo,monospace; }
+  .dg-step button{ width:26px; height:26px; border:1px solid var(--hair); background:var(--bg-elev); color:var(--fg); border-radius:5px; cursor:pointer; }
+  .dg-row{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .dg-row label{ display:inline; text-transform:none; letter-spacing:0; font-size:.8rem; color:var(--fg); }
+  .dg-connect-on #dg-connect{ background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+  @media (max-width:680px){ .dg-body{ grid-template-columns:1fr; } }
+
   @media (max-width:820px){
     .ed-main{ grid-template-columns:1fr; }
     .pane.form{ border-right:none; }
@@ -156,15 +177,27 @@
       <button class="btn primary" id="s-save" type="button">Save</button></div>
   </dialog>
 
-  <!-- diagram editor -->
-  <dialog id="dlgDiagram">
-    <h3>Diagram (topology JSON)</h3>
-    <div class="field"><label>caption</label><input id="d-caption" placeholder="what the diagram shows" /></div>
-    <div class="field"><label>spec</label><textarea id="d-spec" spellcheck="false"></textarea></div>
-    <p class="hint">nodes: <code>{id,x,y,w,h,label,sub?,kind?:"accent"|"store"}</code> ·
-      edges: <code>{from,to,kind?:"accent",dash?,label?,offset?}</code></p>
-    <div class="dlg-actions"><button class="btn" id="d-cancel" type="button">Cancel</button>
-      <button class="btn primary" id="d-save" type="button">Apply</button></div>
+  <!-- visual diagram editor -->
+  <dialog id="dlgDiagram" class="dlg-diagram">
+    <div class="dg-head">
+      <h3>Diagram</h3>
+      <div class="dg-tools">
+        <button class="btn" id="dg-add" type="button">+ box</button>
+        <button class="btn" id="dg-label" type="button">+ label</button>
+        <button class="btn" id="dg-connect" type="button">connect</button>
+      </div>
+    </div>
+    <div class="dg-body">
+      <div class="dg-canvas-wrap"><svg id="dgCanvas"></svg></div>
+      <aside class="dg-panel" id="dgPanel"></aside>
+    </div>
+    <div class="field" style="margin-top:.8rem"><label>caption</label><input id="d-caption" placeholder="what the diagram shows" /></div>
+    <div class="dlg-actions">
+      <button class="btn" id="d-delete" type="button">Delete diagram</button>
+      <span style="flex:1"></span>
+      <button class="btn" id="d-cancel" type="button">Cancel</button>
+      <button class="btn primary" id="d-save" type="button">Apply</button>
+    </div>
   </dialog>
 
   <!-- open existing post -->
@@ -184,13 +217,17 @@
     var $ = function (s) { return document.querySelector(s); };
     var KEY = 'blog-editor-draft', CFG = 'blog-editor-cfg';
     var DEFAULT_DIAGRAM = {
-      viewBox: [0, 0, 760, 170],
-      nodes: [
-        { id: 'a', x: 24, y: 58, w: 150, h: 54, label: 'source', sub: 'topic' },
-        { id: 'b', x: 305, y: 58, w: 150, h: 54, label: 'agent', sub: 'processor', kind: 'accent' },
-        { id: 'c', x: 586, y: 58, w: 150, h: 54, label: 'sink', sub: 'topic' }
+      gridH: 5,
+      shapes: [
+        { id: 's1', x: 0.5, y: 2, w: 2, h: 1, color: 'secondary', text: 'source' },
+        { id: 's2', x: 4, y: 2, w: 2, h: 1, color: 'accent1', text: 'agent' },
+        { id: 's3', x: 7.5, y: 2, w: 2, h: 1, color: 'secondary', text: 'sink' }
       ],
-      edges: [{ from: 'a', to: 'b', kind: 'accent' }, { from: 'b', to: 'c', kind: 'accent' }]
+      connectors: [
+        { from: 's1', to: 's2', color: 'accent1' },
+        { from: 's2', to: 's3', color: 'accent1' }
+      ],
+      labels: []
     };
 
     var fields = { title: '#f-title', slug: '#f-slug', kicker: '#f-kicker', date: '#f-date', tags: '#f-tags', read: '#f-read', excerpt: '#f-excerpt' };
@@ -227,25 +264,25 @@
       if (raw) { try { var s = JSON.parse(raw); for (var k in fields) if (s[k] != null) $(fields[k]).value = s[k]; if (s.body) body.innerHTML = s.body; } catch (e) {} }
     }
 
-    /* ---- diagram placeholders <-> output svg ---- */
+    /* ---- diagram placeholders <-> baked svg ---- */
     function makeBlock(spec, caption) {
       var fig = document.createElement('figure');
       fig.className = 'fig diag-block'; fig.setAttribute('contenteditable', 'false');
-      fig.setAttribute('data-topology', JSON.stringify(spec));
+      fig.setAttribute('data-spec', JSON.stringify(spec));
       fig.setAttribute('data-caption', caption || '');
       fig.innerHTML = '<span class="diag-ph">&#9671; diagram — click to edit</span>' +
         '<figcaption>' + esc(caption || '') + '</figcaption>';
       return fig;
     }
-    // turn editor placeholders into real diagram markup for preview/publish
+    // bake each placeholder into a static, theme-aware <svg> + keep the spec for re-editing
     function serializeBody() {
       var clone = body.cloneNode(true);
       clone.querySelectorAll('.diag-block').forEach(function (fig) {
-        var topo = fig.getAttribute('data-topology') || '{}';
-        var cap = fig.getAttribute('data-caption') || '';
+        var cap = fig.getAttribute('data-caption') || '', spec;
+        try { spec = JSON.parse(fig.getAttribute('data-spec')); } catch (e) { spec = { shapes: [] }; }
         var out = document.createElement('figure'); out.className = 'fig';
-        out.innerHTML = '<svg class="diagram" role="img" data-topology=\'' + topo.replace(/'/g, '&#39;') + '\'></svg>' +
-          (cap ? '<figcaption>' + esc(cap) + '</figcaption>' : '');
+        out.setAttribute('data-spec', fig.getAttribute('data-spec') || '{}');
+        out.innerHTML = window.Diagram.svgMarkup(spec) + (cap ? '<figcaption>' + esc(cap) + '</figcaption>' : '');
         fig.replaceWith(out);
       });
       return clone.innerHTML;
@@ -272,8 +309,7 @@
         (meta ? '    <div class="post-meta">' + meta + '</div>\n' : '') +
         '    <div class="post-body">\n' + bodyHTML + '\n    </div>\n' +
         '  </article>\n\n' +
-        '  <script src="/site.js"><\/script>\n' +
-        '  <script src="/blog/d3.v7.min.js"><\/script>\n  <script src="/blog/diagram.js"><\/script>\n</body>\n</html>\n';
+        '  <script src="/site.js"><\/script>\n</body>\n</html>\n';
     }
 
     /* ---- preview ---- */
@@ -307,24 +343,113 @@
           var src = prompt('Image URL'); if (src) { var alt = prompt('Alt text') || '';
             document.execCommand('insertHTML', false, '<img src="' + escA(src) + '" alt="' + escA(alt) + '" />'); save(); }
         }
-        else if (c === 'diagram') { editDiagram(makeBlock(DEFAULT_DIAGRAM, 'topology'), true); }
+        else if (c === 'diagram') { dgOpen(makeBlock(DEFAULT_DIAGRAM, 'diagram'), true); }
       });
     });
 
-    /* ---- diagram dialog ---- */
+    /* ---- visual diagram editor ---- */
     var dlgD = $('#dlgDiagram'), editingBlock = null, pendingInsert = false;
-    function editDiagram(block, insert) {
-      editingBlock = block; pendingInsert = !!insert;
+    var canvas = $('#dgCanvas'), CELL = window.Diagram.CELL;
+    var dgSpec = null, dgSel = null, dgConnect = false, dgConnectFrom = null;
+    function snap(v) { return Math.max(0, Math.round(v * 2) / 2); }
+    function dgById(id) { return dgSpec.shapes.filter(function (s) { return s.id === id; })[0]; }
+    function dgNextId() { var n = 1, ids = {}; dgSpec.shapes.forEach(function (s) { ids[s.id] = 1; }); while (ids['s' + n]) n++; return 's' + n; }
+
+    function dgOpen(block, insert) {
+      editingBlock = block; pendingInsert = !!insert; dgSel = null; dgConnect = false; dgConnectFrom = null;
+      dlgD.classList.remove('dg-connect-on');
+      try { dgSpec = JSON.parse(block.getAttribute('data-spec')); } catch (e) { dgSpec = { gridH: 5, shapes: [], connectors: [], labels: [] }; }
+      dgSpec.shapes = dgSpec.shapes || []; dgSpec.connectors = dgSpec.connectors || []; dgSpec.labels = dgSpec.labels || [];
       $('#d-caption').value = block.getAttribute('data-caption') || '';
-      var topo; try { topo = JSON.stringify(JSON.parse(block.getAttribute('data-topology')), null, 2); } catch (e) { topo = block.getAttribute('data-topology') || ''; }
-      $('#d-spec').value = topo;
-      dlgD.showModal();
+      dlgD.showModal(); dgRender(); dgPanel();
     }
+    function dgHighlight() {
+      d3.select(canvas).selectAll('[data-shape] rect').attr('stroke-width', 1.5).attr('stroke-dasharray', null);
+      if (dgSel && dgSel.type === 'shape') d3.select(canvas).select('[data-shape="' + dgSel.ref + '"] rect').attr('stroke-width', 2.6).attr('stroke-dasharray', '4 3');
+    }
+    function dgSelect(type, ref) { dgSel = type ? { type: type, ref: ref } : null; dgHighlight(); dgPanel(); }
+
+    function dgRender() {
+      window.Diagram.render(canvas, dgSpec, { grid: true, interactive: true });
+      d3.select(canvas).selectAll('[data-shape]').call(d3.drag()
+        .subject(function () { var r = window.Diagram.rectOf(dgById(this.getAttribute('data-shape'))); return { x: r.x, y: r.y }; })
+        .on('start', function () { var id = this.getAttribute('data-shape'); if (dgConnect) { dgConnectClick(id); return; } dgSelect('shape', id); this.__r = window.Diagram.rectOf(dgById(id)); })
+        .on('drag', function (event) { if (dgConnect) return; var s = dgById(this.getAttribute('data-shape')); s._nx = snap(event.x / CELL); s._ny = snap(event.y / CELL); d3.select(this).attr('transform', 'translate(' + (s._nx * CELL - this.__r.x) + ',' + (s._ny * CELL - this.__r.y) + ')'); })
+        .on('end', function () { if (dgConnect || !this.isConnected) return; var s = dgById(this.getAttribute('data-shape')); if (s._nx != null) { s.x = s._nx; s.y = s._ny; delete s._nx; delete s._ny; } dgRender(); dgPanel(); save(); }));
+      d3.select(canvas).selectAll('[data-label]').call(d3.drag()
+        .subject(function () { var l = dgSpec.labels[+this.getAttribute('data-label')]; return { x: l.x * CELL, y: l.y * CELL }; })
+        .on('start', function () { dgSelect('label', +this.getAttribute('data-label')); })
+        .on('drag', function (event) { var l = dgSpec.labels[+this.getAttribute('data-label')]; l.x = snap(event.x / CELL); l.y = snap(event.y / CELL); d3.select(this).attr('x', l.x * CELL).attr('y', l.y * CELL); })
+        .on('end', function () { if (!this.isConnected) return; dgRender(); dgPanel(); save(); }));
+      d3.select(canvas).selectAll('[data-conn]').on('click', function () { dgSelect('connector', +this.getAttribute('data-conn')); });
+      d3.select(canvas).on('click', function (event) {
+        var t = event.target;
+        if (t.closest && (t.closest('[data-shape]') || t.closest('[data-conn]') || t.closest('[data-label]'))) return;
+        if (dgConnect) { dgConnect = false; dgConnectFrom = null; dlgD.classList.remove('dg-connect-on'); }
+        dgSelect(null);
+      });
+      dgHighlight();
+    }
+    function dgConnectClick(id) {
+      if (!dgConnectFrom) { dgConnectFrom = id; $('#dgPanel').innerHTML = '<p class="hint">Source: <b>' + esc(id) + '</b>. Now click the <b>target</b> box.</p>'; }
+      else if (dgConnectFrom !== id) {
+        dgSpec.connectors.push({ from: dgConnectFrom, to: id, color: 'secondary' });
+        dgConnect = false; dgConnectFrom = null; dlgD.classList.remove('dg-connect-on');
+        dgRender(); dgSelect('connector', dgSpec.connectors.length - 1); save();
+      }
+    }
+    function swatches(cur) {
+      return window.Diagram.COLORS.map(function (c) { return '<button type="button" class="dg-sw' + (c === cur ? ' on' : '') + '" data-color="' + c + '" title="' + c + '" style="background:var(--dg-' + c + ')"></button>'; }).join('');
+    }
+    function bindSwatches(p, set) { p.querySelectorAll('#dp-col .dg-sw').forEach(function (b) { b.onclick = function () { set(b.getAttribute('data-color')); dgRender(); dgPanel(); save(); }; }); }
+    function dgPanel() {
+      var p = $('#dgPanel');
+      if (!dgSel) { p.innerHTML = '<p class="hint">Drag a box to move it (snaps to the grid). Click a box, connector, or label to edit it; add with the buttons above.</p>'; return; }
+      if (dgSel.type === 'shape') {
+        var s = dgById(dgSel.ref); if (!s) { dgSelect(null); return; }
+        p.innerHTML =
+          '<div class="field"><label>text</label><input id="dp-text" value="' + escA(s.text || '') + '" /></div>' +
+          '<div class="field"><label>sub-label</label><input id="dp-sub" value="' + escA(s.sub || '') + '" /></div>' +
+          '<div class="field"><label>colour</label><div class="dg-swatches" id="dp-col">' + swatches(s.color) + '</div></div>' +
+          '<div class="field"><label>size — w × h</label><div class="dg-row"><span class="dg-step"><button data-k="w" data-d="-0.5">&minus;</button><span id="dp-w">' + (s.w || 2) + '</span><button data-k="w" data-d="0.5">+</button></span><span class="dg-step"><button data-k="h" data-d="-0.5">&minus;</button><span id="dp-h">' + (s.h || 1) + '</span><button data-k="h" data-d="0.5">+</button></span></div></div>' +
+          '<button class="btn" id="dp-del" type="button">Delete box</button>';
+        $('#dp-text').oninput = function () { s.text = this.value; dgRender(); };
+        $('#dp-sub').oninput = function () { s.sub = this.value; dgRender(); };
+        bindSwatches(p, function (c) { s.color = c; });
+        p.querySelectorAll('.dg-step button').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-k'); s[k] = Math.max(0.5, (s[k] || (k === 'w' ? 2 : 1)) + parseFloat(b.getAttribute('data-d'))); $('#dp-' + k).textContent = s[k]; dgRender(); save(); }; });
+        $('#dp-del').onclick = function () { dgSpec.shapes = dgSpec.shapes.filter(function (x) { return x.id !== s.id; }); dgSpec.connectors = dgSpec.connectors.filter(function (c) { return c.from !== s.id && c.to !== s.id; }); dgSelect(null); dgRender(); save(); };
+      } else if (dgSel.type === 'connector') {
+        var c = dgSpec.connectors[dgSel.ref]; if (!c) { dgSelect(null); return; }
+        p.innerHTML =
+          '<div class="field"><label>label</label><input id="dp-clabel" value="' + escA(c.label || '') + '" /></div>' +
+          '<div class="field"><label>colour</label><div class="dg-swatches" id="dp-col">' + swatches(c.color || 'secondary') + '</div></div>' +
+          '<div class="field"><label>route</label><select id="dp-route"><option value="auto"' + (!c.route || c.route === 'auto' ? ' selected' : '') + '>auto</option><option value="over"' + (c.route === 'over' ? ' selected' : '') + '>over</option><option value="under"' + (c.route === 'under' ? ' selected' : '') + '>under</option></select></div>' +
+          '<div class="field dg-row"><label><input type="checkbox" id="dp-dash"' + (c.dash ? ' checked' : '') + ' /> dashed</label></div>' +
+          '<button class="btn" id="dp-del" type="button">Delete connector</button>';
+        $('#dp-clabel').oninput = function () { c.label = this.value; dgRender(); };
+        bindSwatches(p, function (col) { c.color = col; });
+        $('#dp-route').onchange = function () { c.route = this.value; dgRender(); save(); };
+        $('#dp-dash').onchange = function () { c.dash = this.checked; dgRender(); save(); };
+        $('#dp-del').onclick = function () { dgSpec.connectors.splice(dgSel.ref, 1); dgSelect(null); dgRender(); save(); };
+      } else if (dgSel.type === 'label') {
+        var l = dgSpec.labels[dgSel.ref]; if (!l) { dgSelect(null); return; }
+        p.innerHTML =
+          '<div class="field"><label>text</label><input id="dp-ltext" value="' + escA(l.text || '') + '" /></div>' +
+          '<div class="field"><label>colour</label><div class="dg-swatches" id="dp-col">' + swatches(l.color || 'primary') + '</div></div>' +
+          '<button class="btn" id="dp-del" type="button">Delete label</button>';
+        $('#dp-ltext').oninput = function () { l.text = this.value; dgRender(); };
+        bindSwatches(p, function (col) { l.color = col; });
+        $('#dp-del').onclick = function () { dgSpec.labels.splice(dgSel.ref, 1); dgSelect(null); dgRender(); save(); };
+      }
+    }
+    $('#dg-add').addEventListener('click', function () { var id = dgNextId(); dgSpec.shapes.push({ id: id, x: 1, y: 1, w: 2, h: 1, color: 'primary', text: 'box' }); dgRender(); dgSelect('shape', id); save(); });
+    $('#dg-label').addEventListener('click', function () { dgSpec.labels.push({ x: 1, y: 0.6, text: 'label', color: 'accent1' }); dgRender(); dgSelect('label', dgSpec.labels.length - 1); save(); });
+    $('#dg-connect').addEventListener('click', function () { dgConnect = !dgConnect; dgConnectFrom = null; dlgD.classList.toggle('dg-connect-on', dgConnect); if (dgConnect) { dgSel = null; dgHighlight(); $('#dgPanel').innerHTML = '<p class="hint">Click the <b>source</b> box, then the <b>target</b> box.</p>'; } else dgPanel(); });
     $('#d-cancel').addEventListener('click', function () { dlgD.close(); editingBlock = null; });
+    $('#d-delete').addEventListener('click', function () { if (editingBlock && editingBlock.parentNode) editingBlock.remove(); dlgD.close(); editingBlock = null; save(); });
     $('#d-save').addEventListener('click', function () {
-      var spec; try { spec = JSON.parse($('#d-spec').value); } catch (e) { alert('Invalid JSON: ' + e.message); return; }
       var cap = $('#d-caption').value;
-      editingBlock.setAttribute('data-topology', JSON.stringify(spec));
+      editingBlock.setAttribute('data-spec', JSON.stringify(dgSpec));
       editingBlock.setAttribute('data-caption', cap);
       editingBlock.querySelector('figcaption').textContent = cap;
       if (pendingInsert) { body.focus(); insertNode(editingBlock); body.appendChild(document.createElement('p')); }
@@ -335,9 +460,7 @@
       if (sel && sel.rangeCount && body.contains(sel.anchorNode)) { var r = sel.getRangeAt(0); r.collapse(false); r.insertNode(node); }
       else body.appendChild(node);
     }
-    body.addEventListener('click', function (e) {
-      var fig = e.target.closest('.diag-block'); if (fig) editDiagram(fig, false);
-    });
+    body.addEventListener('click', function (e) { var fig = e.target.closest('.diag-block'); if (fig) dgOpen(fig, false); });
 
     /* ---- settings ---- */
     var dlgS = $('#dlgSettings');
@@ -390,12 +513,11 @@
       };
       var bodyEl = doc.querySelector('.post-body');
       if (bodyEl) {
-        bodyEl.querySelectorAll('figure.fig').forEach(function (fig) {
-          var svg = fig.querySelector('svg.diagram[data-topology]'); if (!svg) return;
+        bodyEl.querySelectorAll('figure.fig[data-spec]').forEach(function (fig) {
           var c = fig.querySelector('figcaption'), cap = c ? c.textContent.trim() : '';
           var block = document.createElement('figure');
           block.className = 'fig diag-block'; block.setAttribute('contenteditable', 'false');
-          block.setAttribute('data-topology', svg.getAttribute('data-topology'));
+          block.setAttribute('data-spec', fig.getAttribute('data-spec'));
           block.setAttribute('data-caption', cap);
           block.innerHTML = '<span class="diag-ph">&#9671; diagram — click to edit</span><figcaption>' + esc(cap) + '</figcaption>';
           fig.replaceWith(block);

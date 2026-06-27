@@ -11,6 +11,7 @@
   --hair:rgba(255,255,255,.14); --hair-strong:rgba(255,255,255,.30); --chip:rgba(255,255,255,.03);
   --accent:#e8643c; --accent-rgb:232,100,60; --accent-fg:#0a0a0a; --sel:rgba(232,100,60,.30);
   --veil:10,10,10; --h1-top:#ffffff; --h1-mid:#cdccca;
+  --dg-primary:#d8d6d2; --dg-secondary:#8a8a8a; --dg-accent1:#e8643c; --dg-accent2:#46b3c2;
 }
 :root[data-theme="light"]{
   --bg:#f4f2ec; --bg-elev:#ffffff;
@@ -19,6 +20,7 @@
   --hair:rgba(0,0,0,.16); --hair-strong:rgba(0,0,0,.42); --chip:rgba(0,0,0,.04);
   --accent:#c2461f; --accent-rgb:194,70,31; --accent-fg:#ffffff; --sel:rgba(194,70,31,.22);
   --veil:244,242,236; --h1-top:#18130f; --h1-mid:#5a534b;
+  --dg-primary:#2a2622; --dg-secondary:#6b6258; --dg-accent1:#c2461f; --dg-accent2:#1f7d92;
 }
 
 /* ---- reset / base ---- */
