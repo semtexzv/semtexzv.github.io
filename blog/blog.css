@@ -46,15 +46,25 @@
 .post-body .lede{ font-size:clamp(1.12rem,1.8vw,1.32rem); line-height:1.55; color:var(--fg-strong); max-width:64ch; }
 .post-body h2{ font-size:1.45rem; font-weight:800; letter-spacing:-.015em; margin:2.8rem 0 .4rem; color:var(--fg-strong); }
 .post-body h2 .h2num{ color:var(--accent); font-family:ui-monospace,Menlo,monospace; font-size:.8rem; margin-right:.6em; }
-.post-body b{ color:var(--fg-strong); font-weight:700; }
-.post-body em{ font-style:normal; color:var(--accent); }
+.post-body h3{ font-size:1.12rem; font-weight:800; letter-spacing:-.01em; margin:2rem 0 .3rem; color:var(--fg-strong); }
+.post-body b, .post-body strong{ color:var(--fg-strong); font-weight:700; }
+.post-body em, .post-body i{ font-style:normal; color:var(--accent); }
+.post-body mark{ background:color-mix(in srgb, var(--accent) 22%, transparent); color:var(--fg-strong); border-radius:3px; padding:0 .15em; }
 .post-body code{ font-family:ui-monospace,Menlo,monospace; font-size:.88em; background:var(--bg-elev);
   border:1px solid var(--hair); border-radius:4px; padding:.08em .36em; }
+.post-body pre{ margin:1.6rem 0; padding:1rem 1.1rem; background:var(--bg-elev); border:1px solid var(--hair);
+  border-radius:8px; overflow:auto; font-family:ui-monospace,Menlo,monospace; font-size:.85rem; line-height:1.55; color:var(--fg); }
+.post-body pre code{ background:none; border:0; padding:0; font-size:1em; }
 .post-body ul{ margin:1.1rem 0; padding:0; list-style:none; max-width:70ch; }
 .post-body ul li{ position:relative; padding-left:1.3rem; margin:.5rem 0; color:var(--fg); line-height:1.6; }
 .post-body ul li::before{ content:"—"; position:absolute; left:0; color:var(--accent); }
+.post-body ol{ margin:1.1rem 0; padding-left:1.5rem; max-width:70ch; }
+.post-body ol li{ margin:.5rem 0; padding-left:.3rem; color:var(--fg); line-height:1.6; }
+.post-body ol li::marker{ color:var(--accent); font-family:ui-monospace,Menlo,monospace; font-size:.85em; }
 .post-body blockquote{ margin:1.6rem 0; padding:.2rem 0 .2rem 1.1rem; border-left:2px solid var(--accent);
   color:var(--muted); font-size:1.05rem; line-height:1.6; }
+.post-body hr{ border:0; border-top:1px solid var(--hair); margin:2.4rem 0; }
+.post-body img{ max-width:100%; height:auto; display:block; border:1px solid var(--hair); border-radius:8px; margin:1.6rem 0; }
 .draft-note{ margin-top:3rem; padding:1.1rem 1.2rem; border:1px dashed var(--hair-strong); border-radius:8px;
   font-family:ui-monospace,Menlo,monospace; font-size:.8rem; color:var(--muted); }
 .draft-note b{ color:var(--accent); }

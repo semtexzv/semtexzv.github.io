@@ -116,13 +116,19 @@
         <div class="field"><label>excerpt (optional — used on the index)</label><textarea id="f-excerpt" rows="2" placeholder="One or two sentences for the post card…"></textarea></div>
 
         <div class="toolbar" id="toolbar">
-          <button data-cmd="h2" type="button" title="Heading">H2</button>
-          <button data-cmd="bold" type="button" title="Bold"><b>B</b></button>
-          <button data-cmd="italic" type="button" title="Italic"><i>I</i></button>
+          <button data-cmd="h2" type="button" title="Heading 2">H2</button>
+          <button data-cmd="h3" type="button" title="Heading 3">H3</button>
+          <button data-cmd="bold" type="button" title="Strong"><b>B</b></button>
+          <button data-cmd="em" type="button" title="Emphasis (accent)"><i>i</i></button>
+          <button data-cmd="mark" type="button" title="Highlight">hl</button>
           <button data-cmd="link" type="button" title="Link">link</button>
           <button data-cmd="code" type="button" title="Inline code">code</button>
+          <button data-cmd="pre" type="button" title="Code block">{&nbsp;}</button>
           <button data-cmd="quote" type="button" title="Quote">&ldquo;</button>
-          <button data-cmd="ul" type="button" title="List">&bull; list</button>
+          <button data-cmd="ul" type="button" title="Bulleted list">&bull; list</button>
+          <button data-cmd="ol" type="button" title="Numbered list">1. list</button>
+          <button data-cmd="hr" type="button" title="Divider">&mdash;</button>
+          <button data-cmd="img" type="button" title="Image">image</button>
           <button data-cmd="diagram" type="button" title="Diagram">&#9671; diagram</button>
         </div>
         <div class="post-body editor-body" id="body" contenteditable="true"></div>
@@ -194,6 +200,11 @@
     function slugify(s) { return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
     function b64(str) { return btoa(unescape(encodeURIComponent(str))); }
     function unb64(b) { return decodeURIComponent(escape(atob(b))); }
+    function escA(s) { return esc(s).replace(/"/g, '&quot;'); }
+    function wrapSelection(tag) {
+      var sel = window.getSelection(); if (!sel || !sel.toString()) return;
+      document.execCommand('insertHTML', false, '<' + tag + '>' + esc(sel.toString()) + '</' + tag + '>'); save();
+    }
 
     /* ---- draft persistence ---- */
     function collect() {
@@ -281,13 +292,20 @@
       b.addEventListener('click', function () {
         var c = b.getAttribute('data-cmd');
         if (c === 'h2') exec('formatBlock', 'H2');
+        else if (c === 'h3') exec('formatBlock', 'H3');
         else if (c === 'bold') exec('bold');
-        else if (c === 'italic') exec('italic');
+        else if (c === 'em') exec('italic');
         else if (c === 'quote') exec('formatBlock', 'BLOCKQUOTE');
+        else if (c === 'pre') exec('formatBlock', 'PRE');
         else if (c === 'ul') exec('insertUnorderedList');
+        else if (c === 'ol') exec('insertOrderedList');
+        else if (c === 'hr') exec('insertHorizontalRule');
         else if (c === 'link') { var u = prompt('Link URL'); if (u) exec('createLink', u); }
-        else if (c === 'code') {
-          var sel = window.getSelection(); if (sel && sel.toString()) { document.execCommand('insertHTML', false, '<code>' + esc(sel.toString()) + '</code>'); save(); }
+        else if (c === 'mark') { wrapSelection('mark'); }
+        else if (c === 'code') { wrapSelection('code'); }
+        else if (c === 'img') {
+          var src = prompt('Image URL'); if (src) { var alt = prompt('Alt text') || '';
+            document.execCommand('insertHTML', false, '<img src="' + escA(src) + '" alt="' + escA(alt) + '" />'); save(); }
         }
         else if (c === 'diagram') { editDiagram(makeBlock(DEFAULT_DIAGRAM, 'topology'), true); }
       });
