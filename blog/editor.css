@@ -101,4 +101,22 @@ body { height: 100vh; overflow: hidden; }
   color: var(--fg-strong); border: 1px solid var(--accent); border-radius: 4px; padding: 2px 6px; }
 .dgb figcaption { margin-top: .6rem; }
 
+/* between-block insert "+" */
+.gap { height: 12px; position: relative; }
+.gap .gap-add { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--hair-strong);
+  background: var(--bg-elev); color: var(--muted); font-size: 1rem; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .12s; z-index: 3; }
+.gap:hover .gap-add, .gap .gap-add:focus { opacity: 1; }
+.gap:hover::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed var(--hair); }
+
+/* inline cell picker (block-type chooser — not a dropdown) */
+.cellpick { display: flex; flex-wrap: wrap; gap: .35rem; margin: .6rem 0; padding: .5rem; border: 1px solid var(--hair-strong);
+  border-radius: 8px; background: var(--bg-elev); }
+.cellpick .cell { font-family: ui-monospace, Menlo, monospace; font-size: .72rem; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--hair); border-radius: 6px; padding: .4em .7em; cursor: pointer; }
+.cellpick .cell:hover { border-color: var(--accent); color: var(--accent); }
+
+/* inline mark toolbar active state */
+.itool button.on { background: var(--accent); color: var(--accent-fg); }
+
 @media (max-width: 720px) { .block > .gutter { left: -1.6rem; } }

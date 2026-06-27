@@ -30,11 +30,20 @@ window.BlogEditor = (function () {
     });
   }
   textDef('h1', 'Heading 1', 'h1', null, 'Heading 1');
+  register({   // numbered section heading; also adopts the old <span class="h2num"> style on open
+    type: 'h2num', label: 'Numbered heading', group: 'text', text: true,
+    create: function () { return { id: nid(), type: 'h2num', html: '' }; },
+    render: function (b) { var e = el('h2'); e.className = 'num'; e.contentEditable = 'true'; e.setAttribute('data-ph', 'Section heading'); e.innerHTML = b.html || ''; return e; },
+    toHTML: function (b) { return '<h2 class="num">' + (b.html || '') + '</h2>'; },
+    match: function (el2) { return el2.tagName === 'H2' && (el2.classList.contains('num') || !!el2.querySelector('.h2num')); },
+    fromHTML: function (el2) { var c = el2.cloneNode(true), sp = c.querySelector('.h2num'); if (sp) sp.remove(); return { id: nid(), type: 'h2num', html: c.innerHTML.trim() }; }
+  });
   textDef('h2', 'Heading 2', 'h2', null, 'Heading 2');
   textDef('h3', 'Heading 3', 'h3', null, 'Heading 3');
   textDef('lede', 'Lede', 'p', 'lede', 'Lede paragraph…');
   textDef('p', 'Text', 'p', null, "Write, or press '/' for blocks…");
   textDef('quote', 'Quote', 'blockquote', null, 'Quote');
+  textDef('note', 'Note', 'div', 'draft-note', 'Note…');
 
   function listDef(type, tag, label) {
     register({
@@ -150,16 +159,27 @@ window.BlogEditor = (function () {
 
   P.setDoc = function (doc) { this.doc = doc && doc.length ? doc : [REG.p.create()]; this.undo = []; this.redo = []; this.renderAll(); };
   P.renderAll = function () {
-    this.host.innerHTML = ''; this.elMap = {}; this.deMap = {}; var self = this;
-    this.doc.forEach(function (b) { self.host.appendChild(self.blockRow(b)); });
+    this.host.innerHTML = ''; this.elMap = {}; this.deMap = {}; this.closePicker(); var self = this;
+    this.doc.forEach(function (b, i) { self.host.appendChild(self.gap(i)); self.host.appendChild(self.blockRow(b)); });
+    this.host.appendChild(this.gap(this.doc.length));
+  };
+  P.gap = function (index) {
+    var self = this, g = el('div', { class: 'gap' });
+    var add = el('button', { class: 'gap-add', type: 'button', title: 'Add a block' }); add.textContent = '+';
+    add.onmousedown = function (e) { e.preventDefault(); };
+    add.onclick = function () { self.insertGap(index); };
+    g.appendChild(add); return g;
+  };
+  P.insertGap = function (index) {
+    this.snapshot(); var nb = REG.p.create(); this.doc.splice(index, 0, nb); this.renderAll(); this.focusBlock(nb.id, false); this.cellPicker(nb.id, false); this.save();
   };
   P.blockRow = function (b) {
     var def = REG[b.type] || REG.html, self = this;
     var row = el('div', { class: 'block', 'data-id': b.id, 'data-type': b.type });
     var g = el('div', { class: 'gutter' });
-    var add = el('button', { class: 'b-add', title: 'Add block below' }); add.textContent = '+'; add.onmousedown = function (e) { e.preventDefault(); }; add.onclick = function () { self.openMenu(b, 'after', add); };
+    var turn = el('button', { class: 'b-turn', title: 'Turn into…' }); turn.textContent = '¶'; turn.onmousedown = function (e) { e.preventDefault(); }; turn.onclick = function () { self.cellPicker(b.id, true); };
     var del = el('button', { class: 'b-del', title: 'Delete block' }); del.textContent = '×'; del.onclick = function () { self.deleteBlock(b.id); };
-    g.append(add, del);
+    g.append(turn, del);
     var content = def.render(b, this);
     if (def.text) this.wireText(b, content);
     row.append(g, content); this.elMap[b.id] = def.text ? content : null;
@@ -184,7 +204,7 @@ window.BlogEditor = (function () {
       if (REG[prev.type].text) { e.preventDefault(); this.snapshot(); prev.html = (prev.html || '') + (b.html || ''); this.doc.splice(i, 1); this.renderAll(); this.focusBlock(prev.id, true); this.save(); }
       else if ((node.textContent || '') === '') { e.preventDefault(); this.snapshot(); this.doc.splice(i, 1); this.renderAll(); this.selectBlock(prev.id); this.save(); }
     } else if (e.key === '/' && (node.textContent || '') === '') {
-      e.preventDefault(); this.openMenu(b, 'convert', node);
+      e.preventDefault(); this.cellPicker(b.id, true);
     }
   };
   P.focusBlock = function (id, atEnd) { var n = this.elMap[id]; if (!n) return; n.focus(); var r = document.createRange(); r.selectNodeContents(n); r.collapse(!atEnd); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); };
@@ -198,29 +218,17 @@ window.BlogEditor = (function () {
   };
 
   /* ---------- block menu ---------- */
-  P.openMenu = function (b, mode, anchorEl) {
-    var self = this; this.closeMenu();
-    var m = el('div', { class: 'bmenu' }); var groups = {};
-    MENU.forEach(function (d) { (groups[d.group] = groups[d.group] || []).push(d); });
-    Object.keys(groups).forEach(function (gname) {
-      var h = el('div', { class: 'bm-group' }); h.textContent = gname; m.appendChild(h);
-      groups[gname].forEach(function (d) { var btn = el('button', { type: 'button' }); btn.innerHTML = d.label; btn.onclick = function () { self.applyMenu(b, mode, d.type); self.closeMenu(); }; m.appendChild(btn); });
-    });
-    document.body.appendChild(m); this._menu = m;
-    var r = anchorEl.getBoundingClientRect(); m.style.left = Math.min(r.left, window.innerWidth - 250) + 'px'; m.style.top = (r.bottom + 4) + 'px';
-    setTimeout(function () { document.addEventListener('pointerdown', self._menuClose = function (ev) { if (!m.contains(ev.target)) self.closeMenu(); }, true); }, 0);
+  // inline "cell" picker — choose a block type from a row of cells (no dropdown)
+  P.cellPicker = function (blockId, doSnap) {
+    var self = this; this.closePicker();
+    var row = this.host.querySelector('.block[data-id="' + blockId + '"]'); if (!row) return;
+    var bar = el('div', { class: 'cellpick' });
+    MENU.forEach(function (d) { var chip = el('button', { type: 'button', class: 'cell' }); chip.textContent = d.label; chip.onmousedown = function (e) { e.preventDefault(); }; chip.onclick = function () { self.closePicker(); var blk = self.byId(blockId); if (blk) self.convertBlock(blk, d.type, doSnap); }; bar.appendChild(chip); });
+    row.appendChild(bar); this._picker = { bar: bar };
+    setTimeout(function () { document.addEventListener('pointerdown', self._pickClose = function (ev) { if (!bar.contains(ev.target)) self.closePicker(); }, true); }, 0);
   };
-  P.closeMenu = function () { if (this._menu) { this._menu.remove(); this._menu = null; } if (this._menuClose) { document.removeEventListener('pointerdown', this._menuClose, true); this._menuClose = null; } };
-  P.applyMenu = function (b, mode, type) {
-    this.snapshot();
-    if (mode === 'convert') {
-      var nb = REG[type].create(); nb.id = b.id; if (REG[type].text && REG[b.type] && REG[b.type].text) nb.html = b.html || '';
-      this.doc[this.indexOf(b.id)] = nb; this.renderAll(); if (REG[type].text) this.focusBlock(nb.id, true);
-    } else {
-      var n2 = REG[type].create(); this.doc.splice(this.indexOf(b.id) + 1, 0, n2); this.renderAll(); if (REG[type].text) this.focusBlock(n2.id, false);
-    }
-    this.save();
-  };
+  P.closePicker = function () { if (this._picker) { if (this._picker.bar.parentNode) this._picker.bar.remove(); this._picker = null; } if (this._pickClose) { document.removeEventListener('pointerdown', this._pickClose, true); this._pickClose = null; } };
+  P.convertBlock = function (b, type, doSnap) { if (doSnap !== false) this.snapshot(); var nb = REG[type].create(); nb.id = b.id; if (REG[type].text && REG[b.type] && REG[b.type].text) nb.html = b.html || ''; this.doc[this.indexOf(b.id)] = nb; this.renderAll(); if (REG[type].text) this.focusBlock(nb.id, true); this.save(); };
 
   /* ---------- inline mark toolbar ---------- */
   P.syncInlineToolbar = function () {
@@ -231,17 +239,37 @@ window.BlogEditor = (function () {
     var r = s.getRangeAt(0).getBoundingClientRect();
     this._itool.style.left = (window.scrollX + r.left + r.width / 2 - this._itool.offsetWidth / 2) + 'px';
     this._itool.style.top = (window.scrollY + r.top - this._itool.offsetHeight - 8) + 'px';
+    this.updateInlineActive();
   };
   P.buildInlineToolbar = function () {
-    var self = this, t = el('div', { class: 'itool' });
-    [['B', function () { document.execCommand('bold'); }], ['i', function () { document.execCommand('italic'); }],
-     ['hl', function () { self.wrapMark('mark'); }], ['<>', function () { self.wrapMark('code'); }],
-     ['link', function () { var u = prompt('URL'); if (u) document.execCommand('createLink', false, u); }]].forEach(function (x) {
-      var btn = el('button', { type: 'button' }); btn.innerHTML = x[0]; btn.onmousedown = function (e) { e.preventDefault(); }; btn.onclick = function () { self.snapshot(); x[1](); self.syncActive(); self.save(); }; t.appendChild(btn);
+    var self = this, t = el('div', { class: 'itool' }); this._ibtns = [];
+    [['B', 'strong'], ['i', 'em'], ['hl', 'mark'], ['<>', 'code'], ['link', 'a']].forEach(function (x) {
+      var btn = el('button', { type: 'button' }); btn.innerHTML = x[0]; btn._tag = x[1];
+      btn.onmousedown = function (e) { e.preventDefault(); };
+      btn.onclick = function () { if (x[1] === 'a') self.toggleLink(); else self.toggleMark(x[1]); };
+      t.appendChild(btn); self._ibtns.push(btn);
     });
     document.body.appendChild(t); return t;
   };
-  P.wrapMark = function (tag) { var s = window.getSelection(); if (!s.rangeCount || s.isCollapsed) return; var txt = s.toString(); document.execCommand('insertHTML', false, '<' + tag + '>' + esc(txt) + '</' + tag + '>'); };
+  P.enclosingTag = function (tag) { var n = window.getSelection().anchorNode; while (n && n !== this.host) { if (n.nodeType === 1 && n.tagName.toLowerCase() === tag) return n; n = n.parentNode; } return null; };
+  P.updateInlineActive = function () {
+    if (!this._itool) return; var self = this;
+    this._ibtns.forEach(function (b) { b.classList.toggle('on', !!self.enclosingTag(b._tag)); });
+  };
+  P.toggleMark = function (tag) {
+    var sel = window.getSelection(); if (!sel.rangeCount) return; var encl = this.enclosingTag(tag);
+    if (!encl && sel.isCollapsed) return;
+    this.snapshot();
+    if (encl) { var p = encl.parentNode; while (encl.firstChild) p.insertBefore(encl.firstChild, encl); p.removeChild(encl); p.normalize(); }
+    else { var range = sel.getRangeAt(0), w = document.createElement(tag); try { range.surroundContents(w); } catch (e) { w.appendChild(range.extractContents()); range.insertNode(w); } var r2 = document.createRange(); r2.selectNodeContents(w); sel.removeAllRanges(); sel.addRange(r2); }
+    this.syncActive(); this.save(); this.updateInlineActive();
+  };
+  P.toggleLink = function () {
+    var sel = window.getSelection(); if (!sel.rangeCount) return; var a = this.enclosingTag('a');
+    if (a) { this.snapshot(); var p = a.parentNode; while (a.firstChild) p.insertBefore(a.firstChild, a); p.removeChild(a); p.normalize(); }
+    else { if (sel.isCollapsed) return; var u = prompt('URL'); if (!u) return; this.snapshot(); document.execCommand('createLink', false, u); }
+    this.syncActive(); this.save(); this.updateInlineActive();
+  };
   P.syncActive = function () { var n = this.elMap[this.activeBlockId], b = this.byId(this.activeBlockId); if (n && b) b.html = n.innerHTML; };
 
   /* ---------- keyboard (undo / atomic delete) ---------- */
@@ -272,15 +300,17 @@ window.BlogEditor = (function () {
     var d = [];
     d.push({ id: nid(), type: 'h1', html: 'Kitchen sink' });
     d.push({ id: nid(), type: 'lede', html: 'A sample document that exercises every block — edit any of it in place.' });
-    d.push({ id: nid(), type: 'h2', html: 'Text &amp; emphasis' });
+    d.push({ id: nid(), type: 'h2num', html: 'Text &amp; emphasis' });
     d.push({ id: nid(), type: 'p', html: 'Body text with <strong>strong</strong>, <em>emphasis</em>, a <mark>highlight</mark>, inline <code>code()</code>, and a <a href="/blog/">link</a>.' });
     d.push({ id: nid(), type: 'h3', html: 'A smaller heading' });
     d.push({ id: nid(), type: 'ul', html: '<li>first bullet</li><li>second bullet</li>' });
     d.push({ id: nid(), type: 'ol', html: '<li>step one</li><li>step two</li>' });
     d.push({ id: nid(), type: 'quote', html: 'A blockquote, for pulled-out asides.' });
+    d.push({ id: nid(), type: 'h2num', html: 'Code &amp; media' });
     d.push({ id: nid(), type: 'code', lang: 'python', code: 'def tick(events):\n    for e in events:\n        agent.handle(e)' });
     d.push({ id: nid(), type: 'divider' });
     d.push({ id: nid(), type: 'diagram', caption: 'an agent in a topology', spec: { gridH: 4.4, shapes: [{ id: 'ev', x: 0.3, y: 1.4, w: 2, h: 1, color: 'secondary', text: 'events', sub: 'source' }, { id: 'ag', x: 4, y: 1.4, w: 2, h: 1, color: 'accent1', text: 'agent', sub: 'processor' }, { id: 'ac', x: 7.7, y: 1.4, w: 2, h: 1, color: 'secondary', text: 'actions', sub: 'sink' }, { id: 'mem', x: 4, y: 3.1, w: 2, h: 0.9, color: 'primary', text: 'memory', sub: 'state' }], connectors: [{ from: { shape: 'ev', anchor: 'auto' }, to: { shape: 'ag', anchor: 'auto' }, color: 'accent1' }, { from: { shape: 'ag', anchor: 'auto' }, to: { shape: 'ac', anchor: 'auto' }, color: 'accent1' }, { from: { shape: 'ag', anchor: 's' }, to: { shape: 'mem', anchor: 'n' }, color: 'secondary', label: 'read / write' }, { from: { shape: 'ag', anchor: 'n' }, to: { shape: 'ev', anchor: 'n' }, color: 'accent1', dash: true, route: 'over', label: 'emit · re-enqueue' }], labels: [] } });
+    d.push({ id: nid(), type: 'note', html: '<b>note</b> — callouts use the draft-note style; great for asides and drafts.' });
     d.push({ id: nid(), type: 'p', html: 'And a closing paragraph.' });
     return d;
   }

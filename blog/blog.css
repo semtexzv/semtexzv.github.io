@@ -41,11 +41,13 @@
 .post-meta{ font-family:ui-monospace,Menlo,monospace; font-size:.74rem; letter-spacing:.05em;
   text-transform:uppercase; color:var(--muted); margin-top:1rem; display:flex; gap:1.2em; flex-wrap:wrap; }
 
-.post-body{ margin-top:2.4rem; }
+.post-body{ margin-top:2.4rem; counter-reset:secnum; }
 .post-body > p{ font-size:1.04rem; line-height:1.72; margin:1.25rem 0; color:var(--fg); max-width:70ch; }
 .post-body .lede{ font-size:clamp(1.12rem,1.8vw,1.32rem); line-height:1.55; color:var(--fg-strong); max-width:64ch; }
 .post-body h2{ font-size:1.45rem; font-weight:800; letter-spacing:-.015em; margin:2.8rem 0 .4rem; color:var(--fg-strong); }
 .post-body h2 .h2num{ color:var(--accent); font-family:ui-monospace,Menlo,monospace; font-size:.8rem; margin-right:.6em; }
+.post-body h2.num::before{ counter-increment:secnum; content:counter(secnum,decimal-leading-zero);
+  color:var(--accent); font-family:ui-monospace,Menlo,monospace; font-size:.8rem; font-weight:600; margin-right:.7em; }
 .post-body h3{ font-size:1.12rem; font-weight:800; letter-spacing:-.01em; margin:2rem 0 .3rem; color:var(--fg-strong); }
 .post-body b, .post-body strong{ color:var(--fg-strong); font-weight:700; }
 .post-body em, .post-body i{ font-style:normal; color:var(--accent); }
