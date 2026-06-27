@@ -477,11 +477,12 @@
           <div class="entry-title">Bedrock — AI-Native Software Company in a Box</div>
           <a class="repo" href="bedrock/">semtexzv.github.io/bedrock</a>
         </div>
-        <div class="entry-sub">Autonomous agents that build, review, and improve the platform itself · 2026 — Present</div>
+        <div class="entry-sub">A self-improving multi-agent collective that builds, reviews, and improves a software platform end to end · 2026 — Present</div>
         <ul class="bullets">
-          <li>An <b>AI-native software company in a box</b>: autonomous agents build, review, and deploy changes to the platform itself — <b>fully autonomous, end to end</b></li>
-          <li>Engineered to generate its own data (every change, dispatch, agent conversation, and review is a logged trajectory) and reflexively improve itself from that data and from the frictions and gaps it identifies in its own operation — a <b>Voyager-style lifelong-learning loop</b> applied to a software platform. The same trajectory data improves the harness today and is designed to feed model optimization</li>
-          <li><b>Safe by construction:</b> deny-first agent sandboxing, per-agent isolation and identity, a human gate on the trust base, and an explicitly-advisory LLM review judge</li>
+          <li>A <b>self-improving multi-agent collective</b> — effectively <b>"Kubernetes for agents":</b> an orchestration layer where a swarm of collaborating coding agents (≈15 today) continuously build, review, and integrate changes into a shared, <b>self-building monorepo</b>, end to end</li>
+          <li>Built on <b>Buck2</b> and <b>jj</b> — a self-integrating monorepo with automatic CI and a web review front end, so every change an agent makes is reproducible and lands through one consistent pipeline</li>
+          <li><b>Generates its own data:</b> every change, dispatch, agent conversation, and review is a logged trajectory. I'm building it toward a <b>self-researching environment that creates its own training data and fine-tunes its own agents</b> — the system producing the data that makes its next generation better. A <b>Voyager-style lifelong-learning loop</b>, applied to a software platform</li>
+          <li><b>Bounded self-modification:</b> a structured security layer protects the system's core, so agents can evolve the platform but can't make destructive or self-negative changes to its foundations. Changes to the protected core require human approval, and the automated code reviewer is explicitly advisory — never the sole authority on an adversarial change. Safety is a structural property, not a policy</li>
         </ul>
       </div>
 
