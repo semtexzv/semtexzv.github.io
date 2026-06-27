@@ -1,0 +1,104 @@
+/* editor.css — chrome for the block editor. Block *content* reuses the
+   published .post-body styles (from blog.css) so the surface == the post. */
+body { height: 100vh; overflow: hidden; }
+.ed { display: flex; flex-direction: column; height: 100vh; }
+.ed-top { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; padding: .55rem clamp(.8rem,2vw,1.2rem);
+  border-bottom: 1px solid var(--hair); background: var(--bg-elev); flex: none; }
+.ed-top .brand { font-weight: 800; letter-spacing: -.01em; color: var(--fg-strong); }
+.ed-top .brand b { color: var(--accent); }
+.ed-top .status { font-family: ui-monospace, Menlo, monospace; font-size: .66rem; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--muted); margin-left: .3rem; }
+.ed-top .spacer { flex: 1; }
+.ed-top .toggle { position: static; }
+.btn { font-family: ui-monospace, Menlo, monospace; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--fg); background: var(--bg); border: 1px solid var(--hair); border-radius: 6px; padding: .42em .7em; cursor: pointer; }
+.btn:hover { border-color: var(--hair-strong); color: var(--fg-strong); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+
+.ed-scroll { flex: 1; overflow: auto; }
+.ed-meta { max-width: 780px; margin: 0 auto; padding: clamp(1.4rem,4vw,2.6rem) clamp(1.25rem,4vw,3rem) 0; }
+.ed-meta .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+.ed-meta .field { margin-bottom: .7rem; }
+.ed-meta label { display: block; font-family: ui-monospace, Menlo, monospace; font-size: .58rem; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: .25rem; }
+.ed-meta input, .ed-meta textarea { width: 100%; background: var(--bg-elev); color: var(--fg);
+  border: 1px solid var(--hair); border-radius: 6px; padding: .5em .7em; font: inherit; font-size: .92rem; }
+.ed-meta input:focus, .ed-meta textarea:focus { outline: none; border-color: var(--accent); }
+.ed-meta .divider { border-top: 1px dashed var(--hair); margin: 1rem 0 0; }
+
+/* the WYSIWYG surface: a .content > .post-body, styled by blog.css */
+.surface { max-width: 780px; margin: 0 auto; padding: 1.4rem clamp(1.25rem,4vw,3rem) 40vh; }
+#blocks { position: relative; outline: none; }
+#blocks [contenteditable]:focus { outline: none; }
+#blocks [contenteditable]:empty::before { content: attr(data-ph); color: var(--faint); pointer-events: none; }
+
+/* per-block gutter (add + drag), positioned in the left margin */
+.block { position: relative; }
+.block > .gutter { position: absolute; left: -2.4rem; top: .15em; display: flex; gap: .15rem; opacity: 0;
+  transition: opacity .12s; }
+.block:hover > .gutter, .block.sel > .gutter { opacity: 1; }
+.gutter button { width: 1.3rem; height: 1.3rem; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: none; color: var(--faint); cursor: pointer; border-radius: 4px; font-size: .9rem; line-height: 1; }
+.gutter button:hover { background: var(--chip); color: var(--fg-strong); }
+.gutter .b-drag { cursor: grab; }
+.block.dragging { opacity: .4; }
+.block.drop-before::before, .block.drop-after::after { content: ""; display: block; height: 2px; background: var(--accent); margin: .2rem 0; }
+
+/* atomic-block selection ring */
+.block.sel > .b-atomic { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+/* code block */
+.cb { margin: 1.6rem 0; }
+.cb-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem; }
+.cb-head select { font-family: ui-monospace, Menlo, monospace; font-size: .68rem; background: var(--bg-elev);
+  color: var(--muted); border: 1px solid var(--hair); border-radius: 5px; padding: .2em .4em; }
+.cb pre { margin: 0; }
+.cb pre code { display: block; outline: none; white-space: pre-wrap; }
+
+/* image block */
+.imgb { margin: 1.6rem 0; text-align: center; }
+.imgb img { max-width: 100%; border: 1px solid var(--hair); border-radius: 8px; }
+.imgb .img-empty { border: 1px dashed var(--hair-strong); border-radius: 8px; padding: 2rem; color: var(--muted);
+  font-family: ui-monospace, Menlo, monospace; font-size: .8rem; cursor: pointer; }
+.imgb figcaption { margin-top: .6rem; }
+
+/* block menu (slash / +) */
+.bmenu { position: absolute; z-index: 60; background: var(--bg-elev); border: 1px solid var(--hair-strong);
+  border-radius: 10px; padding: .35rem; min-width: 220px; box-shadow: 0 10px 30px rgba(0,0,0,.35); max-height: 300px; overflow: auto; }
+.bmenu .bm-group { font-family: ui-monospace, Menlo, monospace; font-size: .56rem; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--faint); padding: .5rem .6rem .25rem; }
+.bmenu button { display: flex; width: 100%; align-items: baseline; gap: .6rem; text-align: left; border: 0; background: none;
+  color: var(--fg); font: inherit; font-size: .9rem; padding: .4rem .6rem; border-radius: 7px; cursor: pointer; }
+.bmenu button:hover, .bmenu button.on { background: var(--chip); color: var(--fg-strong); }
+.bmenu button .bm-key { margin-left: auto; font-family: ui-monospace, Menlo, monospace; font-size: .7rem; color: var(--faint); }
+
+/* inline mark toolbar */
+.itool { position: absolute; z-index: 60; display: flex; gap: .15rem; background: var(--bg-elev);
+  border: 1px solid var(--hair-strong); border-radius: 8px; padding: .25rem; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.itool button { border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 5px;
+  min-width: 28px; height: 26px; font-family: ui-monospace, Menlo, monospace; font-size: .8rem; }
+.itool button:hover { background: var(--chip); color: var(--fg-strong); }
+
+/* ---- diagram block (inline, direct manipulation) ---- */
+.dgb { margin: 1.8rem 0; position: relative; }
+.dgb .dg-bar { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; margin-bottom: .4rem;
+  opacity: .5; transition: opacity .12s; }
+.dgb:hover .dg-bar, .dgb.active .dg-bar { opacity: 1; }
+.dg-bar button, .dg-bar select { font-family: ui-monospace, Menlo, monospace; font-size: .68rem; color: var(--muted);
+  background: var(--bg-elev); border: 1px solid var(--hair); border-radius: 5px; padding: .25em .5em; cursor: pointer; }
+.dg-bar button:hover { color: var(--fg-strong); border-color: var(--hair-strong); }
+.dg-bar .on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.dg-bar .sep { width: 1px; height: 18px; background: var(--hair); margin: 0 .2rem; }
+.dg-sw { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--hair); cursor: pointer; padding: 0; }
+.dg-sw.on { border-color: var(--fg-strong); }
+.dgb .dg-canvas-wrap { background: var(--bg); border: 1px solid var(--hair); border-radius: 8px; padding: .5rem; position: relative; }
+.dgb svg.diagram { width: 100%; height: auto; display: block; touch-action: none; }
+.dgb svg.diagram .sel-ring { stroke: var(--accent); stroke-width: 2.4; stroke-dasharray: 4 3; fill: none; }
+.dgb .dg-handle { fill: var(--bg-elev); stroke: var(--accent); stroke-width: 1.6; cursor: grab; }
+.dgb .dg-anchor { fill: var(--accent); opacity: .85; }
+.dgb .dg-text-edit { position: absolute; z-index: 5; transform: translate(-50%,-50%); text-align: center;
+  font-family: ui-monospace, Menlo, monospace; font-size: 13px; font-weight: 600; background: var(--bg-elev);
+  color: var(--fg-strong); border: 1px solid var(--accent); border-radius: 4px; padding: 2px 6px; }
+.dgb figcaption { margin-top: .6rem; }
+
+@media (max-width: 720px) { .block > .gutter { left: -1.6rem; } }

@@ -7,112 +7,16 @@
 <meta name="robots" content="noindex" />
 <link rel="stylesheet" href="/site.css" />
 <link rel="stylesheet" href="/blog/blog.css" />
-<style>
-  /* editor-specific chrome; everything else comes from site.css + blog.css */
-  body{ height:100vh; overflow:hidden; }
-  .ed{ display:flex; flex-direction:column; height:100vh; }
-  .ed-top{ display:flex; align-items:center; flex-wrap:wrap; gap:.7rem; padding:.6rem clamp(.8rem,2vw,1.2rem);
-    border-bottom:1px solid var(--hair); background:var(--bg-elev); flex:none; }
-  .ed-top .toggle{ position:static; }
-  .ed-top .brand{ font-weight:800; letter-spacing:-.01em; color:var(--fg-strong); }
-  .ed-top .brand b{ color:var(--accent); }
-  .ed-top .status{ font-family:ui-monospace,Menlo,monospace; font-size:.68rem; letter-spacing:.05em;
-    text-transform:uppercase; color:var(--muted); margin-left:.4rem; }
-  .ed-top .spacer{ flex:1; }
-  .btn{ font-family:ui-monospace,Menlo,monospace; font-size:.72rem; letter-spacing:.04em; text-transform:uppercase;
-    color:var(--fg); background:var(--bg); border:1px solid var(--hair); border-radius:6px;
-    padding:.45em .8em; cursor:pointer; transition:border-color .15s,color .15s; }
-  .btn:hover{ border-color:var(--hair-strong); color:var(--fg-strong); }
-  .btn.primary{ background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
-  .btn.primary:hover{ filter:brightness(1.06); color:var(--accent-fg); }
-  .tabs{ display:none; }
-  .tabs button{ background:none; border:none; color:var(--muted); font:inherit; font-size:.8rem; cursor:pointer; padding:.4em .2em; }
-  .tabs button.on{ color:var(--fg-strong); border-bottom:2px solid var(--accent); }
-
-  .ed-main{ flex:1; display:grid; grid-template-columns:1fr 1fr; min-height:0; }
-  .pane{ min-height:0; overflow:auto; }
-  .pane.form{ border-right:1px solid var(--hair); padding:clamp(1rem,2.5vw,2rem); }
-  .pane.preview{ background:var(--bg); }
-  .pane.preview iframe{ width:100%; height:100%; border:0; display:block; background:var(--bg); }
-
-  .field{ margin-bottom:.9rem; }
-  .field label{ display:block; font-family:ui-monospace,Menlo,monospace; font-size:.62rem; letter-spacing:.14em;
-    text-transform:uppercase; color:var(--muted); margin-bottom:.3rem; }
-  .field input, .field textarea{ width:100%; background:var(--bg-elev); color:var(--fg); border:1px solid var(--hair);
-    border-radius:6px; padding:.55em .7em; font:inherit; font-size:.95rem; }
-  .field input:focus, .field textarea:focus, .editor-body:focus{ outline:none; border-color:var(--accent); }
-  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
-
-  .toolbar{ position:sticky; top:0; z-index:2; display:flex; flex-wrap:wrap; gap:.3rem; padding:.5rem 0; background:var(--bg);
-    border-bottom:1px solid var(--hair); margin-bottom:.8rem; }
-  .toolbar button{ font-family:ui-monospace,Menlo,monospace; font-size:.74rem; color:var(--muted);
-    background:var(--bg-elev); border:1px solid var(--hair); border-radius:5px; min-width:32px; height:30px; padding:0 .5em; cursor:pointer; }
-  .toolbar button:hover{ color:var(--fg-strong); border-color:var(--hair-strong); }
-
-  .editor-body{ min-height:40vh; outline:none; }
-  .editor-body:empty::before{ content:"Write the post…"; color:var(--faint); }
-  .editor-body .diag-block{ border:1px dashed var(--hair-strong); border-radius:8px; padding:1rem; text-align:center;
-    background:var(--chip); cursor:pointer; margin:1.4rem 0; }
-  .editor-body .diag-block .diag-ph{ font-family:ui-monospace,Menlo,monospace; font-size:.78rem; color:var(--accent); }
-  .editor-body .diag-block figcaption{ font-family:ui-monospace,Menlo,monospace; font-size:.66rem; color:var(--muted);
-    text-transform:uppercase; letter-spacing:.06em; margin-top:.5rem; }
-
-  dialog{ background:var(--bg-elev); color:var(--fg); border:1px solid var(--hair-strong); border-radius:10px;
-    max-width:min(560px,92vw); width:100%; padding:1.2rem; }
-  dialog::backdrop{ background:rgba(0,0,0,.55); }
-  dialog h3{ margin:.1rem 0 .9rem; font-size:1rem; color:var(--fg-strong); }
-  dialog textarea{ width:100%; min-height:160px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem; }
-  dialog .dlg-actions{ display:flex; gap:.5rem; justify-content:flex-end; margin-top:.9rem; }
-  .hint{ font-size:.78rem; color:var(--muted); line-height:1.5; }
-  .hint a{ color:var(--accent); border-bottom:1px solid var(--hair); }
-  .ok{ color:var(--accent); } .err{ color:#e5484d; }
-  #openList .open-item{ display:block; width:100%; text-align:left; background:var(--bg); border:1px solid var(--hair);
-    border-radius:7px; padding:.6rem .8rem; margin:.4rem 0; cursor:pointer; color:var(--fg); font:inherit; }
-  #openList .open-item:hover{ border-color:var(--accent); }
-  #openList .open-item .oi-title{ font-weight:700; color:var(--fg-strong); }
-  #openList .open-item .oi-slug{ font-family:ui-monospace,Menlo,monospace; font-size:.7rem; color:var(--muted); margin-top:.15rem; }
-
-  /* visual diagram editor */
-  .dlg-diagram{ max-width:min(960px,96vw); }
-  .dg-head{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.7rem; }
-  .dg-head h3{ margin:0; }
-  .dg-tools{ display:flex; gap:.4rem; }
-  .dg-body{ display:grid; grid-template-columns:1fr 230px; gap:1rem; align-items:start; }
-  .dg-canvas-wrap{ background:var(--bg); border:1px solid var(--hair); border-radius:8px; padding:.6rem; }
-  #dgCanvas{ width:100%; height:auto; display:block; touch-action:none; }
-  .dg-panel{ font-size:.85rem; min-height:120px; }
-  .dg-panel .field{ margin-bottom:.7rem; }
-  .dg-swatches{ display:flex; gap:.4rem; }
-  .dg-sw{ width:26px; height:26px; border-radius:6px; border:2px solid var(--hair); cursor:pointer; padding:0; }
-  .dg-sw.on{ border-color:var(--fg-strong); }
-  .dg-step{ display:inline-flex; align-items:center; gap:.45rem; margin-right:.8rem; }
-  .dg-step span{ min-width:1.6em; text-align:center; font-family:ui-monospace,Menlo,monospace; }
-  .dg-step button{ width:26px; height:26px; border:1px solid var(--hair); background:var(--bg-elev); color:var(--fg); border-radius:5px; cursor:pointer; }
-  .dg-row{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
-  .dg-row label{ display:inline; text-transform:none; letter-spacing:0; font-size:.8rem; color:var(--fg); }
-  .dg-connect-on #dg-connect{ background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
-  @media (max-width:680px){ .dg-body{ grid-template-columns:1fr; } }
-
-  @media (max-width:820px){
-    .ed-main{ grid-template-columns:1fr; }
-    .pane.form{ border-right:none; }
-    .pane{ display:none; } .pane.active{ display:block; }
-    .tabs{ display:flex; gap:.4rem; }
-    .ed-top .lbl-hide{ display:none; }
-  }
-</style>
+<link rel="stylesheet" href="/blog/editor.css" />
 </head>
 <body>
   <div class="ed">
     <header class="ed-top">
       <span class="brand"><b>/</b> editor</span>
       <span class="status" id="status">draft</span>
-      <div class="tabs">
-        <button id="tabEdit" class="on" type="button">edit</button>
-        <button id="tabPrev" type="button">preview</button>
-      </div>
       <span class="spacer"></span>
       <button class="btn" id="btnNew" type="button">New</button>
+      <button class="btn" id="btnSample" type="button">Sample</button>
       <button class="btn" id="btnOpen" type="button">Open</button>
       <button class="btn" id="btnSettings" type="button">Settings</button>
       <button class="btn" id="btnDownload" type="button">Download</button>
@@ -120,8 +24,8 @@
       <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>
     </header>
 
-    <div class="ed-main">
-      <section class="pane form active" id="paneForm">
+    <div class="ed-scroll">
+      <div class="ed-meta">
         <div class="row2">
           <div class="field"><label>title</label><input id="f-title" placeholder="Post title" /></div>
           <div class="field"><label>slug</label><input id="f-slug" placeholder="post-slug" /></div>
@@ -134,499 +38,151 @@
           <div class="field"><label>tags (comma)</label><input id="f-tags" placeholder="agents, architecture" /></div>
           <div class="field"><label>read time</label><input id="f-read" placeholder="~4 min" /></div>
         </div>
-        <div class="field"><label>excerpt (optional — used on the index)</label><textarea id="f-excerpt" rows="2" placeholder="One or two sentences for the post card…"></textarea></div>
+        <div class="field"><label>excerpt (used on the index)</label><textarea id="f-excerpt" rows="2" placeholder="One or two sentences…"></textarea></div>
+        <div class="divider"></div>
+      </div>
 
-        <div class="toolbar" id="toolbar">
-          <button data-cmd="h2" type="button" title="Heading 2">H2</button>
-          <button data-cmd="h3" type="button" title="Heading 3">H3</button>
-          <button data-cmd="bold" type="button" title="Strong"><b>B</b></button>
-          <button data-cmd="em" type="button" title="Emphasis (accent)"><i>i</i></button>
-          <button data-cmd="mark" type="button" title="Highlight">hl</button>
-          <button data-cmd="link" type="button" title="Link">link</button>
-          <button data-cmd="code" type="button" title="Inline code">code</button>
-          <button data-cmd="pre" type="button" title="Code block">{&nbsp;}</button>
-          <button data-cmd="quote" type="button" title="Quote">&ldquo;</button>
-          <button data-cmd="ul" type="button" title="Bulleted list">&bull; list</button>
-          <button data-cmd="ol" type="button" title="Numbered list">1. list</button>
-          <button data-cmd="hr" type="button" title="Divider">&mdash;</button>
-          <button data-cmd="img" type="button" title="Image">image</button>
-          <button data-cmd="diagram" type="button" title="Diagram">&#9671; diagram</button>
-        </div>
-        <div class="post-body editor-body" id="body" contenteditable="true"></div>
-      </section>
-
-      <section class="pane preview" id="panePrev">
-        <iframe id="preview" title="preview"></iframe>
-      </section>
+      <article class="content">
+        <div class="post-body" id="blocks"></div>
+      </article>
     </div>
   </div>
 
-  <!-- settings -->
   <dialog id="dlgSettings">
-    <h3>Publish settings</h3>
+    <h3 style="margin:.1rem 0 .9rem">Publish settings</h3>
     <div class="field"><label>GitHub fine-grained token (Contents: read/write on this repo)</label>
       <input id="s-token" type="password" placeholder="github_pat_…" /></div>
     <div class="row2">
       <div class="field"><label>repo</label><input id="s-repo" value="semtexzv/semtexzv.github.io" /></div>
       <div class="field"><label>branch</label><input id="s-branch" value="main" /></div>
     </div>
-    <p class="hint">Stored only in this browser (localStorage), sent only to api.github.com over HTTPS.
-      Use a <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">fine-grained PAT</a>
-      scoped to just this repo with an expiry.</p>
-    <div class="dlg-actions"><button class="btn" id="s-cancel" type="button">Close</button>
-      <button class="btn primary" id="s-save" type="button">Save</button></div>
+    <p class="hint" style="font-size:.78rem;color:var(--muted)">Stored only in this browser, sent only to api.github.com over HTTPS.</p>
+    <div class="dlg-actions" style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.9rem">
+      <button class="btn" id="s-cancel" type="button">Close</button><button class="btn primary" id="s-save" type="button">Save</button></div>
   </dialog>
-
-  <!-- visual diagram editor -->
-  <dialog id="dlgDiagram" class="dlg-diagram">
-    <div class="dg-head">
-      <h3>Diagram</h3>
-      <div class="dg-tools">
-        <button class="btn" id="dg-add" type="button">+ box</button>
-        <button class="btn" id="dg-label" type="button">+ label</button>
-        <button class="btn" id="dg-connect" type="button">connect</button>
-      </div>
-    </div>
-    <div class="dg-body">
-      <div class="dg-canvas-wrap"><svg id="dgCanvas"></svg></div>
-      <aside class="dg-panel" id="dgPanel"></aside>
-    </div>
-    <div class="field" style="margin-top:.8rem"><label>caption</label><input id="d-caption" placeholder="what the diagram shows" /></div>
-    <div class="dlg-actions">
-      <button class="btn" id="d-delete" type="button">Delete diagram</button>
-      <span style="flex:1"></span>
-      <button class="btn" id="d-cancel" type="button">Cancel</button>
-      <button class="btn primary" id="d-save" type="button">Apply</button>
-    </div>
-  </dialog>
-
-  <!-- open existing post -->
-  <dialog id="dlgOpen"><h3>Open a post</h3>
-    <div id="openList" class="hint">Loading…</div>
-    <div class="dlg-actions"><button class="btn" id="o-cancel" type="button">Cancel</button></div></dialog>
-
-  <!-- publish result -->
-  <dialog id="dlgResult"><h3 id="r-title">Publishing…</h3><div id="r-body" class="hint"></div>
-    <div class="dlg-actions"><button class="btn" id="r-close" type="button">Close</button></div></dialog>
+  <dialog id="dlgOpen"><h3 style="margin:.1rem 0 .9rem">Open a post</h3>
+    <div id="openList" style="font-size:.85rem;color:var(--muted)">Loading…</div>
+    <div class="dlg-actions" style="display:flex;justify-content:flex-end;margin-top:.9rem"><button class="btn" id="o-cancel" type="button">Cancel</button></div></dialog>
+  <dialog id="dlgResult"><h3 id="r-title" style="margin:.1rem 0 .9rem">Publishing…</h3><div id="r-body" style="font-size:.82rem;color:var(--muted);line-height:1.5"></div>
+    <div class="dlg-actions" style="display:flex;justify-content:flex-end;margin-top:.9rem"><button class="btn" id="r-close" type="button">Close</button></div></dialog>
 
   <script src="/site.js"></script>
   <script src="/blog/d3.v7.min.js"></script>
   <script src="/blog/diagram.js"></script>
+  <script src="/blog/diagram-edit.js"></script>
+  <script src="/blog/editor.js"></script>
   <script>
   (function () {
     var $ = function (s) { return document.querySelector(s); };
     var KEY = 'blog-editor-draft', CFG = 'blog-editor-cfg';
-    var DEFAULT_DIAGRAM = {
-      gridH: 5,
-      shapes: [
-        { id: 's1', x: 0.5, y: 2, w: 2, h: 1, color: 'secondary', text: 'source' },
-        { id: 's2', x: 4, y: 2, w: 2, h: 1, color: 'accent1', text: 'agent' },
-        { id: 's3', x: 7.5, y: 2, w: 2, h: 1, color: 'secondary', text: 'sink' }
-      ],
-      connectors: [
-        { from: 's1', to: 's2', color: 'accent1' },
-        { from: 's2', to: 's3', color: 'accent1' }
-      ],
-      labels: []
-    };
-
     var fields = { title: '#f-title', slug: '#f-slug', kicker: '#f-kicker', date: '#f-date', tags: '#f-tags', read: '#f-read', excerpt: '#f-excerpt' };
-    var body = $('#body'), slugTouched = false;
-
-    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    var slugTouched = false;
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
     function slugify(s) { return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
-    function b64(str) { return btoa(unescape(encodeURIComponent(str))); }
+    function b64(s) { return btoa(unescape(encodeURIComponent(s))); }
     function unb64(b) { return decodeURIComponent(escape(atob(b))); }
-    function escA(s) { return esc(s).replace(/"/g, '&quot;'); }
-    function wrapSelection(tag) {
-      var sel = window.getSelection(); if (!sel || !sel.toString()) return;
-      document.execCommand('insertHTML', false, '<' + tag + '>' + esc(sel.toString()) + '</' + tag + '>'); save();
-    }
 
-    /* ---- draft persistence ---- */
-    function collect() {
-      var s = {};
-      for (var k in fields) s[k] = $(fields[k]).value;
-      s.body = body.innerHTML;
-      return s;
-    }
-    var saveTimer;
-    function save() {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(function () {
-        try { localStorage.setItem(KEY, JSON.stringify(collect())); } catch (e) {}
-        $('#status').textContent = 'saved ' + new Date().toLocaleTimeString();
-        renderPreview();
-      }, 400);
-    }
-    function load() {
-      var raw; try { raw = localStorage.getItem(KEY); } catch (e) {}
-      if (raw) { try { var s = JSON.parse(raw); for (var k in fields) if (s[k] != null) $(fields[k]).value = s[k]; if (s.body) body.innerHTML = s.body; } catch (e) {} }
-    }
+    var editor = window.BlogEditor.create($('#blocks'), function () { saveDraft(); });
+    window.__ed = editor;
 
-    /* ---- diagram placeholders <-> baked svg ---- */
-    function makeBlock(spec, caption) {
-      var fig = document.createElement('figure');
-      fig.className = 'fig diag-block'; fig.setAttribute('contenteditable', 'false');
-      fig.setAttribute('data-spec', JSON.stringify(spec));
-      fig.setAttribute('data-caption', caption || '');
-      fig.innerHTML = '<span class="diag-ph">&#9671; diagram — click to edit</span>' +
-        '<figcaption>' + esc(caption || '') + '</figcaption>';
-      return fig;
-    }
-    // bake each placeholder into a static, theme-aware <svg> + keep the spec for re-editing
-    function serializeBody() {
-      var clone = body.cloneNode(true);
-      clone.querySelectorAll('.diag-block').forEach(function (fig) {
-        var cap = fig.getAttribute('data-caption') || '', spec;
-        try { spec = JSON.parse(fig.getAttribute('data-spec')); } catch (e) { spec = { shapes: [] }; }
-        var out = document.createElement('figure'); out.className = 'fig';
-        out.setAttribute('data-spec', fig.getAttribute('data-spec') || '{}');
-        out.innerHTML = window.Diagram.svgMarkup(spec) + (cap ? '<figcaption>' + esc(cap) + '</figcaption>' : '');
-        fig.replaceWith(out);
-      });
-      return clone.innerHTML;
-    }
+    function meta() { var m = {}; for (var k in fields) m[k] = $(fields[k]).value; return m; }
+    var saveT;
+    function saveDraft() { clearTimeout(saveT); saveT = setTimeout(function () {
+      try { localStorage.setItem(KEY, JSON.stringify({ meta: meta(), body: editor.serialize() })); } catch (e) {}
+      $('#status').textContent = 'saved ' + new Date().toLocaleTimeString();
+    }, 400); }
+    function setMeta(m) { for (var k in fields) $(fields[k]).value = (m && m[k] != null) ? m[k] : ''; }
+    function bodyToDoc(html) { var d = document.createElement('div'); d.className = 'post-body'; d.innerHTML = html || ''; return editor.parse(d); }
 
-    /* ---- post template ---- */
-    function postHTML(s, bodyHTML) {
-      var tags = (s.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean);
-      var meta = [s.date, s.read].filter(Boolean).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('');
+    /* ---- post template (single source; baked diagrams, no runtime d3) ---- */
+    function postHTML(m, body) {
+      var tags = (m.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+      var mt = [m.date, m.read].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
       return '<!doctype html>\n<html lang="en" data-theme="dark">\n<head>\n' +
         '<meta charset="utf-8" />\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />\n' +
-        '<title>' + esc(s.title) + ' · notes</title>\n' +
-        '<meta name="description" content="' + esc(s.excerpt || '') + '" />\n' +
+        '<title>' + esc(m.title) + ' · notes</title>\n<meta name="description" content="' + esc(m.excerpt || '') + '" />\n' +
         (tags.length ? '<meta name="keywords" content="' + esc(tags.join(', ')) + '" />\n' : '') +
-        '<link rel="stylesheet" href="/site.css" />\n<link rel="stylesheet" href="/blog/blog.css" />\n' +
-        '</head>\n<body>\n' +
-        '  <header class="topbar">\n    <nav class="crumbs" aria-label="Breadcrumb">\n' +
-        '      <a class="home" href="/blog/"><b>/</b> notes</a>\n' +
-        '      <span class="sep">/</span>\n      <span aria-current="page">' + esc(s.title) + '</span>\n    </nav>\n' +
+        '<link rel="stylesheet" href="/site.css" />\n<link rel="stylesheet" href="/blog/blog.css" />\n</head>\n<body>\n' +
+        '  <header class="topbar">\n    <nav class="crumbs" aria-label="Breadcrumb">\n      <a class="home" href="/blog/"><b>/</b> notes</a>\n' +
+        '      <span class="sep">/</span>\n      <span aria-current="page">' + esc(m.title) + '</span>\n    </nav>\n' +
         '    <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>\n  </header>\n\n' +
-        '  <article class="content">\n' +
-        (s.kicker ? '    <div class="post-kicker">' + esc(s.kicker) + '</div>\n' : '') +
-        '    <h1 class="post-title">' + esc(s.title) + '</h1>\n' +
-        (meta ? '    <div class="post-meta">' + meta + '</div>\n' : '') +
-        '    <div class="post-body">\n' + bodyHTML + '\n    </div>\n' +
-        '  </article>\n\n' +
-        '  <script src="/site.js"><\/script>\n</body>\n</html>\n';
+        '  <article class="content">\n' + (m.kicker ? '    <div class="post-kicker">' + esc(m.kicker) + '</div>\n' : '') +
+        '    <h1 class="post-title">' + esc(m.title) + '</h1>\n' + (mt ? '    <div class="post-meta">' + mt + '</div>\n' : '') +
+        '    <div class="post-body">\n' + body + '\n    </div>\n  </article>\n\n  <script src="/site.js"><\/script>\n</body>\n</html>\n';
     }
 
-    /* ---- preview ---- */
-    var prevTimer;
-    function renderPreview() {
-      clearTimeout(prevTimer);
-      prevTimer = setTimeout(function () {
-        var s = collect();
-        $('#preview').srcdoc = postHTML(s, serializeBody());
-      }, 150);
+    /* ---- deserialize a published post into meta + blocks ---- */
+    function loadPost(html, slug) {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var t = function (s) { var e = doc.querySelector(s); return e ? e.textContent.trim() : ''; };
+      var at = function (s, a) { var e = doc.querySelector(s); return e ? (e.getAttribute(a) || '') : ''; };
+      var sp = doc.querySelectorAll('.post-meta span');
+      setMeta({ title: t('.post-title'), slug: slug, kicker: t('.post-kicker'), date: sp[0] ? sp[0].textContent.trim() : '', read: sp[1] ? sp[1].textContent.trim() : '', tags: at('meta[name="keywords"]', 'content'), excerpt: at('meta[name="description"]', 'content') });
+      slugTouched = true; editor.setDoc(editor.parse(doc.querySelector('.post-body'))); saveDraft();
     }
 
-    /* ---- toolbar ---- */
-    function exec(cmd, val) { body.focus(); document.execCommand(cmd, false, val || null); save(); }
-    document.querySelectorAll('#toolbar button').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var c = b.getAttribute('data-cmd');
-        if (c === 'h2') exec('formatBlock', 'H2');
-        else if (c === 'h3') exec('formatBlock', 'H3');
-        else if (c === 'bold') exec('bold');
-        else if (c === 'em') exec('italic');
-        else if (c === 'quote') exec('formatBlock', 'BLOCKQUOTE');
-        else if (c === 'pre') exec('formatBlock', 'PRE');
-        else if (c === 'ul') exec('insertUnorderedList');
-        else if (c === 'ol') exec('insertOrderedList');
-        else if (c === 'hr') exec('insertHorizontalRule');
-        else if (c === 'link') { var u = prompt('Link URL'); if (u) exec('createLink', u); }
-        else if (c === 'mark') { wrapSelection('mark'); }
-        else if (c === 'code') { wrapSelection('code'); }
-        else if (c === 'img') {
-          var src = prompt('Image URL'); if (src) { var alt = prompt('Alt text') || '';
-            document.execCommand('insertHTML', false, '<img src="' + escA(src) + '" alt="' + escA(alt) + '" />'); save(); }
-        }
-        else if (c === 'diagram') { dgOpen(makeBlock(DEFAULT_DIAGRAM, 'diagram'), true); }
-      });
-    });
-
-    /* ---- visual diagram editor ---- */
-    var dlgD = $('#dlgDiagram'), editingBlock = null, pendingInsert = false;
-    var canvas = $('#dgCanvas'), CELL = window.Diagram.CELL;
-    var dgSpec = null, dgSel = null, dgConnect = false, dgConnectFrom = null;
-    function snap(v) { return Math.max(0, Math.round(v * 2) / 2); }
-    function dgById(id) { return dgSpec.shapes.filter(function (s) { return s.id === id; })[0]; }
-    function dgNextId() { var n = 1, ids = {}; dgSpec.shapes.forEach(function (s) { ids[s.id] = 1; }); while (ids['s' + n]) n++; return 's' + n; }
-
-    function dgOpen(block, insert) {
-      editingBlock = block; pendingInsert = !!insert; dgSel = null; dgConnect = false; dgConnectFrom = null;
-      dlgD.classList.remove('dg-connect-on');
-      try { dgSpec = JSON.parse(block.getAttribute('data-spec')); } catch (e) { dgSpec = { gridH: 5, shapes: [], connectors: [], labels: [] }; }
-      dgSpec.shapes = dgSpec.shapes || []; dgSpec.connectors = dgSpec.connectors || []; dgSpec.labels = dgSpec.labels || [];
-      $('#d-caption').value = block.getAttribute('data-caption') || '';
-      dlgD.showModal(); dgRender(); dgPanel();
-    }
-    function dgHighlight() {
-      d3.select(canvas).selectAll('[data-shape] rect').attr('stroke-width', 1.5).attr('stroke-dasharray', null);
-      if (dgSel && dgSel.type === 'shape') d3.select(canvas).select('[data-shape="' + dgSel.ref + '"] rect').attr('stroke-width', 2.6).attr('stroke-dasharray', '4 3');
-    }
-    function dgSelect(type, ref) { dgSel = type ? { type: type, ref: ref } : null; dgHighlight(); dgPanel(); }
-
-    function dgRender() {
-      window.Diagram.render(canvas, dgSpec, { grid: true, interactive: true });
-      d3.select(canvas).selectAll('[data-shape]').call(d3.drag()
-        .subject(function () { var r = window.Diagram.rectOf(dgById(this.getAttribute('data-shape'))); return { x: r.x, y: r.y }; })
-        .on('start', function () { var id = this.getAttribute('data-shape'); if (dgConnect) { dgConnectClick(id); return; } dgSelect('shape', id); this.__r = window.Diagram.rectOf(dgById(id)); })
-        .on('drag', function (event) { if (dgConnect) return; var s = dgById(this.getAttribute('data-shape')); s._nx = snap(event.x / CELL); s._ny = snap(event.y / CELL); d3.select(this).attr('transform', 'translate(' + (s._nx * CELL - this.__r.x) + ',' + (s._ny * CELL - this.__r.y) + ')'); })
-        .on('end', function () { if (dgConnect || !this.isConnected) return; var s = dgById(this.getAttribute('data-shape')); if (s._nx != null) { s.x = s._nx; s.y = s._ny; delete s._nx; delete s._ny; } dgRender(); dgPanel(); save(); }));
-      d3.select(canvas).selectAll('[data-label]').call(d3.drag()
-        .subject(function () { var l = dgSpec.labels[+this.getAttribute('data-label')]; return { x: l.x * CELL, y: l.y * CELL }; })
-        .on('start', function () { dgSelect('label', +this.getAttribute('data-label')); })
-        .on('drag', function (event) { var l = dgSpec.labels[+this.getAttribute('data-label')]; l.x = snap(event.x / CELL); l.y = snap(event.y / CELL); d3.select(this).attr('x', l.x * CELL).attr('y', l.y * CELL); })
-        .on('end', function () { if (!this.isConnected) return; dgRender(); dgPanel(); save(); }));
-      d3.select(canvas).selectAll('[data-conn]').on('click', function () { dgSelect('connector', +this.getAttribute('data-conn')); });
-      d3.select(canvas).on('click', function (event) {
-        var t = event.target;
-        if (t.closest && (t.closest('[data-shape]') || t.closest('[data-conn]') || t.closest('[data-label]'))) return;
-        if (dgConnect) { dgConnect = false; dgConnectFrom = null; dlgD.classList.remove('dg-connect-on'); }
-        dgSelect(null);
-      });
-      dgHighlight();
-    }
-    function dgConnectClick(id) {
-      if (!dgConnectFrom) { dgConnectFrom = id; $('#dgPanel').innerHTML = '<p class="hint">Source: <b>' + esc(id) + '</b>. Now click the <b>target</b> box.</p>'; }
-      else if (dgConnectFrom !== id) {
-        dgSpec.connectors.push({ from: dgConnectFrom, to: id, color: 'secondary' });
-        dgConnect = false; dgConnectFrom = null; dlgD.classList.remove('dg-connect-on');
-        dgRender(); dgSelect('connector', dgSpec.connectors.length - 1); save();
-      }
-    }
-    function swatches(cur) {
-      return window.Diagram.COLORS.map(function (c) { return '<button type="button" class="dg-sw' + (c === cur ? ' on' : '') + '" data-color="' + c + '" title="' + c + '" style="background:var(--dg-' + c + ')"></button>'; }).join('');
-    }
-    function bindSwatches(p, set) { p.querySelectorAll('#dp-col .dg-sw').forEach(function (b) { b.onclick = function () { set(b.getAttribute('data-color')); dgRender(); dgPanel(); save(); }; }); }
-    function dgPanel() {
-      var p = $('#dgPanel');
-      if (!dgSel) { p.innerHTML = '<p class="hint">Drag a box to move it (snaps to the grid). Click a box, connector, or label to edit it; add with the buttons above.</p>'; return; }
-      if (dgSel.type === 'shape') {
-        var s = dgById(dgSel.ref); if (!s) { dgSelect(null); return; }
-        p.innerHTML =
-          '<div class="field"><label>text</label><input id="dp-text" value="' + escA(s.text || '') + '" /></div>' +
-          '<div class="field"><label>sub-label</label><input id="dp-sub" value="' + escA(s.sub || '') + '" /></div>' +
-          '<div class="field"><label>colour</label><div class="dg-swatches" id="dp-col">' + swatches(s.color) + '</div></div>' +
-          '<div class="field"><label>size — w × h</label><div class="dg-row"><span class="dg-step"><button data-k="w" data-d="-0.5">&minus;</button><span id="dp-w">' + (s.w || 2) + '</span><button data-k="w" data-d="0.5">+</button></span><span class="dg-step"><button data-k="h" data-d="-0.5">&minus;</button><span id="dp-h">' + (s.h || 1) + '</span><button data-k="h" data-d="0.5">+</button></span></div></div>' +
-          '<button class="btn" id="dp-del" type="button">Delete box</button>';
-        $('#dp-text').oninput = function () { s.text = this.value; dgRender(); };
-        $('#dp-sub').oninput = function () { s.sub = this.value; dgRender(); };
-        bindSwatches(p, function (c) { s.color = c; });
-        p.querySelectorAll('.dg-step button').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-k'); s[k] = Math.max(0.5, (s[k] || (k === 'w' ? 2 : 1)) + parseFloat(b.getAttribute('data-d'))); $('#dp-' + k).textContent = s[k]; dgRender(); save(); }; });
-        $('#dp-del').onclick = function () { dgSpec.shapes = dgSpec.shapes.filter(function (x) { return x.id !== s.id; }); dgSpec.connectors = dgSpec.connectors.filter(function (c) { return c.from !== s.id && c.to !== s.id; }); dgSelect(null); dgRender(); save(); };
-      } else if (dgSel.type === 'connector') {
-        var c = dgSpec.connectors[dgSel.ref]; if (!c) { dgSelect(null); return; }
-        p.innerHTML =
-          '<div class="field"><label>label</label><input id="dp-clabel" value="' + escA(c.label || '') + '" /></div>' +
-          '<div class="field"><label>colour</label><div class="dg-swatches" id="dp-col">' + swatches(c.color || 'secondary') + '</div></div>' +
-          '<div class="field"><label>route</label><select id="dp-route"><option value="auto"' + (!c.route || c.route === 'auto' ? ' selected' : '') + '>auto</option><option value="over"' + (c.route === 'over' ? ' selected' : '') + '>over</option><option value="under"' + (c.route === 'under' ? ' selected' : '') + '>under</option></select></div>' +
-          '<div class="field dg-row"><label><input type="checkbox" id="dp-dash"' + (c.dash ? ' checked' : '') + ' /> dashed</label></div>' +
-          '<button class="btn" id="dp-del" type="button">Delete connector</button>';
-        $('#dp-clabel').oninput = function () { c.label = this.value; dgRender(); };
-        bindSwatches(p, function (col) { c.color = col; });
-        $('#dp-route').onchange = function () { c.route = this.value; dgRender(); save(); };
-        $('#dp-dash').onchange = function () { c.dash = this.checked; dgRender(); save(); };
-        $('#dp-del').onclick = function () { dgSpec.connectors.splice(dgSel.ref, 1); dgSelect(null); dgRender(); save(); };
-      } else if (dgSel.type === 'label') {
-        var l = dgSpec.labels[dgSel.ref]; if (!l) { dgSelect(null); return; }
-        p.innerHTML =
-          '<div class="field"><label>text</label><input id="dp-ltext" value="' + escA(l.text || '') + '" /></div>' +
-          '<div class="field"><label>colour</label><div class="dg-swatches" id="dp-col">' + swatches(l.color || 'primary') + '</div></div>' +
-          '<button class="btn" id="dp-del" type="button">Delete label</button>';
-        $('#dp-ltext').oninput = function () { l.text = this.value; dgRender(); };
-        bindSwatches(p, function (col) { l.color = col; });
-        $('#dp-del').onclick = function () { dgSpec.labels.splice(dgSel.ref, 1); dgSelect(null); dgRender(); save(); };
-      }
-    }
-    $('#dg-add').addEventListener('click', function () { var id = dgNextId(); dgSpec.shapes.push({ id: id, x: 1, y: 1, w: 2, h: 1, color: 'primary', text: 'box' }); dgRender(); dgSelect('shape', id); save(); });
-    $('#dg-label').addEventListener('click', function () { dgSpec.labels.push({ x: 1, y: 0.6, text: 'label', color: 'accent1' }); dgRender(); dgSelect('label', dgSpec.labels.length - 1); save(); });
-    $('#dg-connect').addEventListener('click', function () { dgConnect = !dgConnect; dgConnectFrom = null; dlgD.classList.toggle('dg-connect-on', dgConnect); if (dgConnect) { dgSel = null; dgHighlight(); $('#dgPanel').innerHTML = '<p class="hint">Click the <b>source</b> box, then the <b>target</b> box.</p>'; } else dgPanel(); });
-    $('#d-cancel').addEventListener('click', function () { dlgD.close(); editingBlock = null; });
-    $('#d-delete').addEventListener('click', function () { if (editingBlock && editingBlock.parentNode) editingBlock.remove(); dlgD.close(); editingBlock = null; save(); });
-    $('#d-save').addEventListener('click', function () {
-      var cap = $('#d-caption').value;
-      editingBlock.setAttribute('data-spec', JSON.stringify(dgSpec));
-      editingBlock.setAttribute('data-caption', cap);
-      editingBlock.querySelector('figcaption').textContent = cap;
-      if (pendingInsert) { body.focus(); insertNode(editingBlock); body.appendChild(document.createElement('p')); }
-      dlgD.close(); editingBlock = null; pendingInsert = false; save();
-    });
-    function insertNode(node) {
-      var sel = window.getSelection();
-      if (sel && sel.rangeCount && body.contains(sel.anchorNode)) { var r = sel.getRangeAt(0); r.collapse(false); r.insertNode(node); }
-      else body.appendChild(node);
-    }
-    body.addEventListener('click', function (e) { var fig = e.target.closest('.diag-block'); if (fig) dgOpen(fig, false); });
+    /* ---- New / Sample ---- */
+    $('#btnNew').addEventListener('click', function () { if (!confirm('Start a new post? Clears the current draft.')) return; setMeta({}); slugTouched = false; editor.setDoc(window.BlogEditor.blankDoc()); $('#status').textContent = 'new'; saveDraft(); });
+    $('#btnSample').addEventListener('click', function () { setMeta({ title: 'Kitchen sink', slug: 'kitchen-sink', kicker: 'demo', date: '2026 · draft', tags: 'demo', read: '~2 min', excerpt: 'A sample document exercising every block.' }); slugTouched = true; editor.setDoc(window.BlogEditor.sampleDoc()); $('#status').textContent = 'sample'; saveDraft(); });
 
     /* ---- settings ---- */
-    var dlgS = $('#dlgSettings');
     function cfg() { try { return JSON.parse(localStorage.getItem(CFG) || '{}'); } catch (e) { return {}; } }
-    $('#btnSettings').addEventListener('click', function () {
-      var c = cfg(); $('#s-token').value = c.token || ''; $('#s-repo').value = c.repo || 'semtexzv/semtexzv.github.io'; $('#s-branch').value = c.branch || 'main';
-      dlgS.showModal();
-    });
-    $('#s-cancel').addEventListener('click', function () { dlgS.close(); });
-    $('#s-save').addEventListener('click', function () {
-      localStorage.setItem(CFG, JSON.stringify({ token: $('#s-token').value.trim(), repo: $('#s-repo').value.trim(), branch: $('#s-branch').value.trim() }));
-      dlgS.close();
-    });
+    $('#btnSettings').addEventListener('click', function () { var c = cfg(); $('#s-token').value = c.token || ''; $('#s-repo').value = c.repo || 'semtexzv/semtexzv.github.io'; $('#s-branch').value = c.branch || 'main'; $('#dlgSettings').showModal(); });
+    $('#s-cancel').addEventListener('click', function () { $('#dlgSettings').close(); });
+    $('#s-save').addEventListener('click', function () { localStorage.setItem(CFG, JSON.stringify({ token: $('#s-token').value.trim(), repo: $('#s-repo').value.trim(), branch: $('#s-branch').value.trim() })); $('#dlgSettings').close(); });
 
-    /* ---- open an existing post: the post's HTML *is* the source (no JSON) ---- */
-    var dlgO = $('#dlgOpen'), HOME = '/blog/';
-    function setState(s) {
-      slugTouched = true;
-      for (var k in fields) $(fields[k]).value = (s && s[k] != null) ? s[k] : '';
-      body.innerHTML = (s && s.body) || '';
-      try { localStorage.setItem(KEY, JSON.stringify(collect())); } catch (e) {}
-      renderPreview();
-    }
-    $('#btnNew').addEventListener('click', function () {
-      if (!confirm('Start a new post? The current draft will be cleared from this browser.')) return;
-      setState(null); $('#status').textContent = 'new draft'; slugTouched = false;
-    });
-    // the post cards on the home page ARE the index — read them, no JSON
-    function parseCards(homeHtml) {
-      var doc = new DOMParser().parseFromString(homeHtml, 'text/html');
-      return Array.prototype.map.call(doc.querySelectorAll('.post-list .post-card'), function (card) {
-        var t = function (sel) { var e = card.querySelector(sel); return e ? e.textContent.trim() : ''; };
-        return {
-          slug: (card.getAttribute('href') || '').replace(/^\/blog\//, '').replace(/\/$/, ''),
-          title: t('.pc-title'), date: t('.pc-date'), excerpt: t('.pc-excerpt'),
-          tags: Array.prototype.map.call(card.querySelectorAll('.tag-chip'), function (c) { return c.textContent.trim(); }).join(', ')
-        };
-      });
-    }
-    // parse a published post's HTML back into editor state (the editable patterns)
-    function deserialize(html, slug) {
-      var doc = new DOMParser().parseFromString(html, 'text/html');
-      var t = function (sel) { var e = doc.querySelector(sel); return e ? e.textContent.trim() : ''; };
-      var attr = function (sel, a) { var e = doc.querySelector(sel); return e ? (e.getAttribute(a) || '') : ''; };
-      var spans = doc.querySelectorAll('.post-meta span');
-      var s = {
-        title: t('.post-title'), kicker: t('.post-kicker'),
-        date: spans[0] ? spans[0].textContent.trim() : '', read: spans[1] ? spans[1].textContent.trim() : '',
-        excerpt: attr('meta[name="description"]', 'content'), tags: attr('meta[name="keywords"]', 'content'), slug: slug
-      };
-      var bodyEl = doc.querySelector('.post-body');
-      if (bodyEl) {
-        bodyEl.querySelectorAll('figure.fig[data-spec]').forEach(function (fig) {
-          var c = fig.querySelector('figcaption'), cap = c ? c.textContent.trim() : '';
-          var block = document.createElement('figure');
-          block.className = 'fig diag-block'; block.setAttribute('contenteditable', 'false');
-          block.setAttribute('data-spec', fig.getAttribute('data-spec'));
-          block.setAttribute('data-caption', cap);
-          block.innerHTML = '<span class="diag-ph">&#9671; diagram — click to edit</span><figcaption>' + esc(cap) + '</figcaption>';
-          fig.replaceWith(block);
-        });
-        s.body = bodyEl.innerHTML.trim();
-      } else s.body = '';
-      return s;
-    }
-    $('#btnOpen').addEventListener('click', function () {
-      dlgO.showModal();
-      var list = $('#openList'); list.textContent = 'Loading…';
-      fetch(HOME, { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (html) {
-        var cards = parseCards(html);
-        if (!cards.length) { list.textContent = 'No posts yet.'; return; }
-        list.innerHTML = '';
-        cards.forEach(function (p) {
-          var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'open-item';
-          btn.innerHTML = '<div class="oi-title">' + esc(p.title || p.slug) + '</div><div class="oi-slug">/blog/' + esc(p.slug) + '/</div>';
-          btn.addEventListener('click', function () { openPost(p.slug); });
-          list.appendChild(btn);
-        });
-      }).catch(function () { list.textContent = 'Could not load the index.'; });
-    });
-    function openPost(slug) {
-      var list = $('#openList'); list.textContent = 'Loading ' + slug + '…';
-      fetch('/blog/' + slug + '/', { cache: 'no-store' }).then(function (r) {
-        if (!r.ok) throw new Error('not found'); return r.text();
-      }).then(function (html) { setState(deserialize(html, slug)); $('#status').textContent = 'opened ' + slug; dlgO.close(); })
-        .catch(function () { list.innerHTML = '<span class="err">Could not open &ldquo;' + esc(slug) + '&rdquo;.</span>'; });
-    }
+    /* ---- open ---- */
+    var dlgO = $('#dlgOpen');
+    function parseCards(home) { var d = new DOMParser().parseFromString(home, 'text/html'); return Array.prototype.map.call(d.querySelectorAll('.post-list .post-card'), function (c) { var t = function (s) { var e = c.querySelector(s); return e ? e.textContent.trim() : ''; }; return { slug: (c.getAttribute('href') || '').replace(/^\/blog\//, '').replace(/\/$/, ''), title: t('.pc-title'), date: t('.pc-date'), excerpt: t('.pc-excerpt'), tags: Array.prototype.map.call(c.querySelectorAll('.tag-chip'), function (x) { return x.textContent.trim(); }).join(', ') }; }); }
+    $('#btnOpen').addEventListener('click', function () { dlgO.showModal(); var list = $('#openList'); list.textContent = 'Loading…';
+      fetch('/blog/', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (h) { var cs = parseCards(h); if (!cs.length) { list.textContent = 'No posts yet.'; return; } list.innerHTML = '';
+        cs.forEach(function (p) { var btn = document.createElement('button'); btn.className = 'btn'; btn.style.cssText = 'display:block;width:100%;text-align:left;margin:.35rem 0'; btn.innerHTML = esc(p.title) + ' <span style="color:var(--faint)">/' + esc(p.slug) + '/</span>'; btn.onclick = function () { openPost(p.slug); }; list.appendChild(btn); }); }).catch(function () { list.textContent = 'Could not load the index.'; }); });
+    function openPost(slug) { $('#openList').textContent = 'Loading ' + slug + '…'; fetch('/blog/' + slug + '/', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.text(); }).then(function (h) { loadPost(h, slug); $('#status').textContent = 'opened ' + slug; dlgO.close(); }).catch(function () { $('#openList').innerHTML = '<span style="color:#e5484d">Could not open ' + esc(slug) + '.</span>'; }); }
     $('#o-cancel').addEventListener('click', function () { dlgO.close(); });
 
-    /* ---- home index = post cards in HTML (between markers); upsert on publish ---- */
-    function cardHTML(s, slug) {
-      var tags = (s.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean)
-        .map(function (t) { return '<span class="tag-chip">' + esc(t) + '</span>'; }).join('');
-      return '          <a class="post-card" href="/blog/' + esc(slug) + '/">\n' +
-        '            <div class="pc-date">' + esc(s.date || '') + '</div>\n' +
-        '            <div class="pc-title">' + esc(s.title || '') + '</div>\n' +
-        '            <div class="pc-excerpt">' + esc(s.excerpt || '') + '</div>\n' +
-        '            <div class="pc-tags">' + tags + '</div>\n' +
-        '          </a>';
-    }
-    function upsertCard(homeText, s, slug) {
-      var M = /(<!--posts:start-->)([\s\S]*?)(<!--posts:end-->)/;
-      if (!M.test(homeText)) return homeText;
-      var existing = parseCards('<div class="post-list">' + homeText.match(M)[2] + '</div>')
-        .filter(function (p) { return p.slug !== slug; });
-      existing.unshift({ slug: slug, title: s.title, date: s.date || '', excerpt: s.excerpt || '', tags: s.tags || '' });
-      var cards = existing.map(function (p) { return cardHTML(p, p.slug); }).join('\n');
-      return homeText.replace(M, function (_, a, mid, c) { return a + '\n' + cards + '\n          ' + c; });
-    }
+    /* ---- home index card upsert ---- */
+    function cardHTML(m, slug) { var tags = (m.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean).map(function (t) { return '<span class="tag-chip">' + esc(t) + '</span>'; }).join('');
+      return '          <a class="post-card" href="/blog/' + esc(slug) + '/">\n            <div class="pc-date">' + esc(m.date || '') + '</div>\n            <div class="pc-title">' + esc(m.title || '') + '</div>\n            <div class="pc-excerpt">' + esc(m.excerpt || '') + '</div>\n            <div class="pc-tags">' + tags + '</div>\n          </a>'; }
+    function upsertCard(home, m, slug) { var M = /(<!--posts:start-->)([\s\S]*?)(<!--posts:end-->)/; if (!M.test(home)) return home;
+      var ex = parseCards('<div class="post-list">' + home.match(M)[2] + '</div>').filter(function (p) { return p.slug !== slug; });
+      ex.unshift({ slug: slug, title: m.title, date: m.date || '', excerpt: m.excerpt || '', tags: m.tags || '' });
+      var cards = ex.map(function (p) { return cardHTML(p, p.slug); }).join('\n');
+      return home.replace(M, function (_, a, mid, c) { return a + '\n' + cards + '\n          ' + c; }); }
 
-    /* ---- download fallback ---- */
-    $('#btnDownload').addEventListener('click', function () {
-      var s = collect(); var blob = new Blob([postHTML(s, serializeBody())], { type: 'text/html' });
-      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (slugify(s.title) || 'post') + '.html'; a.click();
-    });
+    /* ---- download ---- */
+    $('#btnDownload').addEventListener('click', function () { var m = meta(); var blob = new Blob([postHTML(m, editor.serialize())], { type: 'text/html' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (slugify(m.title) || 'post') + '.html'; a.click(); });
 
-    /* ---- publish via GitHub Contents API ---- */
+    /* ---- publish ---- */
     var dlgR = $('#dlgResult');
-    function showResult(title, html) { $('#r-title').innerHTML = title; $('#r-body').innerHTML = html; if (!dlgR.open) dlgR.showModal(); }
+    function showR(t, h) { $('#r-title').innerHTML = t; $('#r-body').innerHTML = h; if (!dlgR.open) dlgR.showModal(); }
     $('#r-close').addEventListener('click', function () { dlgR.close(); });
-    function ghHeaders(token) { return { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }; }
-    async function getSha(repo, path, token) {
-      var r = await fetch('https://api.github.com/repos/' + repo + '/contents/' + path, { headers: ghHeaders(token) });
-      if (r.status === 404) return { sha: null };
-      if (!r.ok) throw new Error('GET ' + path + ' → ' + r.status);
-      var j = await r.json(); return { sha: j.sha, content: j.content };
-    }
-    async function putFile(repo, path, content, message, sha, branch, token) {
-      var body = { message: message, content: b64(content), branch: branch }; if (sha) body.sha = sha;
-      var r = await fetch('https://api.github.com/repos/' + repo + '/contents/' + path, { method: 'PUT', headers: ghHeaders(token), body: JSON.stringify(body) });
-      if (!r.ok) { var t = await r.text(); throw new Error('PUT ' + path + ' → ' + r.status + ' ' + t); }
-      return r.json();
-    }
+    function gh(token) { return { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }; }
+    async function getSha(repo, path, token) { var r = await fetch('https://api.github.com/repos/' + repo + '/contents/' + path, { headers: gh(token) }); if (r.status === 404) return { sha: null }; if (!r.ok) throw new Error('GET ' + path + ' → ' + r.status); var j = await r.json(); return { sha: j.sha, content: j.content }; }
+    async function putFile(repo, path, content, msg, sha, branch, token) { var b = { message: msg, content: b64(content), branch: branch }; if (sha) b.sha = sha; var r = await fetch('https://api.github.com/repos/' + repo + '/contents/' + path, { method: 'PUT', headers: gh(token), body: JSON.stringify(b) }); if (!r.ok) throw new Error('PUT ' + path + ' → ' + r.status + ' ' + (await r.text())); return r.json(); }
     $('#btnPublish').addEventListener('click', async function () {
-      var s = collect(); var c = cfg();
-      if (!c.token) { showResult('No token', 'Add a GitHub token in <b>Settings</b> first.'); return; }
-      if (!s.title || !$('#f-slug').value) { showResult('Missing', 'A <b>title</b> and <b>slug</b> are required.'); return; }
-      var repo = c.repo || 'semtexzv/semtexzv.github.io', branch = c.branch || 'main', token = c.token, slug = $('#f-slug').value;
-      var html = postHTML(s, serializeBody());
-      var postPath = 'blog/' + slug + '/index.html';
-      showResult('Publishing…', 'Committing <code>' + esc(postPath) + '</code>');
+      var m = meta(), c = cfg();
+      if (!c.token) { showR('No token', 'Add a GitHub token in <b>Settings</b> first.'); return; }
+      if (!m.title || !m.slug) { showR('Missing', 'A <b>title</b> and <b>slug</b> are required.'); return; }
+      var repo = c.repo || 'semtexzv/semtexzv.github.io', branch = c.branch || 'main', token = c.token, slug = m.slug;
+      var html = postHTML(m, editor.serialize()), postPath = 'blog/' + slug + '/index.html';
+      showR('Publishing…', 'Committing <code>' + esc(postPath) + '</code>');
       try {
-        var ps = await getSha(repo, postPath, token);
-        await putFile(repo, postPath, html, 'post: ' + s.title, ps.sha, branch, token);
-        // update the home index — its post cards ARE the index (no JSON sidecar)
-        var hp = await getSha(repo, 'blog/index.html', token);
-        if (!hp.content) throw new Error('blog/index.html not found');
-        var homeText = unb64(hp.content.replace(/\n/g, ''));
-        await putFile(repo, 'blog/index.html', upsertCard(homeText, s, slug), 'index: ' + s.title, hp.sha, branch, token);
-        showResult('<span class="ok">Published ✓</span>',
-          'Live shortly at <a href="/blog/' + esc(slug) + '/" target="_blank" rel="noopener">/blog/' + esc(slug) + '/</a> — GitHub Pages rebuilds in ~30–60s.');
-      } catch (err) { showResult('<span class="err">Failed</span>', esc(err.message)); }
+        var ps = await getSha(repo, postPath, token); await putFile(repo, postPath, html, 'post: ' + m.title, ps.sha, branch, token);
+        var hp = await getSha(repo, 'blog/index.html', token); if (!hp.content) throw new Error('blog/index.html not found');
+        await putFile(repo, 'blog/index.html', upsertCard(unb64(hp.content.replace(/\n/g, '')), m, slug), 'index: ' + m.title, hp.sha, branch, token);
+        showR('<span style="color:var(--accent)">Published ✓</span>', 'Live shortly at <a href="/blog/' + esc(slug) + '/" target="_blank" rel="noopener" style="color:var(--accent)">/blog/' + esc(slug) + '/</a> — Pages rebuilds in ~30–60s.');
+      } catch (err) { showR('<span style="color:#e5484d">Failed</span>', esc(err.message)); }
     });
 
-    /* ---- wiring ---- */
-    for (var k in fields) $(fields[k]).addEventListener('input', save);
+    /* ---- meta wiring + load ---- */
+    for (var k in fields) $(fields[k]).addEventListener('input', saveDraft);
     $('#f-title').addEventListener('input', function () { if (!slugTouched) $('#f-slug').value = slugify($('#f-title').value); });
     $('#f-slug').addEventListener('input', function () { slugTouched = true; });
-    body.addEventListener('input', save);
-    // mobile tabs
-    $('#tabEdit').addEventListener('click', function () { $('#paneForm').classList.add('active'); $('#panePrev').classList.remove('active'); this.classList.add('on'); $('#tabPrev').classList.remove('on'); });
-    $('#tabPrev').addEventListener('click', function () { $('#panePrev').classList.add('active'); $('#paneForm').classList.remove('active'); this.classList.add('on'); $('#tabEdit').classList.remove('on'); renderPreview(); });
-
-    load();
-    if (!$('#f-slug').value && $('#f-title').value) $('#f-slug').value = slugify($('#f-title').value);
-    renderPreview();
+    (function load() {
+      var raw; try { raw = localStorage.getItem(KEY); } catch (e) {}
+      if (raw) { try { var s = JSON.parse(raw); setMeta(s.meta); if (s.meta && s.meta.slug) slugTouched = true; editor.setDoc(bodyToDoc(s.body)); return; } catch (e) {} }
+      editor.setDoc(window.BlogEditor.blankDoc());
+    })();
   })();
   </script>
 </body>
