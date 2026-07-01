@@ -226,7 +226,7 @@ window.BlogEditor = (function () {
     var self = this; this.closePicker();
     var row = this.host.querySelector('.block[data-id="' + blockId + '"]'); if (!row) return;
     var bar = el('div', { class: 'cellpick' });
-    MENU.forEach(function (d) { var chip = el('button', { type: 'button', class: 'cell' }); chip.textContent = d.label; chip.onmousedown = function (e) { e.preventDefault(); }; chip.onclick = function () { self.closePicker(); var blk = self.byId(blockId); if (blk) self.convertBlock(blk, d.type, doSnap); }; bar.appendChild(chip); });
+    MENU.forEach(function (d) { var chip = el('button', { type: 'button', class: 'cell cell-' + d.type }); chip.textContent = d.label; chip.onmousedown = function (e) { e.preventDefault(); }; chip.onclick = function () { self.closePicker(); var blk = self.byId(blockId); if (blk) self.convertBlock(blk, d.type, doSnap); }; bar.appendChild(chip); });
     row.appendChild(bar); this._picker = { bar: bar };
     setTimeout(function () { document.addEventListener('pointerdown', self._pickClose = function (ev) { if (!bar.contains(ev.target)) self.closePicker(); }, true); }, 0);
   };

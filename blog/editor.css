@@ -112,12 +112,33 @@ body { height: 100vh; overflow: hidden; }
 .gap:hover .gap-add, .gap .gap-add:focus { opacity: 1; }
 .gap:hover::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed var(--hair); }
 
-/* inline cell picker (block-type chooser — not a dropdown) */
+/* inline cell picker (block-type chooser — not a dropdown).
+   Each cell previews the block it creates: same border, prefix, and type
+   treatment as the published element, so the palette is self-describing. */
 .cellpick { display: flex; flex-wrap: wrap; gap: .35rem; margin: .6rem 0; padding: .5rem; border: 1px solid var(--hair-strong);
   border-radius: 8px; background: var(--bg-elev); }
 .cellpick .cell { font-family: ui-monospace, Menlo, monospace; font-size: .72rem; color: var(--fg); background: var(--bg);
   border: 1px solid var(--hair); border-radius: 6px; padding: .4em .7em; cursor: pointer; }
 .cellpick .cell:hover { border-color: var(--accent); color: var(--accent); }
+.cellpick .cell-h1, .cellpick .cell-h2, .cellpick .cell-h2num, .cellpick .cell-h3,
+.cellpick .cell-lede, .cellpick .cell-quote { font-family: inherit; color: var(--fg-strong); }
+.cellpick .cell-h1 { font-weight: 800; font-size: .92rem; letter-spacing: -.015em; }
+.cellpick .cell-h2, .cellpick .cell-h2num { font-weight: 800; font-size: .82rem; letter-spacing: -.01em; }
+.cellpick .cell-h2num::before { content: "01"; color: var(--accent); font-family: ui-monospace, Menlo, monospace;
+  font-size: .62rem; font-weight: 600; margin-right: .5em; }
+.cellpick .cell-h3 { font-weight: 700; font-size: .76rem; }
+.cellpick .cell-lede { font-weight: 400; font-size: .8rem; }
+.cellpick .cell-p { font-family: inherit; font-size: .78rem; }
+.cellpick .cell-quote { border-left: 3px solid var(--accent); font-size: .78rem; color: var(--muted); }
+.cellpick .cell-note { border-style: dashed; border-color: var(--hair-strong); color: var(--muted); }
+.cellpick .cell-ul::before { content: "—"; color: var(--accent); margin-right: .45em; }
+.cellpick .cell-ol::before { content: "1."; color: var(--accent); margin-right: .45em; }
+.cellpick .cell-code { background: var(--bg-elev); border-color: var(--hair-strong); }
+.cellpick .cell-code::before { content: "</>"; color: var(--accent); margin-right: .45em; }
+.cellpick .cell-image::before { content: "▣"; color: var(--muted); margin-right: .45em; }
+.cellpick .cell-divider { color: var(--muted); }
+.cellpick .cell-divider::before { content: "···"; letter-spacing: .2em; margin-right: .4em; }
+.cellpick .cell-diagram::before { content: "▭→▭"; color: var(--accent); letter-spacing: -.05em; margin-right: .45em; }
 
 /* inline mark toolbar active state */
 .itool button.on { background: var(--accent); color: var(--accent-fg); }
