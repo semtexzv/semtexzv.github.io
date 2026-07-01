@@ -15,6 +15,7 @@ window.DiagramEditor = (function () {
     if (!active) return;
     var t = e.target, typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
     if ((e.key === 'Backspace' || e.key === 'Delete') && active.sel && !active.editing && !typing) { e.preventDefault(); e.stopPropagation(); active.del(); }
+    if (e.key === 'Escape' && active.connect) { e.stopPropagation(); active.setConnect(false); }
   }, true);
   document.addEventListener('pointerdown', function (e) { if (active && !active.wrap.parentNode.contains(e.target)) active.deactivate(); }, true);
 
@@ -39,7 +40,7 @@ window.DiagramEditor = (function () {
     toSvg: function (e) { var c = this.svg.getScreenCTM().inverse(), p = this.svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; var q = p.matrixTransform(c); return { x: q.x, y: q.y }; },
     toScreen: function (x, y) { var c = this.svg.getScreenCTM(), p = this.svg.createSVGPoint(); p.x = x; p.y = y; var q = p.matrixTransform(c); var r = this.wrap.getBoundingClientRect(); return { x: q.x - r.left, y: q.y - r.top }; },
 
-    draw: function () { D.render(this.svg, this.spec, { grid: true, interactive: true }); this.overlay(); this.updateBar(); },
+    draw: function () { D.render(this.svg, this.spec, { grid: true, interactive: true }); this.overlay(); this.connectDots(); this.updateBar(); },
     overlay: function () {
       var self = this, s = this.sel;
       Array.prototype.slice.call(this.svg.querySelectorAll('.dg-overlay')).forEach(function (n) { n.remove(); });
@@ -59,7 +60,7 @@ window.DiagramEditor = (function () {
       function mk(label) { var x = document.createElement('button'); x.type = 'button'; x.textContent = label; return x; }
       this._add = mk('+ box'); this._add.onclick = function () { self.activate(); self.before(); var id = self.nextId(); self.spec.shapes.push({ id: id, x: 1, y: 1, w: 2, h: 1, color: 'primary', text: 'box' }); self.select('shape', id); self.commit(); };
       this._lab = mk('+ label'); this._lab.onclick = function () { self.activate(); self.before(); self.spec.labels.push({ x: 1, y: 0.5, text: 'label', color: 'accent1' }); self.select('label', self.spec.labels.length - 1); self.commit(); };
-      this._con = mk('connect'); this._con.onclick = function () { self.activate(); self.connect = !self.connect; self.connectFrom = null; self._con.classList.toggle('on', self.connect); self.updateBar(); };
+      this._con = mk('connect'); this._con.onclick = function () { self.activate(); self.setConnect(!self.connect); };
       b.append(this._add, this._lab, this._con);
       this._ctx = document.createElement('span'); this._ctx.style.cssText = 'display:inline-flex;gap:.3rem;align-items:center;flex-wrap:wrap'; b.appendChild(this._ctx);
     },
@@ -75,15 +76,20 @@ window.DiagramEditor = (function () {
         sw.style.background = 'var(--dg-' + col + ')'; sw.title = col; sw.onclick = function () { self.before(); item.color = col; self.commit(); }; ctx.appendChild(sw);
       });
       if (this.sel.type === 'connector') {
-        var rt = document.createElement('select'); ['auto', 'over', 'under'].forEach(function (r) { var o = document.createElement('option'); o.value = r; o.textContent = r; if ((item.route || 'auto') === r) o.selected = true; rt.appendChild(o); });
-        rt.onchange = function () { self.before(); item.route = rt.value; self.commit(); }; ctx.appendChild(rt);
+        function mksel(opts, cur, apply) {
+          var sl = document.createElement('select');
+          opts.forEach(function (r) { var o = document.createElement('option'); o.value = r; o.textContent = r; if (cur === r) o.selected = true; sl.appendChild(o); });
+          sl.onchange = function () { self.before(); apply(sl.value); self.commit(); }; return sl;
+        }
+        ctx.appendChild(mksel(['elbow', 'straight', 'curve'], item.shape || 'elbow', function (v) { if (v === 'elbow') delete item.shape; else item.shape = v; }));
+        if ((item.shape || 'elbow') === 'elbow')
+          ctx.appendChild(mksel(['auto', 'over', 'under'], item.route || 'auto', function (v) { if (v === 'auto') delete item.route; else item.route = v; }));
+        var av = item.arrows || 'end';
+        var arr = document.createElement('button'); arr.type = 'button'; arr.title = 'arrowheads';
+        arr.textContent = av === 'end' ? '→' : av === 'both' ? '↔' : '—';
+        arr.onclick = function () { self.before(); var nx = av === 'end' ? 'both' : av === 'both' ? 'none' : 'end'; if (nx === 'end') delete item.arrows; else item.arrows = nx; self.commit(); };
+        ctx.appendChild(arr);
         var dl = document.createElement('button'); dl.type = 'button'; dl.textContent = item.dash ? 'dashed ✓' : 'dashed'; dl.onclick = function () { self.before(); item.dash = !item.dash; self.commit(); }; ctx.appendChild(dl);
-      }
-      if (this.sel.type === 'shape') {
-        var sub = document.createElement('input'); sub.placeholder = 'sub·label'; sub.value = item.sub || '';
-        sub.onchange = function () { self.before(); item.sub = sub.value; self.commit(); };
-        sub.addEventListener('keydown', function (ev) { ev.stopPropagation(); if (ev.key === 'Enter') sub.blur(); });
-        ctx.appendChild(sub);
       }
       var del = document.createElement('button'); del.type = 'button'; del.textContent = 'delete'; del.onclick = function () { self.del(); }; ctx.appendChild(del);
     },
@@ -101,7 +107,12 @@ window.DiagramEditor = (function () {
       var h = e.target.closest && e.target.closest('[data-handle]'), sh = e.target.closest && e.target.closest('[data-shape]'),
         cn = e.target.closest && e.target.closest('[data-conn]'), lb = e.target.closest && e.target.closest('[data-label]');
       var rz = e.target.closest && e.target.closest('[data-resize]');
-      if (this.connect) { if (sh) this.connectClick(sh.getAttribute('data-shape')); return; }
+      if (this.connect) {
+        var dot = e.target.closest && e.target.closest('[data-canchor]');
+        if (dot) this.connectClick(dot.getAttribute('data-cshape'), dot.getAttribute('data-canchor'));
+        else if (sh) this.connectClick(sh.getAttribute('data-shape'), 'auto');
+        return;
+      }
       if (rz) { this.startResize(rz.getAttribute('data-resize'), e); return; }
       if (h) { this.startHandle(h.getAttribute('data-handle'), e); return; }
       if (sh) { this.select('shape', sh.getAttribute('data-shape')); this.startShapeDrag(sh.getAttribute('data-shape'), e); }
@@ -109,9 +120,50 @@ window.DiagramEditor = (function () {
       else if (lb) { this.select('label', +lb.getAttribute('data-label')); this.startLabelDrag(+lb.getAttribute('data-label'), e); }
       else this.select(null);
     },
-    connectClick: function (id) {
-      if (!this.connectFrom) { this.connectFrom = id; this._ctx.innerHTML = '<span style="font-size:.68rem;color:var(--muted)">source: ' + id + ' — click target</span>'; }
-      else if (this.connectFrom !== id) { this.before(); this.spec.connectors.push({ from: { shape: this.connectFrom, anchor: 'auto' }, to: { shape: id, anchor: 'auto' }, color: 'secondary' }); this.connect = false; this.connectFrom = null; this._con.classList.remove('on'); this.select('connector', this.spec.connectors.length - 1); this.commit(); }
+    // connect mode: anchor nodes appear on every shape; click a node to pin
+    // the endpoint to that corner/side, or the shape body for auto
+    setConnect: function (on) {
+      this.connect = on; this.connectFrom = null;
+      this._con.classList.toggle('on', on);
+      this.connectDots(); this.endPreview(); this.updateBar();
+    },
+    connectDots: function () {
+      var self = this;
+      Array.prototype.slice.call(this.svg.querySelectorAll('.dg-cdot')).forEach(function (n) { n.remove(); });
+      if (!this.connect) return;
+      this.spec.shapes.forEach(function (s) {
+        D.anchorList(s).forEach(function (a) {
+          if (a.anchor === 'c') return;
+          self.svg.appendChild(svgEl('circle', { cx: a.x, cy: a.y, r: 4, 'class': 'dg-cdot', 'data-cshape': s.id, 'data-canchor': a.anchor }));
+        });
+      });
+    },
+    connectClick: function (id, anchor) {
+      if (!this.connectFrom) {
+        this.connectFrom = { shape: id, anchor: anchor || 'auto' };
+        this._ctx.innerHTML = '<span style="font-size:.68rem;color:var(--muted)">from ' + id + (anchor && anchor !== 'auto' ? ' · ' + anchor : '') + ' — click a target node · esc cancels</span>';
+        this.startPreview();
+      } else if (this.connectFrom.shape !== id || this.connectFrom.anchor !== (anchor || 'auto')) {
+        this.before();
+        this.spec.connectors.push({ from: this.connectFrom, to: { shape: id, anchor: anchor || 'auto' }, color: 'secondary' });
+        var ci = this.spec.connectors.length - 1;
+        this.setConnect(false); this.select('connector', ci); this.commit();
+      }
+    },
+    startPreview: function () {
+      var self = this;
+      this._pv = svgEl('path', { 'class': 'dg-preview' }); this.svg.appendChild(this._pv);
+      this._pvMove = function (ev) {
+        if (!self.connectFrom || !self._pv) return;
+        var p = self.toSvg(ev), F = self.byId(self.connectFrom.shape); if (!F) return;
+        var P1 = D.anchorPoint(F, self.connectFrom.anchor, p);
+        self._pv.setAttribute('d', 'M' + P1.x + ' ' + P1.y + ' L ' + p.x + ' ' + p.y);
+      };
+      this.svg.addEventListener('pointermove', this._pvMove);
+    },
+    endPreview: function () {
+      if (this._pvMove) { this.svg.removeEventListener('pointermove', this._pvMove); this._pvMove = null; }
+      if (this._pv) { this._pv.remove(); this._pv = null; }
     },
     startShapeDrag: function (id, e) {
       var self = this, s = this.byId(id), p0 = this.toSvg(e), r = D.rectOf(s), ox = p0.x - r.x, oy = p0.y - r.y, moved = false;
@@ -150,9 +202,30 @@ window.DiagramEditor = (function () {
         cn = e.target.closest && e.target.closest('[data-conn]');
       if (!sh && !lb && !cn) return;
       e.preventDefault();
-      if (sh) { var s = this.byId(sh.getAttribute('data-shape')); this.editTextAt(s, 'text', D.centerOf(s)); }
+      if (sh) this.editShape(this.byId(sh.getAttribute('data-shape')));
       else if (lb) { var l = this.spec.labels[+lb.getAttribute('data-label')]; this.editTextAt(l, 'text', { x: l.x * CELL, y: l.y * CELL }); }
       else { var c = this.spec.connectors[+cn.getAttribute('data-conn')], F = this.byId(D.epOf(c.from).shape), T = this.byId(D.epOf(c.to).shape); if (!F || !T) return; var p = D.connectorPath(F, T, c); this.editTextAt(c, 'label', { x: p.lx, y: p.ly }); }
+    },
+    // dblclick a shape: edit its text and sub·text together, in place
+    editShape: function (s) {
+      var self = this; if (!s) return; this.editing = true;
+      var ctr = D.centerOf(s), pos = this.toScreen(ctr.x, ctr.y);
+      var box = document.createElement('div'); box.className = 'dg-edit2';
+      box.style.left = pos.x + 'px'; box.style.top = pos.y + 'px';
+      var ti = document.createElement('input'); ti.className = 'dg-text-edit'; ti.value = s.text || ''; ti.placeholder = 'text';
+      var si = document.createElement('input'); si.className = 'dg-text-edit sub'; si.value = s.sub || ''; si.placeholder = 'sub · text';
+      box.append(ti, si); this.wrap.appendChild(box);
+      setTimeout(function () { ti.focus(); ti.select(); }, 0);
+      var finished = false;
+      function done(keep) {
+        if (finished) return; finished = true; self.editing = false;
+        if (keep && (ti.value !== (s.text || '') || si.value !== (s.sub || ''))) {
+          self.before(); s.text = ti.value; if (si.value) s.sub = si.value; else delete s.sub; self.commit();
+        }
+        if (box.parentNode) box.parentNode.removeChild(box);
+      }
+      box.addEventListener('keydown', function (ev) { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); done(true); } else if (ev.key === 'Escape') done(false); });
+      box.addEventListener('focusout', function (ev) { if (!box.contains(ev.relatedTarget)) done(true); });
     },
     // shared in-view text input: shape text, free label text, connector label
     editTextAt: function (item, prop, at) {

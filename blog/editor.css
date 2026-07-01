@@ -102,6 +102,14 @@ body { height: 100vh; overflow: hidden; }
 .dgb .dg-text-edit { position: absolute; z-index: 5; transform: translate(-50%,-50%); text-align: center;
   font-family: ui-monospace, Menlo, monospace; font-size: 13px; font-weight: 600; background: var(--bg-elev);
   color: var(--fg-strong); border: 1px solid var(--accent); border-radius: 4px; padding: 2px 6px; }
+.dgb .dg-edit2 { position: absolute; z-index: 5; transform: translate(-50%,-50%); display: flex; flex-direction: column;
+  gap: 4px; align-items: center; }
+.dgb .dg-edit2 .dg-text-edit { position: static; transform: none; }
+.dgb .dg-text-edit.sub { font-size: 10px; font-weight: 400; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); border-color: var(--hair-strong); }
+.dgb svg.diagram .dg-cdot { fill: var(--bg-elev); stroke: var(--accent); stroke-width: 1.4; cursor: crosshair; }
+.dgb svg.diagram .dg-cdot:hover { fill: var(--accent); }
+.dgb svg.diagram .dg-preview { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; pointer-events: none; }
 .dgb figcaption { margin-top: .6rem; }
 
 /* between-block insert "+" */
