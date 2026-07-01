@@ -95,6 +95,9 @@ body { height: 100vh; overflow: hidden; }
 .dgb svg.diagram { width: 100%; height: auto; display: block; touch-action: none; }
 .dgb svg.diagram .sel-ring { stroke: var(--accent); stroke-width: 2.4; stroke-dasharray: 4 3; fill: none; }
 .dgb .dg-handle { fill: var(--bg-elev); stroke: var(--accent); stroke-width: 1.6; cursor: grab; }
+.dgb .dg-handle[data-resize] { cursor: nwse-resize; }
+.dg-bar input { font-family: ui-monospace, Menlo, monospace; font-size: .68rem; color: var(--fg);
+  background: var(--bg-elev); border: 1px solid var(--hair); border-radius: 5px; padding: .25em .5em; width: 8em; }
 .dgb .dg-anchor { fill: var(--accent); opacity: .85; }
 .dgb .dg-text-edit { position: absolute; z-index: 5; transform: translate(-50%,-50%); text-align: center;
   font-family: ui-monospace, Menlo, monospace; font-size: 13px; font-weight: 600; background: var(--bg-elev);

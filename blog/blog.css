@@ -42,7 +42,7 @@
   text-transform:uppercase; color:var(--muted); margin-top:1rem; display:flex; gap:1.2em; flex-wrap:wrap; }
 
 .post-body{ margin-top:2.4rem; counter-reset:secnum; }
-.post-body > p{ font-size:1.04rem; line-height:1.72; margin:1.25rem 0; color:var(--fg); max-width:70ch; }
+.post-body p{ font-size:1.04rem; line-height:1.72; margin:1.25rem 0; color:var(--fg); max-width:70ch; }
 .post-body .lede{ font-size:clamp(1.12rem,1.8vw,1.32rem); line-height:1.55; color:var(--fg-strong); max-width:64ch; }
 .post-body h2{ font-size:1.45rem; font-weight:800; letter-spacing:-.015em; margin:2.8rem 0 .4rem; color:var(--fg-strong); }
 .post-body h2 .h2num{ color:var(--accent); font-family:ui-monospace,Menlo,monospace; font-size:.8rem; margin-right:.6em; }

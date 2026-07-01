@@ -144,10 +144,13 @@
     function cardHTML(m, slug) { var tags = (m.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean).map(function (t) { return '<span class="tag-chip">' + esc(t) + '</span>'; }).join('');
       return '          <a class="post-card" href="/blog/' + esc(slug) + '/">\n            <div class="pc-date">' + esc(m.date || '') + '</div>\n            <div class="pc-title">' + esc(m.title || '') + '</div>\n            <div class="pc-excerpt">' + esc(m.excerpt || '') + '</div>\n            <div class="pc-tags">' + tags + '</div>\n          </a>'; }
     function upsertCard(home, m, slug) { var M = /(<!--posts:start-->)([\s\S]*?)(<!--posts:end-->)/; if (!M.test(home)) return home;
-      var ex = parseCards('<div class="post-list">' + home.match(M)[2] + '</div>').filter(function (p) { return p.slug !== slug; });
-      ex.unshift({ slug: slug, title: m.title, date: m.date || '', excerpt: m.excerpt || '', tags: m.tags || '' });
+      var ex = parseCards('<div class="post-list">' + home.match(M)[2] + '</div>');
+      var card = { slug: slug, title: m.title, date: m.date || '', excerpt: m.excerpt || '', tags: m.tags || '' };
+      var idx = -1; ex.forEach(function (p, i) { if (p.slug === slug) idx = i; });
+      if (idx >= 0) ex[idx] = card; else ex.unshift(card);   // updates keep their place; only new posts go on top
       var cards = ex.map(function (p) { return cardHTML(p, p.slug); }).join('\n');
       return home.replace(M, function (_, a, mid, c) { return a + '\n' + cards + '\n          ' + c; }); }
+    window.__upsertCard = upsertCard;
 
     /* ---- download ---- */
     $('#btnDownload').addEventListener('click', function () { var m = meta(); var blob = new Blob([postHTML(m, editor.serialize())], { type: 'text/html' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (slugify(m.title) || 'post') + '.html'; a.click(); });

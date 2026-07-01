@@ -148,7 +148,7 @@ window.BlogEditor = (function () {
     var self = this;
     document.addEventListener('selectionchange', function () { self.syncInlineToolbar(); });
     document.addEventListener('keydown', function (e) { self.onGlobalKey(e); }, true);
-    host.addEventListener('pointerdown', function (e) { var blk = e.target.closest('.block'); if (blk) { var b = self.byId(blk.getAttribute('data-id')); if (b) { self.activeBlockId = b.id; if (REG[b.type] && !REG[b.type].text && b.type !== 'diagram') self.selectBlock(b.id); else self.selectBlock(null); } } });
+    host.addEventListener('pointerdown', function (e) { var blk = e.target.closest('.block'); if (blk) { var b = self.byId(blk.getAttribute('data-id')); if (b) { self.activeBlockId = b.id; var inText = e.target.closest('[contenteditable]'); if (REG[b.type] && !REG[b.type].text && b.type !== 'diagram' && !inText) self.selectBlock(b.id); else self.selectBlock(null); } } });
   }
   var P = Editor.prototype;
   P.byId = function (id) { for (var i = 0; i < this.doc.length; i++) if (this.doc[i].id === id) return this.doc[i]; return null; };
@@ -198,11 +198,14 @@ window.BlogEditor = (function () {
       this.snapshot(); b.html = parts.before; var nb = REG.p.create(); nb.html = parts.after;
       this.doc.splice(this.indexOf(b.id) + 1, 0, nb); this.renderAll(); this.focusBlock(nb.id, false); this.save();
     } else if (e.key === 'Backspace' && atStart(node)) {
+      var isList = function (t) { return t === 'ul' || t === 'ol'; };
+      if (isList(b.type)) { e.preventDefault(); return; }   // no structural merge out of a list
       var i = this.indexOf(b.id);
       if (i <= 0) { if (b.type !== 'p') { this.snapshot(); b.type = 'p'; this.renderAll(); this.focusBlock(b.id, false); this.save(); } e.preventDefault(); return; }
-      var prev = this.doc[i - 1];
-      if (REG[prev.type].text) { e.preventDefault(); this.snapshot(); prev.html = (prev.html || '') + (b.html || ''); this.doc.splice(i, 1); this.renderAll(); this.focusBlock(prev.id, true); this.save(); }
-      else if ((node.textContent || '') === '') { e.preventDefault(); this.snapshot(); this.doc.splice(i, 1); this.renderAll(); this.selectBlock(prev.id); this.save(); }
+      var prev = this.doc[i - 1], empty = (node.textContent || '') === '';
+      if (REG[prev.type].text && !isList(prev.type)) { e.preventDefault(); this.snapshot(); prev.html = (prev.html || '') + (b.html || ''); this.doc.splice(i, 1); this.renderAll(); this.focusBlock(prev.id, true); this.save(); }
+      else if (empty) { e.preventDefault(); this.snapshot(); this.doc.splice(i, 1); this.renderAll(); if (isList(prev.type)) this.focusBlock(prev.id, true); else this.selectBlock(prev.id); this.save(); }
+      else if (isList(prev.type)) e.preventDefault();       // merging inline HTML into a <ul> is invalid — no-op
     } else if (e.key === '/' && (node.textContent || '') === '') {
       e.preventDefault(); this.cellPicker(b.id, true);
     }
@@ -228,7 +231,22 @@ window.BlogEditor = (function () {
     setTimeout(function () { document.addEventListener('pointerdown', self._pickClose = function (ev) { if (!bar.contains(ev.target)) self.closePicker(); }, true); }, 0);
   };
   P.closePicker = function () { if (this._picker) { if (this._picker.bar.parentNode) this._picker.bar.remove(); this._picker = null; } if (this._pickClose) { document.removeEventListener('pointerdown', this._pickClose, true); this._pickClose = null; } };
-  P.convertBlock = function (b, type, doSnap) { if (doSnap !== false) this.snapshot(); var nb = REG[type].create(); nb.id = b.id; if (REG[type].text && REG[b.type] && REG[b.type].text) nb.html = b.html || ''; this.doc[this.indexOf(b.id)] = nb; this.renderAll(); if (REG[type].text) this.focusBlock(nb.id, true); this.save(); };
+  P.convertBlock = function (b, type, doSnap) {
+    if (doSnap !== false) this.snapshot();
+    var from = REG[b.type], to = REG[type], nb = to.create(); nb.id = b.id;
+    var isList = function (t) { return t === 'ul' || t === 'ol'; };
+    if (to.text && from && from.text) {
+      var h = b.html || '';
+      if (isList(b.type) && !isList(type)) {      // list → text: unwrap the items
+        var d = el('div'); d.innerHTML = h;
+        nb.html = Array.prototype.map.call(d.querySelectorAll('li'), function (li) { return li.innerHTML; }).join('<br>');
+      } else if (!isList(b.type) && isList(type)) nb.html = '<li>' + h + '</li>';
+      else nb.html = h;
+    } else if (type === 'code' && from && from.text) {   // text → code: keep the words
+      var dd = el('div'); dd.innerHTML = b.html || ''; nb.code = dd.textContent;
+    }
+    this.doc[this.indexOf(b.id)] = nb; this.renderAll(); if (to.text) this.focusBlock(nb.id, true); this.save();
+  };
 
   /* ---------- inline mark toolbar ---------- */
   P.syncInlineToolbar = function () {
@@ -241,9 +259,10 @@ window.BlogEditor = (function () {
     this._itool.style.top = (window.scrollY + r.top - this._itool.offsetHeight - 8) + 'px';
     this.updateInlineActive();
   };
+  var MARK_ALIAS = { b: ['b', 'strong'], em: ['em', 'i'] };   // posts mix <b>/<strong> and <em>/<i>
   P.buildInlineToolbar = function () {
     var self = this, t = el('div', { class: 'itool' }); this._ibtns = [];
-    [['B', 'strong'], ['i', 'em'], ['hl', 'mark'], ['<>', 'code'], ['link', 'a']].forEach(function (x) {
+    [['B', 'b'], ['i', 'em'], ['hl', 'mark'], ['<>', 'code'], ['link', 'a']].forEach(function (x) {
       var btn = el('button', { type: 'button' }); btn.innerHTML = x[0]; btn._tag = x[1];
       btn.onmousedown = function (e) { e.preventDefault(); };
       btn.onclick = function () { if (x[1] === 'a') self.toggleLink(); else self.toggleMark(x[1]); };
@@ -251,7 +270,12 @@ window.BlogEditor = (function () {
     });
     document.body.appendChild(t); return t;
   };
-  P.enclosingTag = function (tag) { var n = window.getSelection().anchorNode; while (n && n !== this.host) { if (n.nodeType === 1 && n.tagName.toLowerCase() === tag) return n; n = n.parentNode; } return null; };
+  P.enclosingTag = function (tag) {
+    var tags = MARK_ALIAS[tag] || [tag], n = window.getSelection().anchorNode;
+    while (n && n !== this.host) { if (n.nodeType === 1 && tags.indexOf(n.tagName.toLowerCase()) >= 0) return n; n = n.parentNode; }
+    return null;
+  };
+  P.textBlockOf = function (n) { while (n && n !== this.host) { if (n.nodeType === 1 && n.getAttribute && n.getAttribute('contenteditable') === 'true') return n; n = n.parentNode; } return null; };
   P.updateInlineActive = function () {
     if (!this._itool) return; var self = this;
     this._ibtns.forEach(function (b) { b.classList.toggle('on', !!self.enclosingTag(b._tag)); });
@@ -259,6 +283,10 @@ window.BlogEditor = (function () {
   P.toggleMark = function (tag) {
     var sel = window.getSelection(); if (!sel.rangeCount) return; var encl = this.enclosingTag(tag);
     if (!encl && sel.isCollapsed) return;
+    if (!encl) {   // wrapping pulls DOM out of the range — never across block boundaries
+      var blk = this.textBlockOf(sel.anchorNode);
+      if (!blk || blk !== this.textBlockOf(sel.focusNode)) return;
+    }
     this.snapshot();
     if (encl) { var p = encl.parentNode; while (encl.firstChild) p.insertBefore(encl.firstChild, encl); p.removeChild(encl); p.normalize(); }
     else { var range = sel.getRangeAt(0), w = document.createElement(tag); try { range.surroundContents(w); } catch (e) { w.appendChild(range.extractContents()); range.insertNode(w); } var r2 = document.createRange(); r2.selectNodeContents(w); sel.removeAllRanges(); sel.addRange(r2); }
@@ -267,7 +295,12 @@ window.BlogEditor = (function () {
   P.toggleLink = function () {
     var sel = window.getSelection(); if (!sel.rangeCount) return; var a = this.enclosingTag('a');
     if (a) { this.snapshot(); var p = a.parentNode; while (a.firstChild) p.insertBefore(a.firstChild, a); p.removeChild(a); p.normalize(); }
-    else { if (sel.isCollapsed) return; var u = prompt('URL'); if (!u) return; this.snapshot(); document.execCommand('createLink', false, u); }
+    else {
+      if (sel.isCollapsed) return;
+      var blk = this.textBlockOf(sel.anchorNode);
+      if (!blk || blk !== this.textBlockOf(sel.focusNode)) return;
+      var u = prompt('URL'); if (!u) return; this.snapshot(); document.execCommand('createLink', false, u);
+    }
     this.syncActive(); this.save(); this.updateInlineActive();
   };
   P.syncActive = function () { var n = this.elMap[this.activeBlockId], b = this.byId(this.activeBlockId); if (n && b) b.html = n.innerHTML; };

@@ -44,7 +44,7 @@ window.DiagramEditor = (function () {
       var self = this, s = this.sel;
       Array.prototype.slice.call(this.svg.querySelectorAll('.dg-overlay')).forEach(function (n) { n.remove(); });
       if (!s) return;
-      if (s.type === 'shape') { var sh = this.byId(s.ref); if (sh) { var r = D.rectOf(sh); this.svg.appendChild(svgEl('rect', { x: r.x - 4, y: r.y - 4, width: r.w + 8, height: r.h + 8, 'class': 'sel-ring dg-overlay' })); } }
+      if (s.type === 'shape') { var sh = this.byId(s.ref); if (sh) { var r = D.rectOf(sh); this.svg.appendChild(svgEl('rect', { x: r.x - 4, y: r.y - 4, width: r.w + 8, height: r.h + 8, 'class': 'sel-ring dg-overlay' })); this.svg.appendChild(svgEl('rect', { x: r.x + r.w - 5, y: r.y + r.h - 5, width: 10, height: 10, 'class': 'dg-handle dg-overlay', 'data-resize': sh.id })); } }
       else if (s.type === 'connector') {
         var c = this.spec.connectors[s.ref]; if (!c) return; var F = this.byId(D.epOf(c.from).shape), T = this.byId(D.epOf(c.to).shape); if (!F || !T) return;
         var p = D.connectorPath(F, T, c);
@@ -79,6 +79,12 @@ window.DiagramEditor = (function () {
         rt.onchange = function () { self.before(); item.route = rt.value; self.commit(); }; ctx.appendChild(rt);
         var dl = document.createElement('button'); dl.type = 'button'; dl.textContent = item.dash ? 'dashed ✓' : 'dashed'; dl.onclick = function () { self.before(); item.dash = !item.dash; self.commit(); }; ctx.appendChild(dl);
       }
+      if (this.sel.type === 'shape') {
+        var sub = document.createElement('input'); sub.placeholder = 'sub·label'; sub.value = item.sub || '';
+        sub.onchange = function () { self.before(); item.sub = sub.value; self.commit(); };
+        sub.addEventListener('keydown', function (ev) { ev.stopPropagation(); if (ev.key === 'Enter') sub.blur(); });
+        ctx.appendChild(sub);
+      }
       var del = document.createElement('button'); del.type = 'button'; del.textContent = 'delete'; del.onclick = function () { self.del(); }; ctx.appendChild(del);
     },
 
@@ -94,7 +100,9 @@ window.DiagramEditor = (function () {
       this.activate();
       var h = e.target.closest && e.target.closest('[data-handle]'), sh = e.target.closest && e.target.closest('[data-shape]'),
         cn = e.target.closest && e.target.closest('[data-conn]'), lb = e.target.closest && e.target.closest('[data-label]');
+      var rz = e.target.closest && e.target.closest('[data-resize]');
       if (this.connect) { if (sh) this.connectClick(sh.getAttribute('data-shape')); return; }
+      if (rz) { this.startResize(rz.getAttribute('data-resize'), e); return; }
       if (h) { this.startHandle(h.getAttribute('data-handle'), e); return; }
       if (sh) { this.select('shape', sh.getAttribute('data-shape')); this.startShapeDrag(sh.getAttribute('data-shape'), e); }
       else if (cn) this.select('connector', +cn.getAttribute('data-conn'));
@@ -108,6 +116,12 @@ window.DiagramEditor = (function () {
     startShapeDrag: function (id, e) {
       var self = this, s = this.byId(id), p0 = this.toSvg(e), r = D.rectOf(s), ox = p0.x - r.x, oy = p0.y - r.y, moved = false;
       function mv(ev) { if (!moved) { self.before(); moved = true; } var p = self.toSvg(ev); s.x = snap((p.x - ox) / CELL); s.y = snap((p.y - oy) / CELL); self.draw(); }
+      function up() { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); if (moved) self.change(self.spec); }
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+    },
+    startResize: function (id, e) {
+      var self = this, s = this.byId(id), moved = false;
+      function mv(ev) { if (!moved) { self.before(); moved = true; } var p = self.toSvg(ev); s.w = Math.max(0.5, snap(p.x / CELL - s.x)); s.h = Math.max(0.5, snap(p.y / CELL - s.y)); self.draw(); }
       function up() { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); if (moved) self.change(self.spec); }
       window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
     },
@@ -131,15 +145,24 @@ window.DiagramEditor = (function () {
       function up() { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); if (moved) self.change(self.spec); self.draw(); }
       window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
     },
-    onDbl: function (e) { var sh = e.target.closest && e.target.closest('[data-shape]'); if (!sh) return; e.preventDefault(); this.editShapeText(sh.getAttribute('data-shape')); },
-    editShapeText: function (id) {
-      var self = this, s = this.byId(id); this.editing = true;
-      var ctr = D.centerOf(s), pos = this.toScreen(ctr.x, ctr.y);
-      var inp = document.createElement('input'); inp.className = 'dg-text-edit'; inp.value = s.text || '';
+    onDbl: function (e) {
+      var sh = e.target.closest && e.target.closest('[data-shape]'), lb = e.target.closest && e.target.closest('[data-label]'),
+        cn = e.target.closest && e.target.closest('[data-conn]');
+      if (!sh && !lb && !cn) return;
+      e.preventDefault();
+      if (sh) { var s = this.byId(sh.getAttribute('data-shape')); this.editTextAt(s, 'text', D.centerOf(s)); }
+      else if (lb) { var l = this.spec.labels[+lb.getAttribute('data-label')]; this.editTextAt(l, 'text', { x: l.x * CELL, y: l.y * CELL }); }
+      else { var c = this.spec.connectors[+cn.getAttribute('data-conn')], F = this.byId(D.epOf(c.from).shape), T = this.byId(D.epOf(c.to).shape); if (!F || !T) return; var p = D.connectorPath(F, T, c); this.editTextAt(c, 'label', { x: p.lx, y: p.ly }); }
+    },
+    // shared in-view text input: shape text, free label text, connector label
+    editTextAt: function (item, prop, at) {
+      var self = this; if (!item) return; this.editing = true;
+      var pos = this.toScreen(at.x, at.y);
+      var inp = document.createElement('input'); inp.className = 'dg-text-edit'; inp.value = item[prop] || '';
       inp.style.left = pos.x + 'px'; inp.style.top = pos.y + 'px'; this.wrap.appendChild(inp);
       setTimeout(function () { inp.focus(); inp.select(); }, 0);
       var finished = false;
-      function done(keep) { if (finished) return; finished = true; self.editing = false; if (keep && inp.value !== s.text) { self.before(); s.text = inp.value; self.commit(); } if (inp.parentNode) inp.parentNode.removeChild(inp); }
+      function done(keep) { if (finished) return; finished = true; self.editing = false; if (keep && inp.value !== (item[prop] || '')) { self.before(); item[prop] = inp.value; self.commit(); } if (inp.parentNode) inp.parentNode.removeChild(inp); }
       inp.addEventListener('keydown', function (ev) { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); done(true); } else if (ev.key === 'Escape') done(false); });
       inp.addEventListener('blur', function () { done(true); });
     }
