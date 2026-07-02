@@ -1,0 +1,134 @@
+/* app.css — chrome for the arch-editor dataflow node editor.
+   Builds on site.css tokens (dark default + light). The SVG canvas itself is
+   themed inline via --dg-* tokens; this file styles the shell: topbar, the left
+   op palette, the canvas surface, the inspector (param editor) and the drag ghost. */
+
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; min-height: 100vh; overflow: hidden; }
+
+/* ---------------- top bar ---------------- */
+.topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; padding: .8rem clamp(1.25rem, 4vw, 3rem); background: var(--bg); border-bottom: 1px solid var(--hair); }
+.topbar .bar-right { display: flex; align-items: center; gap: .55rem; }
+.topbar .toggle { position: static; }
+.topbar .model-name { font-family: ui-monospace, Menlo, monospace; font-size: .82rem; font-weight: 700;
+  color: var(--fg-strong); letter-spacing: -.01em; margin-right: .4rem; }
+
+.crumbs { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .84rem; letter-spacing: .01em; display: flex; align-items: baseline; gap: .5rem; }
+.crumbs .home { font-weight: 800; color: var(--fg-strong); transition: color .14s; }
+.crumbs .home b { color: var(--accent); }
+.crumbs a.home:hover { color: var(--accent); }
+.crumbs a.crumb { color: var(--muted); cursor: pointer; transition: color .14s; }
+.crumbs a.crumb:hover { color: var(--accent); }
+.crumbs .sep { color: var(--faint); }
+.crumbs [aria-current="page"] { color: var(--fg-strong); }
+
+.btn { font-family: ui-monospace, Menlo, monospace; font-size: .68rem; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); background: var(--bg-elev); border: 1px solid var(--hair); border-radius: 7px; padding: .5em .8em; cursor: pointer;
+  transition: color .15s, border-color .15s; }
+.btn:hover { color: var(--fg-strong); border-color: var(--hair-strong); }
+.btn.primary { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--hair)); }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.toggle { border-radius: 7px; }
+
+/* ---------------- editor layout ---------------- */
+.editor { flex: 1; min-height: 0; display: flex; }
+
+/* left palette */
+.palette { width: 196px; flex: none; border-right: 1px solid var(--hair); background: var(--bg-elev);
+  overflow-y: auto; padding: .9rem .7rem 2rem; user-select: none; }
+.palette .grp-title { font-family: ui-monospace, Menlo, monospace; font-size: .6rem; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--faint); margin: 1.1rem .2rem .45rem; }
+.palette .grp-title:first-child { margin-top: 0; }
+.pitem { display: flex; align-items: center; gap: .55rem; padding: .42rem .5rem; margin-bottom: .3rem;
+  border: 1px solid var(--hair); border-radius: 8px; background: var(--bg); cursor: grab;
+  touch-action: none;   /* a touch starting on a palette op is a DRAG, never a palette-scroll */
+  transition: border-color .14s, background .14s, transform .05s; }
+.pitem:hover { border-color: var(--hair-strong); background: var(--chip); }
+.pitem:active { cursor: grabbing; transform: scale(.98); }
+.pi-badge { width: 26px; height: 26px; flex: none; border: 1px solid; border-radius: 7px;
+  display: inline-flex; align-items: center; justify-content: center; }
+.pi-label { font-family: ui-monospace, Menlo, monospace; font-size: .72rem; color: var(--fg); line-height: 1.1; }
+
+/* canvas surface — the SVG FILLS the whole wrap (no shrink-wrap, no margin:auto). A CAMERA
+   (a translate/scale <g id="cameraG">) centres the laid-out graph on each relayout and PANS
+   by dragging empty space. The surface is touch-action:none so a one-finger drag pans the
+   camera (we own the gesture) instead of the browser claiming it for a scroll. */
+.canvas-wrap { position: relative; flex: 1; min-width: 0; overflow: hidden; touch-action: none; }
+svg#canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  touch-action: none; cursor: grab; }
+svg#canvas:active, body.panning svg#canvas { cursor: grabbing; }
+/* a touch/drag that STARTS on a node or a slot is a node-drag / wire gesture, never a pan —
+   `none` already on the surface, restated here for clarity + the palette ops. */
+[data-node], [data-slot] { touch-action: none; }
+
+/* camera fit / center reset — small floating control (also: double-tap empty space). */
+.cam-fit { position: absolute; left: 14px; bottom: 14px; z-index: 5;
+  font-family: ui-monospace, Menlo, monospace; font-size: .62rem; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); background: color-mix(in srgb, var(--bg) 88%, transparent); border: 1px solid var(--hair);
+  border-radius: 7px; padding: .45em .7em; cursor: pointer; transition: color .14s, border-color .14s; }
+.cam-fit:hover { color: var(--fg-strong); border-color: var(--hair-strong); }
+.cam-tidy { left: 76px; }   /* sits beside ⤢ fit */
+.dg-node { transition: filter .12s; }
+.dg-node .card-bg { transition: stroke .12s, filter .12s; }
+.dg-node:not(.ghost):hover .card-bg { filter: url(#elev) brightness(1.06); stroke: var(--hair-strong); }
+.dg-node .sel-ring { transition: opacity .12s; pointer-events: none; }
+.dg-slot { transition: r .1s, stroke-width .1s; }
+.dg-slot:hover { stroke-width: 3.4 !important; }
+.dg-wire { transition: opacity .12s; }
+.dg-wire path[data-hit] { pointer-events: stroke; }
+.dg-wire:hover path:not([data-hit]):not([data-spine]) { stroke-opacity: 1 !important; stroke-width: 3 !important; }
+.dg-open:hover rect { fill-opacity: 1; }
+
+/* inspector */
+.inspector { position: absolute; top: 18px; right: 18px; width: 244px; max-height: calc(100% - 36px); overflow: auto;
+  background: var(--bg-elev); border: 1px solid var(--hair-strong); border-radius: 12px; padding: .85rem .9rem 1rem;
+  box-shadow: 0 14px 40px rgba(0,0,0,.4); font-family: ui-monospace, Menlo, monospace; }
+.ins-head { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+.ins-title { font-size: .9rem; font-weight: 700; color: var(--fg-strong); }
+.ins-id { font-size: .64rem; color: var(--faint); }
+.ins-desc { font-size: .68rem; line-height: 1.45; color: var(--muted); margin: .4rem 0 .7rem; }
+.ins-field { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin: .4rem 0; }
+.ins-key { font-size: .7rem; color: var(--muted); }
+.ins-input { width: 118px; font-family: inherit; font-size: .72rem; color: var(--fg-strong);
+  background: var(--bg); border: 1px solid var(--hair); border-radius: 6px; padding: .3em .45em; }
+.ins-input:focus { outline: none; border-color: var(--accent); }
+input[type="checkbox"].ins-input { width: auto; accent-color: var(--accent); }
+.ins-note { font-size: .64rem; line-height: 1.4; color: var(--faint); margin-top: .5rem; }
+.ins-roles { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .7rem; padding-top: .6rem; border-top: 1px solid var(--hair); }
+.role-chip { font-size: .58rem; letter-spacing: .03em; border: 1px solid; border-radius: 5px; padding: .12em .4em; }
+.ins-close { display: block; width: 100%; margin-top: .8rem; font-family: inherit; font-size: .64rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted); background: var(--bg); border: 1px solid var(--hair); border-radius: 6px; padding: .4em; cursor: pointer; }
+.ins-close:hover { color: var(--fg-strong); border-color: var(--hair-strong); }
+
+/* hint bar */
+.hint-bar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  font-family: ui-monospace, Menlo, monospace; font-size: .68rem; letter-spacing: .03em; color: var(--faint);
+  background: color-mix(in srgb, var(--bg) 94%, transparent); border: 1px solid var(--hair); border-radius: 999px;
+  padding: .35em .95em; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 18px rgba(0,0,0,.28); }
+.hint-bar.flash { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--hair)); }
+
+/* drag ghost */
+.drag-ghost { position: fixed; z-index: 999; pointer-events: none; font-family: ui-monospace, Menlo, monospace;
+  font-size: .72rem; color: var(--fg-strong); background: var(--bg-elev); border: 1px solid var(--accent); border-radius: 8px;
+  padding: .35em .6em; box-shadow: 0 8px 24px rgba(0,0,0,.4); opacity: .92; }
+.drag-ghost.over { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 8px 24px rgba(0,0,0,.4); }
+
+/* boot failure (e.g. opened via file:// so types.json / the example IR can't be fetched) */
+.boot-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+.boot-error > div { max-width: 46ch; font-family: ui-monospace, Menlo, monospace; font-size: .8rem; line-height: 1.7;
+  color: var(--muted); background: var(--bg-elev); border: 1px solid var(--hair-strong); border-radius: 12px; padding: 1.1rem 1.3rem; }
+.boot-error b { color: var(--accent); }
+.boot-error code { color: var(--fg-strong); background: var(--bg); border: 1px solid var(--hair); border-radius: 5px; padding: .1em .4em; }
+
+@media (max-width: 720px) {
+  .palette { width: 150px; }
+  .topbar .model-name { display: none; }
+  .topbar { padding: .6rem .9rem; }
+}
+
+/* narrow phones: dock the inspector as a bottom sheet so it never slides under the palette */
+@media (max-width: 520px) {
+  .inspector { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-height: 46%; }
+  .hint-bar { display: none; }   /* the sheet needs the space; hints reappear on wider screens */
+}

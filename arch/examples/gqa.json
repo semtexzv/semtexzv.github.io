@@ -1,0 +1,100 @@
+{
+  "name": "gqa-swiglu-24L",
+  "dims": { "B": "B", "T": "T", "d": 768, "n_q": 12, "n_kv": 4, "d_head": 64, "vocab": 50304, "ffn_mult": 4 },
+  "root": {
+    "id": "model", "kind": "group", "flow": "chain", "dir": "down",
+    "ports": {
+      "in":  [{ "name": "tokens", "role": "tokens", "shape": ["B", "T"] }],
+      "out": [{ "name": "logits", "role": "logits", "shape": ["B", "T", "vocab"] }]
+    },
+    "children": [
+      { "id": "emb", "kind": "cell", "type": "TokenEmbedding", "params": { "d": "$d", "vocab": "$vocab" },
+        "ports": { "in": [{ "name": "tokens", "role": "tokens" }], "out": [{ "name": "x", "role": "resid", "shape": ["B", "T", "d"] }] } },
+
+      { "id": "trunk", "kind": "repeat", "count": 24,
+        "carry": [{ "fromOffset": 1, "from": "x", "to": "x" }],
+        "bound": { "init":  [{ "to": "x", "src": "emb.x" }],
+                   "final": [{ "from": "x", "dst": "finalnorm.x" }] },
+        "body": {
+          "id": "block", "kind": "group", "flow": "graph", "ref": "Block",
+          "ports": { "in": [{ "name": "x", "role": "resid", "shape": ["B", "T", "d"] }],
+                     "out": [{ "name": "x", "role": "resid", "shape": ["B", "T", "d"] }] },
+          "children": [
+            { "id": "n1", "kind": "cell", "type": "RMSNorm", "params": { "eps": 1e-5 } },
+            { "id": "attn", "kind": "group", "ref": "Attention", "params": { "kind": "gqa", "n_q": 12, "n_kv": 4 },
+              "ports": { "in": [{ "name": "x", "role": "resid" }], "out": [{ "name": "x", "role": "resid" }] },
+              "flow": "graph",
+              "children": [
+                { "id": "wq", "kind": "cell", "type": "Linear", "params": { "out": "n_q*d_head" } },
+                { "id": "wk", "kind": "cell", "type": "Linear", "params": { "out": "n_kv*d_head" } },
+                { "id": "wv", "kind": "cell", "type": "Linear", "params": { "out": "n_kv*d_head" } },
+                { "id": "rope", "kind": "cell", "type": "Rope", "params": { "theta": 10000 } },
+                { "id": "qk", "kind": "cell", "type": "MatMul", "params": { "transpose_b": true, "scale": "1/sqrt(d_head)" } },
+                { "id": "sm", "kind": "cell", "type": "Softmax", "params": { "axis": -1 } },
+                { "id": "av", "kind": "cell", "type": "MatMul" },
+                { "id": "wo", "kind": "cell", "type": "Linear", "params": { "out": "d" } }
+              ],
+              "edges": [
+                { "from": { "node": "x" }, "to": { "node": "wq" } },
+                { "from": { "node": "x" }, "to": { "node": "wk" } },
+                { "from": { "node": "x" }, "to": { "node": "wv" } },
+                { "from": { "node": "wq" }, "to": { "node": "rope" } },
+                { "from": { "node": "rope" }, "to": { "node": "qk", "port": "a" } },
+                { "from": { "node": "wk" }, "to": { "node": "qk", "port": "b" } },
+                { "from": { "node": "qk" }, "to": { "node": "sm" } },
+                { "from": { "node": "sm" }, "to": { "node": "av", "port": "a" } },
+                { "from": { "node": "wv" }, "to": { "node": "av", "port": "b" } },
+                { "from": { "node": "av" }, "to": { "node": "wo" } },
+                { "from": { "node": "wo" }, "to": { "node": "x" } }
+              ]
+            },
+            { "id": "add1", "kind": "cell", "type": "Add", "note": "residual" },
+            { "id": "n2", "kind": "cell", "type": "RMSNorm", "params": { "eps": 1e-5 } },
+            { "id": "mlp", "kind": "group", "ref": "SwiGLU", "params": { "mult": 4 },
+              "ports": { "in": [{ "name": "x", "role": "resid" }], "out": [{ "name": "x", "role": "resid" }] },
+              "flow": "graph",
+              "children": [
+                { "id": "wg", "kind": "cell", "type": "Linear", "params": { "out": "ffn_mult*d" } },
+                { "id": "wu", "kind": "cell", "type": "Linear", "params": { "out": "ffn_mult*d" } },
+                { "id": "act", "kind": "cell", "type": "SiLU" },
+                { "id": "mul", "kind": "cell", "type": "Mul" },
+                { "id": "wd", "kind": "cell", "type": "Linear", "params": { "out": "d" } }
+              ],
+              "edges": [
+                { "from": { "node": "x" }, "to": { "node": "wg" } },
+                { "from": { "node": "x" }, "to": { "node": "wu" } },
+                { "from": { "node": "wg" }, "to": { "node": "act" } },
+                { "from": { "node": "act" }, "to": { "node": "mul", "port": "a" } },
+                { "from": { "node": "wu" }, "to": { "node": "mul", "port": "b" } },
+                { "from": { "node": "mul" }, "to": { "node": "wd" } },
+                { "from": { "node": "wd" }, "to": { "node": "x" } }
+              ]
+            },
+            { "id": "add2", "kind": "cell", "type": "Add", "note": "residual" }
+          ],
+          "edges": [
+            { "from": { "node": "x" },    "to": { "node": "n1" } },
+            { "from": { "node": "n1" },   "to": { "node": "attn" } },
+            { "from": { "node": "attn" }, "to": { "node": "add1", "port": "a" } },
+            { "from": { "node": "x" },    "to": { "node": "add1", "port": "b" }, "route": "over", "kind": "skip" },
+            { "from": { "node": "add1" }, "to": { "node": "n2" } },
+            { "from": { "node": "n2" },   "to": { "node": "mlp" } },
+            { "from": { "node": "mlp" },  "to": { "node": "add2", "port": "a" } },
+            { "from": { "node": "add1" }, "to": { "node": "add2", "port": "b" }, "route": "over", "kind": "skip" },
+            { "from": { "node": "add2" }, "to": { "node": "x" } }
+          ]
+        }
+      },
+
+      { "id": "finalnorm", "kind": "cell", "type": "RMSNorm", "params": { "eps": 1e-5 },
+        "ports": { "in": [{ "name": "x", "role": "resid" }], "out": [{ "name": "x", "role": "resid" }] } },
+      { "id": "head", "kind": "cell", "type": "Unembedding", "params": { "tie": "emb" },
+        "ports": { "in": [{ "name": "x", "role": "resid" }], "out": [{ "name": "logits", "role": "logits", "shape": ["B", "T", "vocab"] }] } }
+    ],
+    "edges": [
+      { "from": { "node": "emb" },       "to": { "node": "trunk" } },
+      { "from": { "node": "trunk" },     "to": { "node": "finalnorm" } },
+      { "from": { "node": "finalnorm" }, "to": { "node": "head" } }
+    ]
+  }
+}
