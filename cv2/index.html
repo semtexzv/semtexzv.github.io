@@ -485,12 +485,12 @@
           <div class="entry-title">llm-lab · Exploratory LLM Training</div>
           <a class="repo" href="https://github.com/semtexzv/llm-lab" target="_blank" rel="noopener">github.com/semtexzv/llm-lab</a>
         </div>
-        <div class="entry-sub">Architecture research on two backends, MLX on Apple Silicon and PyTorch/CUDA on a DGX Spark · 2025 – Present</div>
+        <div class="entry-sub">A home-run LLM architecture research platform, executing an autoresearch loop targeting small models · 2025 – Present</div>
         <ul class="bullets">
-          <li>An idea becomes a config diff. It trains under the same <b>FLOP budget</b> as the baseline, lands on a leaderboard, and is kept or discarded by fixed criteria. Discarded ideas stay on the board with the reason. <b>400+ runs</b>, each with a snapshot of the code and config that produced it</li>
-          <li>The experiments run without me: a git-tracked queue feeds an <b>always-on runner</b> on the Spark, results append to a ledger, and the leaderboards regenerate from the ledger. Agents propose and queue the follow-ups; scale-ups wait for my <b>approval</b></li>
-          <li>Findings so far: fixed-step comparisons <b>misrank architectures</b>, MoE beat dense at fixed steps and lost at matched compute; <b>linear attention overtakes dense at 4k context</b>, where the dense KV cache is 46 times larger; the Network-of-Experts hypothesis I started with did not survive seeded replication, and is logged as a <b>negative result</b></li>
-          <li>I reimplement frontier architectures from the papers: linear-attention variants, attention-residual schemes. The current champion is <b>attention residuals</b>, −4.3% eval loss for +0.03% parameters</li>
+          <li>Two backends: <b>MLX</b> on Apple Silicon and <b>PyTorch/CUDA</b> on an NVIDIA DGX Spark. An experiment is a config diff trained under the same <b>FLOP budget</b> as the baseline and kept or discarded by fixed criteria; discarded ideas stay on the leaderboard with the reason</li>
+          <li>The loop runs unattended: a git-tracked queue feeds a runner on the Spark, results append to a ledger, and the leaderboards regenerate from it. Agents propose and queue follow-up experiments; scale-ups require approval. Over <b>400 runs</b>, each with a snapshot of the code and config that produced it</li>
+          <li>Findings: fixed-step comparisons <b>misrank architectures</b>, MoE beat dense at fixed steps and lost at matched compute; linear attention overtakes dense at 4k context; the founding Network-of-Experts hypothesis did not survive seeded replication and is logged as a <b>negative result</b></li>
+          <li>Frontier architectures reimplemented from the papers: linear-attention variants, attention-residual schemes; the current champion is <b>attention residuals</b>, −4.3% eval loss for +0.03% parameters</li>
         </ul>
       </div>
 
