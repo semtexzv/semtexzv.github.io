@@ -232,16 +232,16 @@
       <div class="row-body">
         <h2>One graph defines everything.</h2>
         <p class="body">
-          Every entity in bedrock, whether a service, a check, or an agent, is a <b>build target
-          in a single Buck2 environment</b>, defined by a custom build rule. Change arrives as jj
+          Every entity in bedrock is a <b>build target in a single Buck2 environment</b>:
+          services, checks, agents, each defined by a custom build rule. Change arrives as jj
           commits, carried by bedrock's own integration software: a commit is built, and the
           targets it touches are redeployed, live.
         </p>
         <p class="body">
           Bedrock itself is a set of communicating containers with its own internal supporting
           APIs, fully encapsulated and <b>self-hosting</b>; it needs nothing outside itself. There
-          is exactly one way to do things, and defining a new concept or a process is easy, since
-          <b>it's just a new build&nbsp;rule</b>.
+          is exactly one way to do things, and a new concept or a new process is
+          <b>just a new build&nbsp;rule</b>.
         </p>
         <div class="sample">
           <div class="sample-cap">everything is a build rule</div>
@@ -268,7 +268,7 @@ agent_spec(
         <h2>Correct processes ensure high quality.</h2>
         <p class="body">
           Bedrock runs on defined processes, and the central one is rigorous code review.
-          Every change, whether to the product or to bedrock itself, is reviewed across
+          Every change is reviewed across
           <b>multiple rubrics</b>: correctness, security, style, tests. Each rubric is a reviewer
           agent that examines the change and votes; the change merges when the votes clear,
           not before.
@@ -276,7 +276,7 @@ agent_spec(
         <p class="body">
           The process has <b>backstops</b>: security-sensitive paths take stricter votes, and
           anything an agent judges beyond its authority escalates to the human. Model output
-          varies. What merges does not, because the process, not the model, sets the bar.
+          varies. What merges does not: the process sets the bar, not the model.
         </p>
         <div class="sample">
           <div class="sample-cap">a new process is just a build rule</div>
@@ -304,9 +304,9 @@ code_reviewer(
       <div class="row-body">
         <h2>Development process optimization.</h2>
         <p class="body">
-          The services, the review process, the agents, and the deploy machinery are all defined
-          in the same codebase the agents work on, so <b>the loop applies to itself</b>: an agent
-          writes a change to a reviewer, to the runner, to another agent; the change is reviewed,
+          The services, the review process, the agents, the deploy machinery: all of it is defined
+          in the same codebase the agents work on, so <b>the loop applies to itself</b>. An agent
+          writes a change to a reviewer, to the runner, to another agent; it is reviewed,
           revised, and merged like any other; bedrock updates in place, and the next change flows
           through the machinery the last one just improved.
         </p>
@@ -355,14 +355,14 @@ code_reviewer(
         <h2>Custom model post-training.</h2>
         <p class="body">
           Bedrock is a set of hermetic containers: the whole platform is an RL environment
-          and a perfect target for <b>RLVR trajectory gathering</b>, reinforcement learning with
-          verifiable rewards. It diagnoses interesting problems and uses itself to generate
+          and a perfect target for <b>RLVR trajectory gathering</b> (reinforcement learning
+          with verifiable rewards). It diagnoses interesting problems and uses itself to generate
           trajectories of agentic work: many attempts at the same task, recorded end to end.
           With <b>GRPO-style reinforcement</b>, the trajectories become training data, and the
           model is optimized to choose the successful paths more of the time.
         </p>
         <p class="body">
-          The value of a trajectory comes from the same rubrics that gate code review: the
+          The value of a trajectory comes from the same rubrics that gate code review. The
           reviewer agents score each one, and the scores aggregate into its reward: <b>rubrics
           as rewards</b>. Bedrock applies its rubrics twice, first to review the code, <b>then
           to train a better model</b>. This layer is not built yet; it is where bedrock is headed.
