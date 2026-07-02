@@ -223,6 +223,8 @@
   }
   ul.bullets li:last-child { margin-bottom: 0; }
   .bullets b { color: var(--fg-strong); font-weight: 700; }
+  .bullets a { border-bottom: 1px solid var(--hair); }
+  .bullets a:hover { color: var(--accent); border-color: var(--accent); }
 
   /* repo tag */
   .repo {
@@ -489,7 +491,7 @@
         <ul class="bullets">
           <li><b>Verifies or falsifies my hypotheses about LLM architecture</b>, with the goal of finding <b>more efficient architectures</b> that reduce training costs; results are analyzed on <b>FLOPs, memory, bandwidth, and token efficiency</b></li>
           <li>Targets <b>Apple MLX</b> and <b>PyTorch/CUDA</b> for comparative performance analysis, validated against a measured hardware bandwidth model</li>
-          <li>Currently focused on <b>novel architectures of the residual stream</b> in decoder-only transformers</li>
+          <li>Currently focused on <b>novel architectures of the residual stream</b> in decoder-only transformers: manifold hyper-connections (<a href="https://arxiv.org/abs/2512.24880" target="_blank" rel="noopener">arXiv:2512.24880</a>), attention residuals (<a href="https://arxiv.org/abs/2603.15031" target="_blank" rel="noopener">arXiv:2603.15031</a>)</li>
         </ul>
       </div>
 
