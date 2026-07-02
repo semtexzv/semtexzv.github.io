@@ -306,9 +306,9 @@ code_reviewer(
         <p class="body">
           The services, the review process, the agents, the deploy machinery: all of it is defined
           in the same codebase the agents work on, so <b>the loop applies to itself</b>. An agent
-          writes a change to a reviewer, to the runner, to another agent. The change is reviewed,
-          revised, and merged like any other. Bedrock updates in place, and the next change flows
-          through the machinery the last one just improved.
+          writes a change to a reviewer, to the runner, to another agent. The change is then
+          reviewed, revised, and merged like any other. Once it lands, bedrock updates in place,
+          and the next change flows through the machinery the last one just improved.
         </p>
         <p class="body">
           Agents <b>escalate to a human</b> for a vote on the critical changes: deploy machinery,
