@@ -18,10 +18,14 @@
 
    POSITIONS ARE AUTHORED: the derived layout only SEEDS a level — the first render
    bakes it into the document (`ui: {x,y}` per node), and from then on nodes stay
-   exactly where the user puts them. Drags persist, palette drops land under the
-   cursor, and edits never reshuffle the rest of the graph or move the camera.
-   `✷ tidy` clears a level's authored positions and re-derives. In chain levels the
-   edge sequence follows the nodes' vertical order; wires always re-route to follow.
+   exactly where the user puts them. Drags persist, and edits never reshuffle the
+   rest of the graph or move the camera. `✷ tidy` clears a level's authored
+   positions and re-derives.
+
+   EVERY EDITABLE LEVEL IS AN EXPLICIT GRAPH (the model root included; edges live in
+   the IR). A palette drop is a FREE node: it lands under the cursor UNCONNECTED —
+   scatter cells around, then wire them slot → slot (an occupied input rewires).
+   Only the array interior stays derived (it is a visualization, not a surface).
 
    Data: types.json (op registry) + examples/gqa.json (default IR), fetched at boot —
    single source of truth, no inline copies. No build step, no runtime dependencies.
@@ -276,17 +280,20 @@
 
   /* ---- ROOT: clean linear dataflow tokens → emb → Trunk(×N) → norm → unembed → logits ---- */
   function deriveRoot() {
-    var g = IR.root, nodes = [], seq = [];
-    nodes.push(ioIn("tokens", "tokens", "tokens", "[B,T]", "tokens")); seq.push("tokens");
+    var g = IR.root, nodes = [];
+    nodes.push(ioIn("tokens", "tokens", "tokens", "[B,T]", "tokens"));
     (g.children || []).forEach(function (c) {
       if (c.kind === "repeat") nodes.push(trunkCard(c));
       else nodes.push(cardFromChild(c, { w: SZ.cardW, h: SZ.cardH, spine: true, selectable: true, openTo: openKind(c), openNode: c }));
-      seq.push(c.id);
     });
-    nodes.push(ioOut("logits", "logits", "logits", "[B,T,vocab]", "logits")); seq.push("logits");
+    nodes.push(ioOut("logits", "logits", "logits", "[B,T,vocab]", "logits"));
     var map = {}; nodes.forEach(function (n) { map[n.id] = n; });
-    var edges = [];
-    for (var i = 0; i < seq.length - 1; i++) edges.push(chainEdge(seq[i], seq[i + 1], map));
+    // the root is an EXPLICIT graph like every editable level (edges live in the IR;
+    // the io pseudo-nodes are named after the group ports, so no aliasing is needed).
+    var edges = explicitEdges(g, map);
+    // wired nodes ride the spine column; unwired (freshly dropped) ones don't get pinned to it
+    var onEdge = {}; edges.forEach(function (e) { onEdge[e.from] = 1; onEdge[e.to] = 1; });
+    nodes.forEach(function (n) { if (n.kind !== "io" && !onEdge[n.id]) n.spine = false; });
     return { dir: "down", nodes: nodes, edges: edges, outId: "logits", spine: true, persist: true,
       decos: function (svg, G) {
         var tk = G.nodeMap.tokens;
@@ -944,7 +951,6 @@
       markDrag();   // a move drag must not let its trailing click open the node
       var p = svgPoint(ev.clientX, ev.clientY);
       setStoredPos(N, p.x - offX, p.y - offY);        // it STAYS where you put it
-      if (cur().type === "root") respliceChainByY();  // chain sequence follows vertical order
       App.drag = null; render();
     }
     window.addEventListener("pointermove", move, { passive: false }); window.addEventListener("pointerup", up);
@@ -954,11 +960,6 @@
     if (N.openTo && App._lastClick && App._lastClick.id === N.id && now - App._lastClick.t < 360) { App._lastClick = null; doOpen(N); return; }
     App._lastClick = { id: N.id, t: now };
     if (N.selectable) { App.selected = { kind: "node", id: N.id }; render(); }
-  }
-  /* chain levels derive their edges from children order — keep that order = visual top-to-bottom */
-  function respliceChainByY() {
-    var ch = cur().group.children || [];
-    ch.sort(function (a, b) { return ((a.ui && a.ui.y) || 0) - ((b.ui && b.ui.y) || 0); });
   }
   /* ✷ tidy: clear this level's authored positions → the next render re-derives a fresh layout */
   function tidyLevel() {
@@ -989,7 +990,7 @@
   }
   function compatible(srcRole, dstRole) { return srcRole === dstRole || dstRole === "hidden" || srcRole === "hidden"; }
   function tryConnect(fromId, fromPort, fromRole, toId, toPort, toRole) {
-    if (cur().type === "root" || cur().type === "array") { flashHint("this level is a chain — its edges are derived; drop ops to splice them in"); return reject(toId); }
+    if (cur().type === "array") { flashHint("the array interior is derived — open an instance to edit it"); return reject(toId); }
     if (fromId === toId) return reject(toId);
     if (!compatible(fromRole, toRole)) return reject(toId);
     var group = cur().group;
@@ -1107,6 +1108,8 @@
     }
     window.addEventListener("pointermove", move, { passive: false }); window.addEventListener("pointerup", up);
   }
+  /* a drop is a FREE node: it lands under the cursor UNCONNECTED — scatter cells around,
+     then wire them explicitly slot → slot. (No auto-splicing anywhere.) */
   function dropNode(type, pt) {
     var level = cur();
     if (level.type === "array") { flashHint("open an instance to edit the block body"); return; }
@@ -1114,35 +1117,10 @@
     node.ui = { x: snapGrid(pt.x), y: snapGrid(pt.y) };   // lands exactly under the cursor — and stays
     var group = level.group;
     group.children = group.children || [];
-    if (level.type === "root") {                          // chain → splice into the sequence at the drop height
-      var below = (group.children).filter(function (c) { var n = App.nodeById[c.id]; return n && (n.y + n.h / 2) < pt.y; }).length;
-      group.children.splice(below, 0, node);
-      respliceChainByY();
-    } else {                                              // graph → splice INTO the nearest edge + rewire
-      spliceIntoNearestEdge(node, type, pt, group);
-    }
+    group.children.push(node);
     App.selected = { kind: "node", id: node.id };
     render();
-    flashHint("added " + REG.types[type].label + " · wired in — it stays where you dropped it");
-  }
-  function spliceIntoNearestEdge(node, type, pt, group) {
-    var r = REG.types[type], inN = (r.in[0] || {}).name || "x", outN = (r.out[0] || {}).name || "y";
-    var best = null, bestD = 1e9;
-    (group.edges || []).forEach(function (e, i) {
-      var f = e.from.node === "x" ? "x_in" : e.from.node, t = e.to.node === "x" ? "x_out" : e.to.node;
-      var fp = e.from.port || (App.nodeById[f] && App.nodeById[f].outs[0] || {}).name;
-      var tp = e.to.port || (App.nodeById[t] && App.nodeById[t].ins[0] || {}).name;
-      var a = App.ports[f + "|out|" + fp], b = App.ports[t + "|in|" + tp];
-      if (!a || !b) return;
-      var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dd = Math.hypot(mx - pt.x, my - pt.y);
-      if (dd < bestD) { bestD = dd; best = { e: e, i: i }; }
-    });
-    group.children.push(node);
-    if (best) {
-      var oldTo = { node: best.e.to.node, port: best.e.to.port };
-      best.e.to = { node: node.id, port: inN };
-      group.edges.push({ from: { node: node.id, port: outN }, to: oldTo });
-    }
+    flashHint("added " + REG.types[type].label + " — unconnected · drag from a slot to wire it in");
   }
 
   /* ============================================================ INSPECTOR (param edit; $-refs as TEXT) */
