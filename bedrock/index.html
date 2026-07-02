@@ -121,14 +121,32 @@
   .row-body{min-width:0}
   h2{margin:0 0 .9rem; font-size:1.5rem; font-weight:800; letter-spacing:-.02em; color:var(--fg-strong)}
   p.body{font-size:1rem; line-height:1.6; color:var(--ink); max-width:64ch; margin:0}
+  p.body + p.body{margin-top:.85rem}
   p.body b{color:var(--fg-strong); font-weight:700}
   ul.bullets{list-style:none; margin:.4rem 0 0; padding:0}
   ul.bullets li{position:relative; padding-left:1.2rem; margin-bottom:.6rem; max-width:64ch; color:var(--ink)}
   ul.bullets li::before{content:"—"; position:absolute; left:0; color:var(--accent)}
   ul.bullets li b{color:var(--fg-strong); font-weight:700}
 
+  /* implementation status rows */
+  ul.sb{list-style:none; margin:1.4rem 0 0; padding:0; max-width:64ch}
+  ul.sb li{display:flex; align-items:baseline; gap:1rem; padding:.6rem 0; border-top:1px solid var(--hair)}
+  ul.sb li:last-child{border-bottom:1px solid var(--hair)}
+  ul.sb .item{font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    font-size:.82rem; color:var(--fg-strong); min-width:11.5rem}
+  ul.sb .note{flex:1; color:var(--dim); font-size:.9rem; font-weight:300}
+  ul.sb .state{font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    font-size:.78rem; letter-spacing:.04em; color:var(--accent); white-space:nowrap; margin-left:auto}
+  ul.sb .state.dim{color:var(--dim)}
+  @media (max-width:720px){
+    ul.sb li{flex-wrap:wrap; gap:.3rem 1rem}
+    ul.sb .item{min-width:0}
+    ul.sb .note{flex-basis:100%; order:3}
+  }
+
   /* code / command / UI samples */
   .sample{margin-top:1.5rem}
+  .sample:has(svg.diagram){margin-top:.7rem}
   .sample-cap{font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin-bottom:.5rem}
   pre.code{
     font-size:.8rem; line-height:1.6; color:var(--ink);
@@ -201,7 +219,7 @@
       <div class="kicker"><span class="pulse"></span>a self-building software company</div>
       <h1 class="title">bed<em>rock</em></h1>
       <p class="sub">An agentic, self-modifying environment.</p>
-      <p class="lede">Kubernetes for agents: the agents write, review, ship, and improve the software — and the machinery they run on. A human approves the critical changes and the high-level designs; the rest runs on its&nbsp;own.</p>
+      <p class="lede">Kubernetes for agents: the agents write, review, ship, and improve the software — including themselves. A human sets the goals, approves the critical changes and the high-level designs; the rest runs on its&nbsp;own.</p>
       <a class="scroll-cue" href="#read"><span class="arrow">↓</span> scroll</a>
     </div>
   </section>
@@ -210,19 +228,23 @@
   <div class="wrap" id="read">
 
     <section class="row">
-      <div class="row-label"><span class="num">01</span> / One graph</div>
+      <div class="row-label"><span class="num">01</span> / How</div>
       <div class="row-body">
-        <h2>One graph defines everything — the services, the checks, and the agents themselves.</h2>
+        <h2>One graph defines everything.</h2>
         <p class="body">
-          A running service, a code check, an AI agent — each is the <b>same kind of entry</b> in
-          one build graph, and a single command ships any of them onto the live machine. The agents
-          that write and review the code sit right beside the code they change, so adding a service,
-          a rule, or a new agent is the same motion: <b>edit the graph, ship it</b>. Even the runner
-          that deploys everything is an entry in the graph — so the system upgrades its own machinery
-          the same way it ships a feature. No separate CI server, review bot, or deploy tool to bolt&nbsp;on.
+          Every entity in bedrock is a <b>build target in a single Buck2 environment</b> — a
+          service, a check, an agent — each defined by a custom build rule. Change arrives as jj
+          commits, carried by bedrock's own integration software: a commit is built, and the
+          targets it touches are redeployed, live.
+        </p>
+        <p class="body">
+          Bedrock itself is a set of communicating containers with its own internal supporting
+          APIs — fully encapsulated and <b>self-hosting</b>; it needs nothing outside itself. There
+          is exactly one way to do things, and defining a new concept or a process is easy —
+          <b>it's just a new build&nbsp;rule</b>.
         </p>
         <div class="sample">
-          <div class="sample-cap">everything is an entity</div>
+          <div class="sample-cap">everything is a build rule</div>
 <pre class="code python"># a running service
 bedrock_service(
     name          = "integrator",
@@ -241,24 +263,24 @@ agent_spec(
     </section>
 
     <section class="row">
-      <div class="row-label"><span class="num">02</span> / Rules as Reflexes</div>
+      <div class="row-label"><span class="num">02</span> / Quality</div>
       <div class="row-body">
-        <h2>A standard is just an agent wired to an event.</h2>
+        <h2>Correct processes ensure high quality.</h2>
         <p class="body">
-          Want every Python change security-audited? Declare an agent — here, one running on a
-          <b>Claude model</b> — and the event it fires on. It wakes on matching changes, reviews
-          them, and votes; mark its approval <b>required</b>, and nothing merges without it.
-          Raising the bar is adding one of these, not building a new system.
+          Bedrock runs on defined processes, and the central one is rigorous code review.
+          Every change — to the product or to bedrock itself — is reviewed across
+          <b>multiple rubrics</b>: correctness, security, style, tests. Each rubric is a reviewer
+          agent that examines the change and votes; the change merges when the votes clear,
+          not before.
         </p>
-        <ul class="bullets">
-          <li>a <b>reviewer</b> on a code pattern — every Python change gets a security audit</li>
-          <li>a <b>presubmit check</b> on every change — it must pass before merge</li>
-          <li><b>background agents</b> on idle time — improvement work that never blocks the queue</li>
-          <li>an <b>agent</b> that reads the agents' own logs — the system reviewing itself <span class="c">(§04)</span></li>
-        </ul>
+        <p class="body">
+          The process has <b>backstops</b>: security-sensitive paths take stricter votes, and
+          anything an agent judges beyond its authority escalates to the human. Model output
+          varies — what merges does not, because the process, not the model, sets the bar.
+        </p>
         <div class="sample">
-          <div class="sample-cap">the audit is an agent on an event</div>
-<pre class="code python"># define the agent — a security auditor on a Claude model
+          <div class="sample-cap">a new process is just a build rule</div>
+<pre class="code python"># the reviewer — a security auditor on a Claude model
 agent_spec(
     name    = "fable-auditor",
     prompts = ["//agents/prompts:security-review"],
@@ -266,12 +288,12 @@ agent_spec(
     effort  = "high",
 )
 
-# WIRE it to an event — audit every Python change
-agent_trigger(
-    name    = "security-audit",
-    agent   = ":fable-auditor",    # ← rule meets agent
-    pattern = "**/*.py",           # matched at run time
-    on      = ["added", "modified"],
+# the process — a required review on every matching change
+code_reviewer(
+    name     = "security-review",
+    agent    = ":fable-auditor",
+    pattern  = "**/*.py",
+    required = True,               # nothing merges over its objection
 )</pre>
         </div>
       </div>
@@ -280,18 +302,21 @@ agent_trigger(
     <section class="row">
       <div class="row-label"><span class="num">03</span> / The Loop</div>
       <div class="row-body">
-        <h2>It proposes, reviews, and ships — a human approves only what's critical.</h2>
+        <h2>Development process optimization.</h2>
         <p class="body">
-          One agent writes a change — code, a service, even a <b>new agent</b>. Other agents review
-          it and vote; <b>if they judge it sound, it merges and ships automatically</b> — no human in
-          the loop. A human steps in for two things only: the <b>critical changes</b> — to the deploy
-          machinery, the rules, who's allowed to approve — and the <b>high-level designs</b> that set
-          direction. Once a change ships, the running system updates, including the machinery that
-          produced it; a failed deploy rolls back to the last good version.
+          The services, the review process, the agents, the deploy machinery — all of it is defined
+          in the same codebase the agents work on. So <b>the loop applies to itself</b>: an agent
+          writes a change to a reviewer, to the runner, to another agent; the change is reviewed,
+          revised, and merged like any other; bedrock updates in place — and the next change flows
+          through the machinery the last one just improved.
+        </p>
+        <p class="body">
+          On the critical changes — deploy machinery, permissions, the rules themselves — agents
+          <b>escalate to a human</b> for a vote.
         </p>
         <div class="sample">
-          <div class="sample-cap">nothing merges itself</div>
-<svg id="d1" class="diagram" role="img" aria-label="the loop: generator, review, submit, deploy, new environment — feeding back into the loop"></svg>
+          <div class="sample-cap">environment hotswap</div>
+<svg id="d1" class="diagram" role="img" aria-label="the loop: coding, review, submit, deploy — the new environment replaces the old"></svg>
         </div>
       </div>
     </section>
@@ -299,36 +324,73 @@ agent_trigger(
     <section class="row">
       <div class="row-label"><span class="num">04</span> / The Mirror</div>
       <div class="row-body">
-        <h2>It turns its own friction into new work.</h2>
+        <h2>Dynamic analysis and friction resolution.</h2>
         <p class="body">
-          Every agent action is logged. A second set of agents reads those logs for recurring
-          trouble — <b>repeated failures, missing or stale docs, contradictions</b> — and files
-          each as a ticket. Those tickets re-enter as new work for the build agents and run the
-          same propose-review-gate loop, so a wrong call gets caught, not shipped.
+          Every conversation in bedrock is kept: user sessions, automated agents at work,
+          the back-and-forth of code reviews. Together they form <b>an honest record of its
+          life</b> — where work gets stuck, what breaks repeatedly, which pieces of
+          infrastructure are missing.
+        </p>
+        <p class="body">
+          In the background, that record is analyzed and distilled into a list of issues with
+          bedrock itself. From it, bedrock <b>generates its own tasks</b> — a recurring
+          failure becomes a fix, a missing tool becomes a proposal — and each one flows through
+          the same loop as every other change: proposed, reviewed, shipped. Bedrock
+          improves itself.
         </p>
         <div class="sample">
-          <div class="sample-cap">the system reading itself</div>
+          <div class="sample-cap">bedrock reading itself</div>
 <svg id="d2" class="diagram" role="img" aria-label="the process emits execution traces; meta-processes analyse them and file work back into the process"></svg>
         </div>
         <div class="sample">
-          <div class="sample-cap">a meta-process is an agent on a clock</div>
-<pre class="code python">agent_spec(
-    name    = "process-auditor",
-    prompts = ["//agents/prompts:process-auditor"],
-    model   = "claude-fable-5",
-    effort  = "high",
-)
-
-agent_schedule(
-    name  = "process-audit",
-    agent = ":process-auditor",
-    every = "1h",
-)</pre>
+          <div class="sample-cap">from one session to a filed bug</div>
+<svg id="dsession" class="diagram" role="img" aria-label="one recorded session: an agent reads code, runs tool-x, hits missing docs, works around it — analysis reads the session and files a bug: tool-x is undocumented"></svg>
         </div>
       </div>
     </section>
 
-    <div class="teaser"><span class="pulse"></span> coming soon</div>
+    <section class="row">
+      <div class="row-label"><span class="num">05</span> / RLVR</div>
+      <div class="row-body">
+        <h2>Custom model post-training.</h2>
+        <p class="body">
+          Bedrock is a set of hermetic containers: the whole platform is an RL environment,
+          a perfect target for <b>RLVR trajectory gathering</b> — reinforcement learning with
+          verifiable rewards. It diagnoses interesting problems and uses itself to generate
+          trajectories of agentic work: many attempts at the same task, recorded end to end.
+          With <b>GRPO-style reinforcement</b>, the trajectories become training data, and the
+          model is optimized to choose the successful paths more of the time.
+        </p>
+        <p class="body">
+          The value of a trajectory comes from the same rubrics that gate code review: the
+          reviewer agents score each one, and the scores aggregate into its reward — <b>rubrics
+          as rewards</b>. Bedrock applies its rubrics twice — first to review the code, <b>then
+          to train a better model</b>. This layer is not built yet; it is where bedrock is headed.
+        </p>
+        <div class="sample">
+          <div class="sample-cap">one task, many trajectories — scored by the rubrics</div>
+<svg id="dtree" class="diagram" role="img" aria-label="an execution tree: one task branches into many trajectories; each outcome is scored by the rubrics; the +1.0 trajectory is highlighted — GRPO reinforces above the group mean, penalizes below"></svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="row">
+      <div class="row-label"><span class="num">06</span> / Status</div>
+      <div class="row-body">
+        <h2>Where each piece stands.</h2>
+        <p class="body">
+          A working prototype, self-hosted end to end.
+        </p>
+        <ul class="sb">
+          <li><span class="item">base platform</span><span class="note">the graph, the services, the loop</span><span class="state">✓ complete</span></li>
+          <li><span class="item">review agents</span><span class="note">rubrics wired into every review</span><span class="state">✓ complete</span></li>
+          <li><span class="item">friction gathering</span><span class="note">sessions mined into tasks</span><span class="state">✓ complete</span></li>
+          <li><span class="item">runtime · macos</span><span class="note">Apple containers</span><span class="state">✓ complete</span></li>
+          <li><span class="item">runtime · linux</span><span class="note">Docker or native containers</span><span class="state dim">◐ in progress</span></li>
+          <li><span class="item">rlvr</span><span class="note">the direction</span><span class="state dim">○ planned</span></li>
+        </ul>
+      </div>
+    </section>
 
     <footer>
       <div class="status">
@@ -616,10 +678,10 @@ function vLink(svg, x, yTail, yTip, cls, head, p){
 (function(){
   const W=760, H=184, nw=118, nh=56, ny=24;
   const yBot = ny+nh, returnY = ny+nh+66;          // elbow return rail, well below the row
-  const svg = d3.select('#d1').attr('viewBox',`0 0 ${W} ${H}`);
+  const svg = d3.select('#d1').attr('viewBox',`21 18 718 ${H-18}`);
   defsArrows(svg,'a');
 
-  const labels=[['generator','writes the change'],['review','agents vote'],['submit','to trunk'],
+  const labels=[['coding','an agent writes it'],['review','agents vote'],['submit','to trunk'],
                 ['deploy','& restart'],['new env','incl. the process']];
   const xs = d3.scalePoint().domain(d3.range(5)).range([22+nw/2, W-22-nw/2]);
   const nodes = labels.map((l,i)=>({x:xs(i)-nw/2, y:ny, w:nw, h:nh, label:l[0], sub:l[1]}));
@@ -633,13 +695,13 @@ function vLink(svg, x, yTail, yTip, cls, head, p){
     .attr('d',`M${x4} ${yBot+GAP} V ${returnY} H ${x0} V ${yBot}`)
     .attr('marker-end','url(#aA)'));
   svg.append('text').attr('class','lblA').attr('x',W/2).attr('y',returnY+19)
-    .text('the change reshapes the loop');
+    .text('the new environment replaces the old');
 })();
 
 /* ============ DIAGRAM 2 · THE MIRROR ============ */
 (function(){
   const W=760, H=336;
-  const svg = d3.select('#d2').attr('viewBox',`0 0 ${W} ${H}`);
+  const svg = d3.select('#d2').attr('viewBox',`15 0 730 ${H}`);
   defsArrows(svg,'b');
 
   // shared horizontal extent for both containers
@@ -648,7 +710,7 @@ function vLink(svg, x, yTail, yTip, cls, head, p){
   // --- process box + pipeline ---
   const pbY=22, pbH=90, pnw=116, pnh=40, pny=50;
   const pxs = d3.scalePoint().domain(d3.range(5)).range([bx+pad+pnw/2, bx+bw-pad-pnw/2]);
-  const proc = ['generate','review','submit','deploy','new env']
+  const proc = ['coding','review','submit','deploy','new env']
     .map((l,i)=>({x:pxs(i)-pnw/2, y:pny, w:pnw, h:pnh, label:l, cls:'t-sm'}));
 
   // --- meta box + analyzers ---
@@ -693,6 +755,108 @@ function vLink(svg, x, yTail, yTip, cls, head, p){
 
   svg.append('rect').attr('class','tag').attr('x',tagX).attr('y',tagY).attr('width',tagW).attr('height',tagH);
   svg.append('text').attr('class','tagtext').attr('x',W/2).attr('y',tagY+tagH/2).text('file bug → new work');
+})();
+
+/* ============ DIAGRAM 3 · ONE SESSION, MINED ============ */
+(function(){
+  const W=760, H=292;
+  const svg = d3.select('#dsession').attr('viewBox',`15 16 730 ${H-16}`);
+  defsArrows(svg,'c');
+
+  const bx=16, bw=728, pad=20;
+
+  // --- one recorded session: concrete events ---
+  const sbY=22, sbH=92, snw=150, snh=52, sny=46;
+  const sxs = d3.scalePoint().domain(d3.range(4)).range([bx+pad+snw/2, bx+bw-pad-snw/2]);
+  const events = [
+    ['reads the code','a.rs · b.rs · c.rs'],
+    ['runs tool-x','needs its flags'],
+    ['hits friction','tool-x has no docs'],
+    ['searches the repo','the slow workaround'],
+  ].map((l,i)=>({x:sxs(i)-snw/2, y:sny, w:snw, h:snh, label:l[0], sub:l[1], cls:'t-sm'}));
+
+  drawBoxes(svg,[{x:bx, y:sbY, w:bw, h:sbH}]);
+  forwardLinks(svg, events, 'c');
+  drawNodes(svg, events);
+
+  // --- analysis reads the session ---
+  const anw=180, anh=46, anY=168;
+  const analysis = {x:W/2-anw/2, y:anY, w:anw, h:anh, label:'analysis', sub:'an agent reads the session', cls:'t-sm'};
+  vLink(svg, W/2, sbY+sbH+GAP, anY, 'flow', 'D', 'c');
+  drawNodes(svg, [analysis]);
+
+  // --- the synthesized bug ---
+  const tagW=260, tagH=28, tagY=anY+anh+26;
+  vLink(svg, W/2, anY+anh+GAP, tagY, 'accent', 'A', 'c');
+  svg.append('rect').attr('class','tag').attr('x',W/2-tagW/2).attr('y',tagY).attr('width',tagW).attr('height',tagH);
+  svg.append('text').attr('class','tagtext').attr('x',W/2).attr('y',tagY+tagH/2).text('bug filed: “tool-x is undocumented”');
+})();
+
+/* ============ DIAGRAM 4 · TRAJECTORY TREE ============ */
+(function(){
+  const W=760, H=268, nh=34;
+  const svg = d3.select('#dtree').attr('viewBox',`15 16 730 ${H-16}`);
+  defsArrows(svg,'e');
+
+  // leaf rows top→bottom; inner levels centred on their children
+  const R=[52,106,160,214];
+  const N = {
+    root:{x:28,  w:112, cy:(R[0]+R[3])/2, label:'reads a.rs'},
+    a1:  {x:180, w:132, cy:(R[0]+R[1])/2, label:'fixes the parser'},
+    a2:  {x:180, w:132, cy:(R[2]+R[3])/2, label:'patches the caller'},
+    b1:  {x:352, w:132, cy:R[0], label:'adds a test'},
+    b2:  {x:352, w:132, cy:R[1], label:'no test'},
+    b3:  {x:352, w:132, cy:R[2], label:'guards the call'},
+    b4:  {x:352, w:132, cy:R[3], label:'silences the error'},
+    o1:  {x:524, w:122, cy:R[0], label:'review: clean'},
+    o2:  {x:524, w:122, cy:R[1], label:'review: nits'},
+    o3:  {x:524, w:122, cy:R[2], label:'tests flaky'},
+    o4:  {x:524, w:122, cy:R[3], label:'hides the bug'},
+  };
+
+  drawBoxes(svg,[{x:16, y:22, w:728, h:218}]);
+
+  // orthogonal parent→child edges; the winning trajectory is accented
+  const edge=(p,c)=>{
+    const x1=N[p].x+N[p].w+GAP, y1=N[p].cy, x2=N[c].x, y2=N[c].cy;
+    const mx=(x1-GAP+x2)/2;
+    return y1===y2 ? `M${x1} ${y1} H ${x2}` : `M${x1} ${y1} H ${mx} V ${y2} H ${x2}`;
+  };
+  const E=[['root','a1'],['root','a2'],['a1','b1'],['a1','b2'],['a2','b3'],['a2','b4'],
+           ['b1','o1'],['b2','o2'],['b3','o3'],['b4','o4']];
+  const BEST=new Set(['root>a1','a1>b1','b1>o1']);
+  CRISP(svg.append('g').selectAll('path').data(E).join('path')
+    .attr('class',([p,c])=>BEST.has(p+'>'+c)?'accent':'flow')
+    .attr('d',([p,c])=>edge(p,c))
+    .attr('marker-end',([p,c])=>`url(#e${BEST.has(p+'>'+c)?'A':'D'})`));
+
+  drawNodes(svg, Object.values(N).map(n=>({x:n.x, y:n.cy-nh/2, w:n.w, h:nh, label:n.label, cls:'t-sm'})));
+
+  // accent outline on the winning trajectory's nodes
+  CRISP(svg.append('g').selectAll('rect').data(['root','a1','b1','o1']).join('rect')
+    .attr('fill','none').attr('stroke','var(--accent)').attr('stroke-width',1.7)
+    .attr('x',k=>N[k].x).attr('y',k=>N[k].cy-nh/2).attr('width',k=>N[k].w).attr('height',nh));
+
+  // rubric-composed value on each outcome
+  const vals=[['o1','+1.0',true],['o2','+0.5',false],['o3','−0.5',false],['o4','−1.0',false]];
+  const tw=52, th=22, vx=664;
+  CRISP(svg.append('g').selectAll('path').data(vals).join('path')
+    .attr('class',([,,best])=>best?'accent':'flow')
+    .attr('d',([k])=>`M${N[k].x+N[k].w+GAP} ${N[k].cy} H ${vx}`));
+  const vg=svg.append('g').selectAll('g').data(vals).join('g');
+  vg.append('rect')
+    .attr('x',vx).attr('y',([k])=>N[k].cy-th/2).attr('width',tw).attr('height',th)
+    .attr('fill',([,,best])=>best?'var(--chip)':'none')
+    .attr('stroke',([,,best])=>best?'var(--accent)':'var(--hair-strong)')
+    .attr('stroke-width',1.2);
+  vg.append('text')
+    .attr('class',([,,best])=>best?'tagtext':'t-sm')
+    .style('fill',([,,best])=>best?null:'var(--dim)')
+    .attr('x',vx+tw/2).attr('y',([k])=>N[k].cy)
+    .text(([,v])=>v);
+
+  svg.append('text').attr('class','lblA').attr('x',W/2).attr('y',258)
+    .text('GRPO — reinforce above the group mean, penalize below');
 })();
 </script>
 </body>
