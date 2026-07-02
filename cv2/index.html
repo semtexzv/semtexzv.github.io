@@ -487,10 +487,10 @@
         </div>
         <div class="entry-sub">A home-run LLM architecture research platform, executing an autoresearch loop targeting small models · 2025 – Present</div>
         <ul class="bullets">
-          <li>Two backends: <b>MLX</b> on Apple Silicon and <b>PyTorch/CUDA</b> on an NVIDIA DGX Spark. An experiment is a config diff trained under the same <b>FLOP budget</b> as the baseline and kept or discarded by fixed criteria; discarded ideas stay on the leaderboard with the reason</li>
-          <li>The loop runs unattended: a git-tracked queue feeds a runner on the Spark, results append to a ledger, and the leaderboards regenerate from it. Agents propose and queue follow-up experiments; scale-ups require approval. Over <b>400 runs</b>, each with a snapshot of the code and config that produced it</li>
-          <li>Findings: fixed-step comparisons <b>misrank architectures</b>, MoE beat dense at fixed steps and lost at matched compute; linear attention overtakes dense at 4k context; the founding Network-of-Experts hypothesis did not survive seeded replication and is logged as a <b>negative result</b></li>
-          <li>Frontier architectures reimplemented from the papers: linear-attention variants, attention-residual schemes; the current champion is <b>attention residuals</b>, −4.3% eval loss for +0.03% parameters</li>
+          <li><b>Verifies or falsifies my hypotheses about LLM architecture</b>: each idea trains as a config diff under a fixed FLOP budget and is kept or discarded by fixed criteria. The founding Network-of-Experts hypothesis did not survive replication and is logged as a <b>negative result</b></li>
+          <li>Targets <b>Apple MLX</b> and <b>PyTorch/CUDA</b> for comparative performance analysis: FLOPs and memory tradeoffs under matched budgets, validated against a measured hardware bandwidth model</li>
+          <li>Currently focused on <b>novel architectures of the residual stream</b> in decoder-only transformers; the current champion is <b>attention residuals</b>, −4.3% eval loss for +0.03% parameters</li>
+          <li>The loop runs unattended: a git-tracked queue feeds a runner, results append to a ledger, and the leaderboards regenerate from it; agents queue follow-up experiments, scale-ups require approval. Over <b>400 logged runs</b></li>
         </ul>
       </div>
 
