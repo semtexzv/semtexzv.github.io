@@ -485,11 +485,12 @@
           <div class="entry-title">llm-lab · Exploratory LLM Training</div>
           <a class="repo" href="https://github.com/semtexzv/llm-lab" target="_blank" rel="noopener">github.com/semtexzv/llm-lab</a>
         </div>
-        <div class="entry-sub">Architecture experiments under matched compute, on Apple Silicon and DGX Spark · 2025 – Present</div>
+        <div class="entry-sub">Architecture research on two backends, MLX on Apple Silicon and PyTorch/CUDA on a DGX Spark · 2025 – Present</div>
         <ul class="bullets">
-          <li>Two backends, one methodology: <b>MLX</b> on Apple Silicon and <b>PyTorch/CUDA</b> on an NVIDIA DGX Spark. Every idea trains under a fixed <b>IsoFLOP (Chinchilla-style) budget</b> and lands on a keep/discard leaderboard, negative results included</li>
-          <li>Current focus: a <b>Network of Experts (NoE)</b> study on a Kimi-Linear MoE base, with gate-controlled scale-ups, seeded replications, and a measured-bandwidth performance model of the GB10 hardware</li>
-          <li>I reimplement current frontier architectures from the papers, linear-attention variants and attention-residual schemes, to keep a working feel for what researchers actually do</li>
+          <li>An idea becomes a config diff. It trains under the same <b>FLOP budget</b> as the baseline, lands on a leaderboard, and is kept or discarded by fixed criteria. Discarded ideas stay on the board with the reason. <b>400+ runs</b>, each with a snapshot of the code and config that produced it</li>
+          <li>The experiments run without me: a git-tracked queue feeds an <b>always-on runner</b> on the Spark, results append to a ledger, and the leaderboards regenerate from the ledger. Agents propose and queue the follow-ups; scale-ups wait for my <b>approval</b></li>
+          <li>Findings so far: fixed-step comparisons <b>misrank architectures</b>, MoE beat dense at fixed steps and lost at matched compute; <b>linear attention overtakes dense at 4k context</b>, where the dense KV cache is 46 times larger; the Network-of-Experts hypothesis I started with did not survive seeded replication, and is logged as a <b>negative result</b></li>
+          <li>I reimplement frontier architectures from the papers: linear-attention variants, attention-residual schemes. The current champion is <b>attention residuals</b>, −4.3% eval loss for +0.03% parameters</li>
         </ul>
       </div>
 
