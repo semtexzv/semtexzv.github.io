@@ -485,9 +485,10 @@
           <div class="entry-title">llm-lab · Exploratory LLM Training</div>
           <a class="repo" href="https://github.com/semtexzv/llm-lab" target="_blank" rel="noopener">github.com/semtexzv/llm-lab</a>
         </div>
-        <div class="entry-sub">Training and evaluating language models on Apple Silicon · 2025 – Present</div>
+        <div class="entry-sub">Architecture experiments under matched compute, on Apple Silicon and DGX Spark · 2025 – Present</div>
         <ul class="bullets">
-          <li>Complete 150M-parameter pretraining and evaluation pipeline (MLX): custom optimizers, mixed precision, and an <b>IsoFLOP (Chinchilla-style) ablation harness</b> for controlled architecture comparisons</li>
+          <li>Two backends, one methodology: <b>MLX</b> on Apple Silicon and <b>PyTorch/CUDA</b> on an NVIDIA DGX Spark. Every idea trains under a fixed <b>IsoFLOP (Chinchilla-style) budget</b> and lands on a keep/discard leaderboard, negative results included</li>
+          <li>Current focus: a <b>Network of Experts (NoE)</b> study on a Kimi-Linear MoE base, with gate-controlled scale-ups, seeded replications, and a measured-bandwidth performance model of the GB10 hardware</li>
           <li>I reimplement current frontier architectures from the papers, linear-attention variants and attention-residual schemes, to keep a working feel for what researchers actually do</li>
         </ul>
       </div>
