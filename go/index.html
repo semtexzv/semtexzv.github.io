@@ -2,10 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>Goban — Two-Player Go</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<meta name="theme-color" content="#2b3750">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goban">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<script src="peerjs.min.js"></script>
+<script src="qrcode.min.js"></script>
 <style>
   :root{
     --indigo:#2b3750;
@@ -25,19 +33,27 @@
   }
   *{ box-sizing:border-box; }
   html,body{ margin:0; padding:0; }
+  html{ overscroll-behavior:none; }
   body{
     min-height:100vh;
+    min-height:100dvh;
     background:
       radial-gradient(1200px 700px at 20% -10%, #35435f 0%, transparent 60%),
       linear-gradient(170deg, var(--indigo) 0%, var(--indigo-deep) 100%);
     color:var(--paper);
     font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing:antialiased;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-touch-callout:none;
+    overscroll-behavior:none;
+  }
+  button, .seg, header, .status, .scorecard, .bigcode, svg#board{
+    -webkit-user-select:none; user-select:none;
   }
 
   header{
     display:flex; align-items:baseline; gap:14px;
-    padding:20px 26px 8px;
+    padding:calc(14px + env(safe-area-inset-top)) calc(26px + env(safe-area-inset-right)) 8px calc(26px + env(safe-area-inset-left));
     max-width:1100px; margin:0 auto;
   }
   header h1{
@@ -50,15 +66,24 @@
   .table{
     max-width:1100px; margin:0 auto;
     display:grid; grid-template-columns:minmax(0,1fr) 320px;
-    gap:22px; padding:12px 26px 40px; align-items:start;
+    gap:22px; align-items:start;
+    padding:12px calc(26px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));
   }
   @media (max-width:820px){
-    .table{ grid-template-columns:1fr; padding:10px 14px 32px; }
+    .table{
+      grid-template-columns:1fr;
+      gap:14px;
+      padding:6px calc(10px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
+    }
+    /* Phone order: board, then connection + status + actions, then player cards */
+    .panel #netbar{ order:-3; }
+    .panel .status{ order:-2; }
+    .panel #playButtons, .panel #scoreButtons{ order:-1; }
   }
 
   .boardwrap{ display:flex; justify-content:center; }
   svg#board{
-    width:min(100%, 640px, calc(100vh - 140px));
+    width:min(100%, 640px, calc(100dvh - 230px));
     height:auto; display:block;
     touch-action:manipulation;
     border-radius:10px;
@@ -81,7 +106,7 @@
   .stone-icon.black{ background:radial-gradient(circle at 34% 30%, #6a707c 0%, #23262c 45%, #0c0e12 100%); }
   .stone-icon.white{ background:radial-gradient(circle at 34% 30%, #ffffff 0%, #f1ece1 55%, #c9c2b2 100%); border:1px solid #b9b2a2; }
   .player input{
-    font:inherit; font-weight:600; font-size:15px; color:var(--ink);
+    font:inherit; font-weight:600; font-size:16px; color:var(--ink); /* ≥16px: no iOS focus zoom */
     border:none; border-bottom:1px dashed #b9ad92; background:transparent;
     padding:2px 0; width:100%; outline:none;
   }
@@ -118,6 +143,11 @@
   }
   button:active{ transform:translateY(1px); }
   button:disabled{ opacity:.45; cursor:default; }
+  @media (pointer:coarse){
+    button{ min-height:46px; padding:10px 16px; }
+    .netbar button{ min-height:38px; }
+    .seg button{ min-height:44px; }
+  }
   .btn-primary{ background:var(--seal); color:#fff; box-shadow:0 3px 9px rgba(147,50,31,.45); }
   .btn-primary:hover:not(:disabled){ background:var(--seal-dark); }
   .btn-ghost{ background:rgba(245,239,226,.12); color:var(--paper); border:1px solid rgba(245,239,226,.25); }
@@ -143,7 +173,7 @@
   details.rules ul{ margin:8px 0 0; padding-left:18px; line-height:1.55; }
 
   #toast{
-    position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+    position:fixed; left:50%; bottom:calc(26px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(20px);
     background:var(--ink); color:var(--paper); font-size:14px;
     padding:10px 16px; border-radius:8px; opacity:0; pointer-events:none;
     transition:opacity .25s, transform .25s; max-width:88vw; text-align:center;
@@ -154,7 +184,8 @@
   #setup, #confirmBox, #waitBox{
     position:fixed; inset:0; z-index:40;
     background:rgba(20,26,40,.72); backdrop-filter:blur(3px);
-    display:flex; align-items:center; justify-content:center; padding:18px;
+    display:flex; align-items:center; justify-content:center;
+    padding:calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));
     overflow:auto;
   }
   #setup.hidden, #confirmBox.hidden, #waitBox.hidden{ display:none; }
@@ -177,7 +208,7 @@
   .field label{ display:block; font-size:12px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:5px; }
   .field .namerow{ display:flex; align-items:center; gap:9px; }
   .field input[type=text]{
-    font:inherit; font-size:15px; width:100%;
+    font:inherit; font-size:16px; width:100%;
     border:1.5px solid #cdc2a8; border-radius:8px; padding:8px 10px;
     background:#fdfaf2; outline:none;
   }
@@ -354,7 +385,7 @@
 
 <div id="confirmBox" class="hidden">
   <div class="setup-card">
-    <h2>Are you sure?</h2>
+    <h2 id="dlgTitle">Are you sure?</h2>
     <div class="tag" id="confirmMsg"></div>
     <div class="buttons">
       <button class="btn-primary grow" id="confirmYes">Yes</button>
@@ -454,6 +485,7 @@ function sendMsg(m){
   }
 }
 function teardownNet(){
+  clearNegotiation();
   try{ if (net.conn) net.conn.close(); }catch(e){}
   try{ if (net.peer) net.peer.destroy(); }catch(e){}
   net.mode = "local"; net.myColor = 0; net.peer = null; net.conn = null;
@@ -500,7 +532,7 @@ function createHostPeer(){
   p.on("open", function(){
     if (net.mode !== "host") return;
     clearWaitWatchdog();
-    setWaitMsg('<span class="waitspin"></span>Waiting for your opponent to join\u2026');
+    setWaitMsg('<span class="waitspin"></span>Waiting for your opponent \u2014 they can scan the QR with their phone camera, or type the code into Join online.');
   });
   p.on("connection", function(c){
     if (net.mode !== "host") return;
@@ -569,11 +601,177 @@ function wireConn(c){
   c.on("close", function(){
     if (net.conn !== c) return;
     net.connected = false;
+    clearNegotiation(); // any open request/answer dialog is void now
     updateNetBar();
+    renderPanel();
     if (isOnline()) toast("Connection lost. " + (net.mode === "guest" ? "You can Leave and re-join with the same code." : "If they re-join with the same code, the game resumes."));
   });
   c.on("error", function(){ /* close handler covers UX */ });
 }
+/* ---------- action negotiation ----------
+   Anything that rewrites shared history (new game, takeback, final score) is
+   never applied unilaterally in an online game. It ping-pongs:
+
+     requester                                responder
+     req {action,id,moveNum}  ───────────────▶  validates; shows Accept/Decline
+     (waiting dialog, Cancel)                   dialog to the human
+     ◀─────────────────────────  res {id,accept[,reason]}
+     applies on accept                          applies on accept (before res)
+
+   - moveNum pins the request to a position; a move landing in between
+     auto-declines it as stale on the responder and re-checks on the requester.
+   - reqCancel {id} withdraws a request (Cancel button or 45s timeout).
+   - If both sides request the same action simultaneously, that counts as
+     agreement: the incoming req is treated as an accept of ours.
+   - One negotiation at a time; a second incoming req is declined as "busy".
+   - "undo" is applied only by the requester (owner of the history stack),
+     which then broadcasts the resulting state — the responder just approves.
+   - Disconnect clears any pending negotiation on both sides. */
+const REQ_TIMEOUT = 45000;
+let reqSeq = 0;
+let pendingOut = null;   // { id, action, moveNum, timer } — our outstanding request
+let pendingIn = null;    // { id, action } — opponent's request we're answering
+
+const REQ_TEXT = {
+  "new":     { title:"New game?",     verb:"wants to start a new game on this board", yes:"Accept", waiting:"Asking {opp} to start a new game…" },
+  "undo":    { title:"Take back?",    verb:"asks to take back their last move",       yes:"Allow",  waiting:"Asking {opp} to allow the takeback…" },
+  "confirm": { title:"End the game?", verb:"proposes to end the game with this score", yes:"Accept", waiting:"Asking {opp} to accept the score…" }
+};
+
+function oppName(){ return pname(3 - net.myColor); }
+
+function sendRequest(action){
+  if (!isLive()){ toast("Not connected right now."); return; }
+  if (pendingOut || pendingIn) return;
+  pendingOut = { id: net.myColor + "-" + (++reqSeq), action: action, moveNum: S.moveNum };
+  sendMsg({ t:"req", action: action, id: pendingOut.id, moveNum: S.moveNum });
+  pendingOut.timer = setTimeout(function(){
+    if (!pendingOut) return;
+    sendMsg({ t:"reqCancel", id: pendingOut.id });
+    pendingOut = null;
+    hideDialog();
+    toast("No answer from " + oppName() + " — try again in a moment.");
+  }, REQ_TIMEOUT);
+  const rt = REQ_TEXT[action];
+  showDialog({
+    title: rt.title,
+    msg: '<span class="waitspin"></span>' + escapeHtml(rt.waiting.replace("{opp}", oppName())),
+    hideYes: true,
+    no: "Cancel",
+    onNo: function(){
+      if (!pendingOut) return;
+      clearTimeout(pendingOut.timer);
+      sendMsg({ t:"reqCancel", id: pendingOut.id });
+      pendingOut = null;
+    }
+  });
+}
+
+function reqValidHere(action, moveNum){
+  if (action === "new") return true;
+  /* takeback: only of the requester's last move, so on our machine it must be
+     our turn and the position must not have moved on */
+  if (action === "undo") return S.phase === "play" && S.moveNum === moveNum && S.turn === net.myColor;
+  if (action === "confirm") return S.phase === "score";
+  return false;
+}
+
+function applyAgreed(action){
+  if (action === "new"){
+    S = freshState(S.size);
+    persist(); renderAll();
+    toast("New game — good luck!");
+  } else if (action === "confirm"){
+    doConfirm();
+  }
+  /* "undo": nothing here — the requester rewinds and broadcasts the state */
+}
+
+function handleIncomingReq(m){
+  const action = m.action;
+  if (!REQ_TEXT[action] || typeof m.id !== "string") return;
+  if (pendingOut && pendingOut.action === action && action !== "undo"){
+    // we asked for the same thing — that's an agreement, not a conflict
+    // (takeback is turn-gated, so simultaneous undo requests can't happen)
+    clearTimeout(pendingOut.timer);
+    pendingOut = null;
+    hideDialog();
+    sendMsg({ t:"res", id: m.id, action: action, accept: true });
+    applyAgreed(action);
+    return;
+  }
+  if (pendingOut || pendingIn){
+    sendMsg({ t:"res", id: m.id, action: action, accept: false, reason: "busy" });
+    return;
+  }
+  if (!reqValidHere(action, m.moveNum)){
+    sendMsg({ t:"res", id: m.id, action: action, accept: false, reason: "stale" });
+    return;
+  }
+  pendingIn = { id: m.id, action: action };
+  const rt = REQ_TEXT[action];
+  let extra = "";
+  if (action === "confirm"){
+    const sc = computeScore();
+    extra = "<br>" + escapeHtml(pname(1)) + " " + sc.black + " — " + escapeHtml(pname(2)) + " " + sc.white + ".";
+  }
+  showDialog({
+    title: rt.title,
+    msg: "<b>" + escapeHtml(oppName()) + "</b> " + rt.verb + "." + extra,
+    yes: rt.yes,
+    no: "Decline",
+    onYes: function(){
+      if (!pendingIn) return;
+      const id = pendingIn.id; pendingIn = null;
+      sendMsg({ t:"res", id: id, action: action, accept: true });
+      applyAgreed(action);
+    },
+    onNo: function(){
+      if (!pendingIn) return;
+      const id = pendingIn.id; pendingIn = null;
+      sendMsg({ t:"res", id: id, action: action, accept: false });
+    }
+  });
+}
+
+function handleIncomingRes(m){
+  if (!pendingOut || pendingOut.id !== m.id) return;
+  const action = pendingOut.action;
+  const atMove = pendingOut.moveNum;
+  clearTimeout(pendingOut.timer);
+  pendingOut = null;
+  hideDialog();
+  if (!m.accept){
+    toast(m.reason === "stale" ? "Too late — the position already changed." :
+          m.reason === "busy"  ? oppName() + " is busy with another request." :
+          oppName() + " declined.");
+    return;
+  }
+  if (action === "undo"){
+    if (S.phase === "play" && S.moveNum === atMove && S.turn !== net.myColor && S.history.length){
+      undo(); // rewinds locally and broadcasts the state to the opponent
+      toast("Move taken back.");
+    } else {
+      toast("Too late — the position already changed.");
+    }
+    return;
+  }
+  applyAgreed(action);
+}
+
+function handleReqCancel(m){
+  if (pendingIn && pendingIn.id === m.id){
+    pendingIn = null;
+    hideDialog();
+    toast(oppName() + " withdrew the request.");
+  }
+}
+
+function clearNegotiation(){
+  if (pendingOut){ clearTimeout(pendingOut.timer); pendingOut = null; hideDialog(); }
+  if (pendingIn){ pendingIn = null; hideDialog(); }
+}
+
 function handleMsg(m){
   if (!m || typeof m !== "object") return;
   switch (m.t){
@@ -586,6 +784,7 @@ function handleMsg(m){
       break;
     case "sync":
       if (net.mode !== "guest") return;
+      clearNegotiation();
       S = freshState(m.size || 9);
       try{ restoreCore(m.core); }catch(e){}
       if (m.names){
@@ -604,21 +803,33 @@ function handleMsg(m){
     case "move":   playAt(m.i, true); break;
     case "dead":   playAt(m.i, true); break;
     case "pass":   doPass(true); break;
-    case "resign": if (m.loser === 1 || m.loser === 2) applyResign(m.loser); break;
-    case "confirm": doConfirm(true); break;
-    case "resume":  doResume(true); break;
+    case "resign":
+      if (m.loser === 1 || m.loser === 2){
+        clearNegotiation();
+        applyResign(m.loser);
+        showDialog({
+          title: "Game over",
+          msg: "<b>" + escapeHtml(pname(m.loser)) + "</b> resigned — " + escapeHtml(pname(3 - m.loser)) + " wins! 🏆",
+          yes: "OK",
+          hideNo: true
+        });
+      }
+      break;
+    case "resume":
+      if (S.phase === "score"){
+        doResume(true);
+        toast(oppName() + " resumed play — the game continues.");
+      }
+      break;
     case "state":
       snapshot();
       try{ restoreCore(m.core); }catch(e){}
       persist(); renderAll();
-      if (m.reason === "undo") toast("Move undone.");
-      else if (m.reason === "redo") toast("Move redone.");
+      if (m.reason === "undo") toast(oppName() + " took back their move.");
       break;
-    case "new":
-      S = freshState(m.size || S.size);
-      persist(); renderAll();
-      toast("New game — good luck!");
-      break;
+    case "req":       handleIncomingReq(m); break;
+    case "res":       handleIncomingRes(m); break;
+    case "reqCancel": handleReqCancel(m); break;
   }
 }
 
@@ -721,12 +932,23 @@ function undo(){
   if (isLive()) sendMsg({ t:"state", core: serializeCore(), reason:"undo" });
 }
 function redo(){
+  if (isOnline()) return; // no redo online — takebacks are negotiated, not replayed
   if (!S.redo || !S.redo.length || S.phase === "over") return;
   S.history.push(serializeCore());
   if (S.history.length > 400) S.history.shift();
   restoreCore(S.redo.pop());
   persist(); renderAll();
-  if (isLive()) sendMsg({ t:"state", core: serializeCore(), reason:"redo" });
+}
+/* Online, undo means asking to take back your own last move: available only
+   when the previous action was yours (it's the opponent's turn again). */
+function canTakeback(){
+  return S.phase === "play" && S.history.length > 0 && S.moveNum > 0 && S.turn !== net.myColor;
+}
+function undoPressed(){
+  if (!isOnline()){ undo(); return; }
+  if (!net.connected){ toast("Not connected right now."); return; }
+  if (!canTakeback()){ toast("You can only take back your own last move."); return; }
+  sendRequest("undo");
 }
 
 /* ---------- scoring (area / Chinese counting) ---------- */
@@ -794,6 +1016,7 @@ function playAt(i, remote){
     persist();
     renderAll({ placed:i, placedColor:mover, captured:t.captured, capturedColor:3-mover });
     sound(t.captured.length ? "capture" : "place");
+    if (!remote) buzz(t.captured.length ? 20 : 8);
     if (!remote && isLive()) sendMsg({ t:"move", i:i });
   } else if (S.phase === "score"){
     if (S.board[i] === EMPTY) return;
@@ -849,7 +1072,7 @@ function doResign(){
     if (isLive()) sendMsg({ t:"resign", loser:loser });
   });
 }
-function doConfirm(remote){
+function doConfirm(){
   if (S.phase !== "score") return;
   const sc = computeScore();
   let winner = 0;
@@ -859,7 +1082,15 @@ function doConfirm(remote){
   S.result = { winner:winner, reason:"score", black:sc.black, white:sc.white };
   if (winner) tally[winner]++;
   persist(); renderAll();
-  if (!remote && isLive()) sendMsg({ t:"confirm" });
+}
+function confirmPressed(){
+  if (S.phase !== "score") return;
+  if (isOnline()){
+    if (!net.connected){ toast("Not connected right now."); return; }
+    sendRequest("confirm"); // both players must agree on the final score
+    return;
+  }
+  doConfirm();
 }
 function doResume(remote){
   if (S.phase !== "score") return;
@@ -872,15 +1103,8 @@ function doResume(remote){
 }
 function newGame(){
   if (isOnline()){
-    if (net.connected){
-      askConfirm("Start a new game on the same board for both of you?", "New game", function(){
-        S = freshState(S.size);
-        persist(); renderAll();
-        sendMsg({ t:"new", size:S.size });
-      });
-    } else {
-      leaveOnline();
-    }
+    if (net.connected) sendRequest("new"); // opponent gets an Accept/Decline dialog
+    else leaveOnline();
     return;
   }
   openSetup();
@@ -939,7 +1163,7 @@ function showWait(kind){
     setWaitMsg('<span class="waitspin"></span>Connecting to the signaling service\u2026');
     if (typeof QRCode !== "undefined"){
       try{
-        new QRCode(qr, { text: net.code, width: 132, height: 132,
+        new QRCode(qr, { text: joinLink(net.code), width: 148, height: 148,
           colorDark: "#1c1a16", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
       }catch(e){}
     }
@@ -955,16 +1179,72 @@ function setWaitMsg(html){ $("waitMsg").innerHTML = html; }
 function hideWait(){ $("waitBox").classList.add("hidden"); }
 
 /* ---------- helpers ---------- */
+/* A scannable link that lands the opponent straight on the join screen with
+   the code filled in. Falls back to the bare code when not served over http. */
+function joinLink(code){
+  if (location.protocol === "https:" || location.protocol === "http:"){
+    return location.origin + location.pathname + "?join=" + code;
+  }
+  return code;
+}
+function readJoinParam(){
+  try{
+    const c = new URLSearchParams(location.search).get("join");
+    if (!c) return "";
+    history.replaceState(null, "", location.pathname);
+    return c.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+  }catch(e){ return ""; }
+}
+
+/* Keep the screen on during a game (phones otherwise sleep mid-match). */
+let wakeLock = null;
+async function keepAwake(){
+  if (!("wakeLock" in navigator)) return;
+  try{
+    if (document.visibilityState === "visible" && !wakeLock){
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", function(){ wakeLock = null; });
+    }
+  }catch(e){}
+}
+document.addEventListener("visibilitychange", function(){
+  if (document.visibilityState === "visible") keepAwake();
+});
+
+function buzz(ms){
+  try{ if (navigator.vibrate) navigator.vibrate(ms); }catch(e){}
+}
+
+function registerSW(){
+  if (ENV_ARTIFACT || !("serviceWorker" in navigator)) return;
+  if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") return;
+  try{ navigator.serviceWorker.register("sw.js"); }catch(e){}
+}
+
 function pname(c){
   const fallback = c === BLACK ? "Black" : "White";
   return names[c] || fallback;
 }
-let confirmCb = null;
-function askConfirm(msg, yesLabel, cb){
-  $("confirmMsg").textContent = msg;
-  $("confirmYes").textContent = yesLabel || "Yes";
-  confirmCb = cb;
+/* Generic modal dialog. opts: {title, msg (html), yes, no, onYes, onNo, hideYes, hideNo} */
+let dlgYesCb = null, dlgNoCb = null;
+function showDialog(o){
+  $("dlgTitle").textContent = o.title || "Are you sure?";
+  $("confirmMsg").innerHTML = o.msg || "";
+  const y = $("confirmYes"), n = $("confirmNo");
+  y.style.display = o.hideYes ? "none" : "";
+  n.style.display = o.hideNo ? "none" : "";
+  y.textContent = o.yes || "Yes";
+  n.textContent = o.no || "Cancel";
+  dlgYesCb = o.onYes || null;
+  dlgNoCb = o.onNo || null;
   $("confirmBox").classList.remove("hidden");
+}
+function hideDialog(){
+  $("confirmBox").classList.add("hidden");
+  dlgYesCb = null; dlgNoCb = null;
+}
+function askConfirm(msg, yesLabel, cb){
+  showDialog({ msg: escapeHtml(msg), yes: yesLabel || "Yes", onYes: cb });
 }
 let toastTimer = null;
 function toast(msg){
@@ -980,6 +1260,7 @@ let audioCtx = null;
 function sound(kind){
   try{
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume(); // iOS suspends until a gesture
     const t0 = audioCtx.currentTime;
     function tok(when, freq, vol){
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -1131,7 +1412,8 @@ function renderPanel(){
 
   $("playButtons").style.display = playing ? "flex" : "none";
   $("scoreButtons").style.display = S.phase === "score" ? "flex" : "none";
-  $("btnUndo").disabled = !S.history.length;
+  $("btnUndo").disabled = isOnline() ? !(net.connected && canTakeback()) : !S.history.length;
+  $("btnRedo").style.display = isOnline() ? "none" : "";
   $("btnRedo").disabled = !(S.redo && S.redo.length);
   $("btnNew").textContent = (isOnline() && !net.connected) ? "Menu" : "New game";
 
@@ -1225,7 +1507,11 @@ function applySetupMode(){
     : '';
   if (setupMode === "local"){
     btn.textContent = "Start game";
-    note.innerHTML = "The game saves itself after every move — close the tab and pick up where you left off.";
+    const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone;
+    const installHint = (!standalone && !ENV_ARTIFACT && location.protocol === "https:")
+      ? " <br>Tip: add this page to your home screen (Share → Add to Home Screen) and it plays full-screen like an app."
+      : "";
+    note.innerHTML = "The game saves itself after every move — close the tab and pick up where you left off." + installHint;
   } else if (setupMode === "host"){
     btn.textContent = "Create game";
     note.innerHTML = "You'll get a 5-letter code (and QR) to share. You play Black. Moves travel directly between your two browsers over an encrypted WebRTC channel; a small free service (PeerJS) is used only for the introduction handshake." + artifactWarn;
@@ -1238,6 +1524,7 @@ function applySetupMode(){
 /* ---------- events ---------- */
 function wire(){
   const svg = $("board");
+  svg.addEventListener("contextmenu", function(ev){ ev.preventDefault(); }); // no long-press menu mid-game
   svg.addEventListener("click", function(ev){
     const t = ev.target;
     if (t && t.dataset && t.dataset.i !== undefined) playAt(+t.dataset.i);
@@ -1266,7 +1553,7 @@ function wire(){
   });
 
   $("btnPass").addEventListener("click", function(){ doPass(false); });
-  $("btnUndo").addEventListener("click", undo);
+  $("btnUndo").addEventListener("click", undoPressed);
   $("btnRedo").addEventListener("click", redo);
   $("btnResign").addEventListener("click", doResign);
   $("btnNew").addEventListener("click", function(){
@@ -1276,7 +1563,7 @@ function wire(){
     }
     newGame();
   });
-  $("btnConfirm").addEventListener("click", function(){ doConfirm(false); });
+  $("btnConfirm").addEventListener("click", confirmPressed);
   $("btnResume").addEventListener("click", function(){ doResume(false); });
   $("btnStart").addEventListener("click", startPressed);
   $("btnLeave").addEventListener("click", function(){
@@ -1301,13 +1588,12 @@ function wire(){
   });
 
   $("confirmYes").addEventListener("click", function(){
-    $("confirmBox").classList.add("hidden");
-    const cb = confirmCb; confirmCb = null;
+    const cb = dlgYesCb; hideDialog();
     if (cb) cb();
   });
   $("confirmNo").addEventListener("click", function(){
-    confirmCb = null;
-    $("confirmBox").classList.add("hidden");
+    const cb = dlgNoCb; hideDialog();
+    if (cb) cb();
   });
 
   $("modeSeg").addEventListener("click", function(ev){
@@ -1342,16 +1628,28 @@ function wire(){
   $("status").textContent = "Loading…";
   const had = await restoreSave();
   wire();
+  if (!had || !S) S = freshState(9);
+  pendingSize = S.size;
   applySetupMode();
-  if (had && S){
-    pendingSize = S.size;
-    renderAll();
+  renderAll();
+
+  const qJoin = readJoinParam(); // arrived via a scanned QR / shared join link
+  if (qJoin.length === 5){
+    setupMode = "join";
+    document.querySelectorAll("#modeSeg button").forEach(function(b){
+      b.classList.toggle("sel", b.dataset.mode === "join");
+    });
+    applySetupMode();
+    $("setupCode").value = qJoin;
+    openSetup();
+  } else if (had){
     if (S.phase === "over") toast("Welcome back! Last game is shown — hit Play again for a rematch.");
   } else {
-    S = freshState(9);
-    renderAll();
     openSetup();
   }
+
+  keepAwake();
+  registerSW();
 })();
 
 })();
