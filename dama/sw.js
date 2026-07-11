@@ -1,6 +1,6 @@
 /* Dama service worker: precache the app shell so the game loads (and
    pass-and-play works) with no connection. Online play still needs network. */
-const CACHE = "dama-v2";
+const CACHE = "dama-v3";
 const SHELL = [
   "./",
   "./index.html",

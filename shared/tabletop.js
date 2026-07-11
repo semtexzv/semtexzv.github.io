@@ -87,6 +87,7 @@ window.Tabletop = function(cfg){
     failSignal:"Can't reach the signaling service. It may be blocked by a firewall or briefly down — check your internet connection and hit Try again.",
     startGame:"Start game", createGame:"Create game", joinGameBtn:"Join game",
     howPlaying:"How are you playing?", sameDevice:"Same device", hostOnline:"Host online", joinOnline:"Join online",
+    undoOption:"Undo", undoAllowed:"Allowed", undoOff:"Not allowed",
     yourName:"Your name", gameCode:"Game code",
     noteLocal:"The game saves itself after every move — close the tab and pick up where you left off.",
     installHint:" <br>Tip: add this page to your home screen (Share → Add to Home Screen) and it plays full-screen like an app."
@@ -136,6 +137,7 @@ window.Tabletop = function(cfg){
     failSignal:"Nedá sa spojiť so sprostredkovacou službou. Skontroluj internet a ťukni Skúsiť znova.",
     startGame:"Začať hru", createGame:"Vytvoriť hru", joinGameBtn:"Pripojiť sa",
     howPlaying:"Ako hráte?", sameDevice:"Jedno zariadenie", hostOnline:"Založiť online", joinOnline:"Pripojiť sa",
+    undoOption:"Vrátenie ťahu", undoAllowed:"Povolené", undoOff:"Vypnuté",
     yourName:"Tvoje meno", gameCode:"Kód hry",
     noteLocal:"Hra sa po každom ťahu sama uloží — môžeš zavrieť kartu a pokračovať neskôr.",
     installHint:" <br>Tip: pridaj si stránku na plochu (Zdieľať → Pridať na plochu) a hra pobeží na celú obrazovku ako aplikácia."
@@ -168,6 +170,12 @@ window.Tabletop = function(cfg){
     });
     if ($("waitRetry")) $("waitRetry").textContent = t("tryAgain");
     if ($("waitCancel")) $("waitCancel").textContent = t("cancel");
+    const fu = $("fieldUndo");
+    if (fu){
+      fu.querySelector("label").textContent = t("undoOption");
+      fu.querySelector('[data-undo="1"]').textContent = t("undoAllowed");
+      fu.querySelector('[data-undo="0"]').textContent = t("undoOff");
+    }
   }
 
   /* ---------- storage ---------- */
@@ -188,6 +196,7 @@ window.Tabletop = function(cfg){
   const names = { 1:"", 2:"" };   // player 1 hosts online games
   const tally = { 1:0, 2:0 };
   let setupMode = "local";
+  let allowUndo = true;           // per-game setting from the setup screen
 
   function pname(c){
     return names[c] || t(cfg.colorKeys[c]);
@@ -198,7 +207,7 @@ window.Tabletop = function(cfg){
   function persist(){
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function(){
-      store.set(cfg.key, JSON.stringify({ S: hooks.getS(), names: names, tally: tally }));
+      store.set(cfg.key, JSON.stringify({ S: hooks.getS(), names: names, tally: tally, u: allowUndo }));
     }, 120);
   }
   async function restoreSave(){
@@ -208,6 +217,7 @@ window.Tabletop = function(cfg){
       const d = JSON.parse(raw);
       if (d && d.names){ names[1] = d.names[1] || ""; names[2] = d.names[2] || ""; }
       if (d && d.tally){ tally[1] = d.tally[1] || 0; tally[2] = d.tally[2] || 0; }
+      allowUndo = d.u !== false;
       if (d && d.S) return hooks.setS(d.S);
     }catch(e){}
     return false;
@@ -406,6 +416,10 @@ window.Tabletop = function(cfg){
   function handleIncomingReq(m){
     const action = m.action;
     if (cfg.reqActions.indexOf(action) < 0 || typeof m.id !== "string") return;
+    if (action === "undo" && !allowUndo){
+      sendMsg({ t:"res", id: m.id, action: action, accept: false, reason: "stale" });
+      return;
+    }
     if (pendingOut && pendingOut.action === action && action !== "undo"){
       // we asked for the same thing — that's an agreement, not a conflict
       clearTimeout(pendingOut.timer);
@@ -486,7 +500,7 @@ window.Tabletop = function(cfg){
       case "hello":
         if (net.mode !== "host") return;
         if (m.name) names[2] = String(m.name).slice(0,18);
-        sendMsg({ t:"sync", core: hooks.serializeCore(), names: names, x: hooks.syncExtra() });
+        sendMsg({ t:"sync", core: hooks.serializeCore(), names: names, u: allowUndo, x: hooks.syncExtra() });
         persist();
         hooks.renderAll();
         toast(t("joinedT", { name: names[2] || t("yourOpp") }));
@@ -494,6 +508,7 @@ window.Tabletop = function(cfg){
       case "sync":
         if (net.mode !== "guest") return;
         clearNegotiation();
+        allowUndo = m.u !== false;
         hooks.onSync(m);
         if (m.names){
           if (m.names[1]) names[1] = String(m.names[1]).slice(0,18);
@@ -572,6 +587,7 @@ window.Tabletop = function(cfg){
     });
   }
   function undoPressed(){
+    if (!allowUndo) return;
     if (!isOnline()){ hooks.localUndo(); return; }
     if (!net.connected){ toast(t("notConnected")); return; }
     if (!hooks.canTakeback()){ toast(t("onlyOwn")); return; }
@@ -587,6 +603,10 @@ window.Tabletop = function(cfg){
   function openSetup(){
     hooks.fillSetupFields();
     if ($("setupMyName")) $("setupMyName").value = (net.mode === "guest" ? names[2] : names[1]) || "";
+    const seg = $("undoSeg");
+    if (seg) seg.querySelectorAll("button").forEach(function(b){
+      b.classList.toggle("sel", b.dataset.undo === (allowUndo ? "1" : "0"));
+    });
     $("setup").classList.remove("hidden");
   }
   function applySetupMode(){
@@ -594,6 +614,7 @@ window.Tabletop = function(cfg){
     $("fieldsOnline").style.display = setupMode === "local" ? "none" : "";
     $("fieldJoin").style.display = setupMode === "join" ? "" : "none";
     if ($("fieldSize")) $("fieldSize").style.display = setupMode === "join" ? "none" : "";
+    if ($("fieldUndo")) $("fieldUndo").style.display = setupMode === "join" ? "none" : "";
     const btn = $("btnStart");
     const note = $("setupNote");
     const extra = hooks.setupNoteExtra ? hooks.setupNoteExtra(setupMode) : "";
@@ -610,8 +631,13 @@ window.Tabletop = function(cfg){
       note.innerHTML = t("noteJoin") + extra;
     }
   }
+  function readUndoChoice(){
+    const b = document.querySelector("#undoSeg button.sel");
+    allowUndo = !b || b.dataset.undo !== "0";
+  }
   function startPressed(){
     if (setupMode === "local"){
+      readUndoChoice();
       teardownNet();
       hooks.startLocal();
       $("setup").classList.add("hidden");
@@ -625,6 +651,7 @@ window.Tabletop = function(cfg){
     }
     const myName = $("setupMyName").value.trim();
     if (setupMode === "host"){
+      readUndoChoice();
       teardownNet();
       hostAttempts = 0;
       $("setup").classList.add("hidden");
@@ -826,8 +853,9 @@ window.Tabletop = function(cfg){
     });
     const phone = window.matchMedia && window.matchMedia("(max-width:820px)").matches;
     $("btnNew").textContent = (isOnline() && !net.connected) ? t("menu") : (phone ? t("newShort") : t("newGame"));
+    $("btnUndo").style.display = allowUndo ? "" : "none";
     $("btnUndo").disabled = isOnline() ? !(net.connected && hooks.canTakeback()) : !hooks.canLocalUndo();
-    $("btnRedo").style.display = isOnline() ? "none" : "";
+    $("btnRedo").style.display = (allowUndo && !isOnline()) ? "" : "none";
     $("btnRedo").disabled = !hooks.canLocalRedo();
     updateNetBar();
   }
@@ -912,6 +940,11 @@ window.Tabletop = function(cfg){
       setupMode = b.dataset.mode;
       this.querySelectorAll("button").forEach(function(x){ x.classList.toggle("sel", x === b); });
       applySetupMode();
+    });
+    if ($("undoSeg")) $("undoSeg").addEventListener("click", function(ev){
+      const b = ev.target.closest("button");
+      if (!b) return;
+      this.querySelectorAll("button").forEach(function(x){ x.classList.toggle("sel", x === b); });
     });
 
     [1, 2].forEach(function(c){
