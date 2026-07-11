@@ -1,12 +1,14 @@
 /* Goban service worker: precache the app shell so the game loads (and
    pass-and-play works) with no connection. Online play still needs network. */
-const CACHE = "goban-v5";
+const CACHE = "goban-v6";
 const SHELL = [
   "./",
   "./index.html",
   "./peerjs.min.js",
   "./qrcode.min.js",
   "./manifest.webmanifest",
+  "/shared/tabletop.js",
+  "/shared/tabletop.css",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",

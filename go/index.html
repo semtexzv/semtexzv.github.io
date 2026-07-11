@@ -13,272 +13,10 @@
 <meta name="apple-mobile-web-app-title" content="Goban">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="/shared/tabletop.css">
 <script src="peerjs.min.js"></script>
 <script src="qrcode.min.js"></script>
-<style>
-  :root{
-    --indigo:#2b3750;
-    --indigo-deep:#222b40;
-    --paper:#f5efe2;
-    --paper-dim:#e9e1cf;
-    --ink:#1c1a16;
-    --ink-soft:#4a463d;
-    --wood-hi:#e6bb72;
-    --wood-lo:#cf9c4f;
-    --grid:#5d431d;
-    --seal:#b3402e;
-    --seal-dark:#93321f;
-    --shell:#f4efe6;
-    --slate:#15181d;
-    --ok:#3f9e5f;
-  }
-  *{ box-sizing:border-box; }
-  html,body{ margin:0; padding:0; }
-  html{
-    overscroll-behavior:none;
-    /* solid dark base so browser-painted areas (overscroll rubber-band,
-       Safari's toolbars, pre-paint flash) match the page instead of white */
-    background:var(--indigo-deep);
-    color-scheme:dark;
-  }
-  body{
-    min-height:100vh;
-    min-height:100dvh;
-    background:
-      radial-gradient(1200px 700px at 20% -10%, #35435f 0%, transparent 60%),
-      linear-gradient(170deg, var(--indigo) 0%, var(--indigo-deep) 100%);
-    color:var(--paper);
-    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing:antialiased;
-    -webkit-tap-highlight-color:transparent;
-    -webkit-touch-callout:none;
-    overscroll-behavior:none;
-  }
-  button, .seg, header, .status, .scorecard, .bigcode, svg#board{
-    -webkit-user-select:none; user-select:none;
-  }
-
-  header{
-    display:flex; align-items:baseline; gap:14px;
-    padding:calc(14px + env(safe-area-inset-top)) calc(26px + env(safe-area-inset-right)) 8px calc(26px + env(safe-area-inset-left));
-    max-width:1100px; margin:0 auto;
-  }
-  header h1{
-    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
-    font-size:clamp(22px,3.2vw,30px);
-    font-weight:600; letter-spacing:.04em; margin:0;
-  }
-  header .sub{ color:#aeb8cd; font-size:13px; }
-
-  .table{
-    max-width:1100px; margin:0 auto;
-    display:grid; grid-template-columns:minmax(0,1fr) 320px;
-    gap:22px; align-items:start;
-    padding:12px calc(26px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));
-  }
-
-  .boardwrap{ display:flex; justify-content:center; }
-  svg#board{
-    /* --boardcap: measured viewport space (set by fitBoard()), so the board
-       fills the height exactly — no guessed offsets, no page overflow */
-    width:min(100%, 640px, var(--boardcap, calc(100dvh - 140px)));
-    height:auto; display:block;
-    touch-action:manipulation;
-    border-radius:10px;
-    box-shadow:0 18px 40px rgba(0,0,0,.45), 0 3px 8px rgba(0,0,0,.35);
-  }
-
-  .panel{ display:flex; flex-direction:column; gap:12px; }
-
-  .card{
-    background:var(--paper); color:var(--ink);
-    border-radius:10px; padding:12px 14px;
-    box-shadow:0 6px 18px rgba(0,0,0,.28);
-  }
-  .player{
-    display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:10px;
-    border-left:5px solid transparent; transition:border-color .2s, transform .2s;
-  }
-  .player.active{ border-left-color:var(--seal); transform:translateX(2px); }
-  .stone-icon{ width:30px; height:30px; border-radius:50%; box-shadow:inset -3px -4px 6px rgba(0,0,0,.25), 0 1px 2px rgba(0,0,0,.3); flex:none; }
-  .stone-icon.black{ background:radial-gradient(circle at 34% 30%, #6a707c 0%, #23262c 45%, #0c0e12 100%); }
-  .stone-icon.white{ background:radial-gradient(circle at 34% 30%, #ffffff 0%, #f1ece1 55%, #c9c2b2 100%); border:1px solid #b9b2a2; }
-  .player input{
-    font:inherit; font-weight:600; font-size:16px; color:var(--ink); /* ≥16px: no iOS focus zoom */
-    border:none; border-bottom:1px dashed #b9ad92; background:transparent;
-    padding:2px 0; width:100%; outline:none;
-  }
-  .player input:focus{ border-bottom-color:var(--seal); }
-  .player input[readonly]{ border-bottom-color:transparent; }
-  .player .meta{ grid-column:2 / 4; display:flex; gap:14px; font-size:12.5px; color:var(--ink-soft); }
-  .player .meta b{ color:var(--ink); font-variant-numeric:tabular-nums; }
-  .turn-pill{
-    justify-self:end;
-    background:var(--seal); color:#fff; font-size:11px; font-weight:700;
-    letter-spacing:.08em; text-transform:uppercase;
-    padding:4px 9px; border-radius:999px;
-    box-shadow:0 2px 5px rgba(147,50,31,.5);
-    opacity:0; transform:scale(.8); transition:opacity .2s, transform .2s;
-  }
-  .player.active .turn-pill{ opacity:1; transform:scale(1); }
-
-  .netbar{ display:flex; align-items:center; gap:9px; padding:9px 12px; font-size:12.5px; }
-  .netbar .dot{ width:9px; height:9px; border-radius:50%; background:var(--ok); flex:none; }
-  .netbar.down .dot{ background:var(--seal); }
-  .netbar .nettext{ flex:1; color:var(--ink); line-height:1.35; }
-  .netbar button{ padding:5px 10px; font-size:12px; }
-
-  .status{
-    font-size:13.5px; color:#c8d0e0; text-align:center; min-height:20px;
-    padding:0 4px; line-height:1.45;
-  }
-
-  .buttons{ display:flex; flex-wrap:wrap; gap:8px; }
-  button{
-    font:inherit; font-weight:600; font-size:14px;
-    border:none; border-radius:8px; padding:9px 14px; cursor:pointer;
-    transition:transform .08s, box-shadow .15s, background .15s;
-  }
-  button:active{ transform:translateY(1px); }
-  button:disabled{ opacity:.45; cursor:default; }
-  @media (pointer:coarse){
-    button{ min-height:46px; padding:10px 16px; }
-    .netbar button{ min-height:38px; }
-    .seg button{ min-height:44px; }
-  }
-  .btn-primary{ background:var(--seal); color:#fff; box-shadow:0 3px 9px rgba(147,50,31,.45); }
-  .btn-primary:hover:not(:disabled){ background:var(--seal-dark); }
-  .btn-ghost{ background:rgba(245,239,226,.12); color:var(--paper); border:1px solid rgba(245,239,226,.25); }
-  .btn-ghost:hover:not(:disabled){ background:rgba(245,239,226,.2); }
-  .btn-paper{ background:var(--paper-dim); color:var(--ink); }
-  .btn-paper:hover:not(:disabled){ background:#ded4bd; }
-  .grow{ flex:1; }
-
-  .scorecard h3{ margin:0 0 8px; font-size:14px; letter-spacing:.05em; text-transform:uppercase; color:var(--seal); }
-  .scorecard table{ width:100%; border-collapse:collapse; font-size:13.5px; }
-  .scorecard td, .scorecard th{ padding:4px 2px; text-align:right; font-variant-numeric:tabular-nums; }
-  .scorecard th{ text-align:left; font-weight:500; color:var(--ink-soft); }
-  .scorecard thead td{ font-weight:700; }
-  .scorecard tfoot td{ border-top:1.5px solid var(--ink); font-weight:700; font-size:15px; }
-  .winner-line{
-    margin-top:10px; padding:9px 10px; border-radius:8px;
-    background:#fdf6e7; border:1.5px solid var(--seal);
-    font-weight:700; text-align:center; font-size:14.5px;
-  }
-
-  details.rules{ font-size:13px; color:#c3cbdc; }
-  details.rules summary{ cursor:pointer; font-weight:600; color:#dfe5f0; }
-  details.rules ul{ margin:8px 0 0; padding-left:18px; line-height:1.55; }
-
-  #toast{
-    position:fixed; left:50%; bottom:calc(26px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(20px);
-    background:var(--ink); color:var(--paper); font-size:14px;
-    padding:10px 16px; border-radius:8px; opacity:0; pointer-events:none;
-    transition:opacity .25s, transform .25s; max-width:88vw; text-align:center;
-    box-shadow:0 8px 22px rgba(0,0,0,.5); z-index:50;
-  }
-  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
-
-  #setup, #confirmBox, #waitBox{
-    position:fixed; inset:0; z-index:40;
-    background:rgba(20,26,40,.72); backdrop-filter:blur(3px);
-    display:flex; align-items:center; justify-content:center;
-    padding:calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));
-    overflow:auto;
-  }
-  #setup.hidden, #confirmBox.hidden, #waitBox.hidden{ display:none; }
-  #confirmBox{ z-index:45; }
-  #confirmBox .setup-card{ width:min(360px,100%); }
-  #confirmBox h2{ margin:0 0 6px; font-family:"Iowan Old Style",Palatino,Georgia,serif; font-size:20px; }
-  #confirmBox .tag{ color:var(--ink-soft); font-size:14px; margin-bottom:16px; }
-
-  .setup-card{
-    background:var(--paper); color:var(--ink); border-radius:14px;
-    width:min(440px,100%); padding:26px 26px 22px;
-    box-shadow:0 24px 60px rgba(0,0,0,.55);
-  }
-  .setup-card h2{
-    margin:0 0 4px; font-family:"Iowan Old Style",Palatino,Georgia,serif;
-    font-size:26px; letter-spacing:.03em;
-  }
-  .setup-card .tag{ color:var(--ink-soft); font-size:13.5px; margin-bottom:18px; }
-  .field{ margin-bottom:14px; }
-  .field label{ display:block; font-size:12px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:5px; }
-  .field .namerow{ display:flex; align-items:center; gap:9px; }
-  .field input[type=text]{
-    font:inherit; font-size:16px; width:100%;
-    border:1.5px solid #cdc2a8; border-radius:8px; padding:8px 10px;
-    background:#fdfaf2; outline:none;
-  }
-  .field input[type=text]:focus{ border-color:var(--seal); }
-  .seg{ display:flex; gap:6px; flex-wrap:wrap; }
-  .seg button{ flex:1; background:#eee5d0; color:var(--ink); font-weight:700; white-space:nowrap; }
-  .seg button.sel{ background:var(--seal); color:#fff; }
-  .setup-note{ font-size:12px; color:var(--ink-soft); margin:10px 0 14px; line-height:1.5; }
-  input.codebox{ text-transform:uppercase; letter-spacing:.25em; font-weight:700; text-align:center; }
-
-  .bigcode{
-    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
-    font-size:38px; font-weight:700; letter-spacing:.32em;
-    text-align:center; padding:8px 0 2px; color:var(--ink);
-    text-indent:.32em; /* balance the letter-spacing */
-  }
-  #waitQR{ display:flex; justify-content:center; margin:14px 0 6px; }
-  #waitQR img, #waitQR canvas{ border:8px solid #fff; border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,.18); }
-  .waitspin{
-    display:inline-block; width:14px; height:14px; border-radius:50%;
-    border:2.5px solid #cdc2a8; border-top-color:var(--seal);
-    animation:spin 0.9s linear infinite; vertical-align:-2px; margin-right:7px;
-  }
-  @keyframes spin{ to{ transform:rotate(360deg); } }
-
-  .cap-fade{ animation:capfade .45s ease forwards; }
-  @keyframes capfade{ to{ opacity:0; transform:scale(1.35); } }
-  .drop-in{ animation:dropin .18s ease-out; transform-origin:center; transform-box:fill-box; }
-  @keyframes dropin{ from{ opacity:.4; transform:scale(1.25); } to{ opacity:1; transform:scale(1); } }
-
-  @media (max-width:820px){
-    /* Single-screen phone layout: everything visible without scrolling. */
-    header{
-      padding-top:calc(8px + env(safe-area-inset-top));
-      padding-bottom:2px;
-      gap:10px;
-    }
-    header h1{ font-size:21px; }
-    header .sub{
-      font-size:11.5px;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
-    }
-    .table{
-      grid-template-columns:1fr;
-      gap:10px;
-      padding:4px calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
-    }
-    /* Phone order: board, then connection + status + actions, then player cards */
-    .panel{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    .panel > *{ grid-column:1 / -1; min-width:0; }
-    .panel #netbar{ order:-3; }
-    .panel .status{ order:-2; min-height:17px; font-size:12.5px; }
-    .panel #playButtons, .panel #scoreButtons{ order:-1; }
-    /* all actions on one line */
-    #playButtons, #scoreButtons{ flex-wrap:nowrap; gap:6px; }
-    #playButtons button, #scoreButtons button{
-      flex:1 1 0; min-width:0; padding:10px 2px; font-size:13px; white-space:nowrap;
-    }
-    /* player cards side by side, compact */
-    #cardB{ grid-column:1; }
-    #cardW{ grid-column:2; }
-    .player{ grid-template-columns:22px 1fr; gap:3px 8px; padding:8px 10px; }
-    .stone-icon{ width:22px; height:22px; }
-    .turn-pill{ display:none; } /* the seal border already marks whose turn it is */
-    .player .meta{ grid-column:1 / -1; gap:9px; font-size:11px; white-space:nowrap; }
-    details.rules{ font-size:12px; }
-  }
-
-  @media (prefers-reduced-motion: reduce){
-    *{ animation:none !important; transition:none !important; }
-  }
-</style>
+<script src="/shared/tabletop.js"></script>
 </head>
 <body>
 
@@ -327,6 +65,8 @@
       <button class="btn-primary grow" id="btnConfirm">Confirm score</button>
       <button class="btn-ghost" id="btnResume">Resume play</button>
     </div>
+
+    <div class="buttons" id="overButtons" style="display:none"></div>
 
     <div class="card scorecard" id="scorecard" style="display:none">
       <h3>Score</h3>
@@ -403,7 +143,7 @@
       </div>
     </div>
 
-    <div class="setup-note" id="setupNote">The game saves itself after every move — close the tab and pick up where you left off.</div>
+    <div class="setup-note" id="setupNote"></div>
     <button class="btn-primary" id="btnStart" style="width:100%">Start game</button>
   </div>
 </div>
@@ -434,267 +174,17 @@
 (function(){
 "use strict";
 
-/* ---------- constants ---------- */
-const KOMI = 6.5;
-const SAVE_KEY = "go:save";
-const EMPTY = 0, BLACK = 1, WHITE = 2;
-const PEER_PREFIX = "goban-k7-";
-
 const $ = function(id){ return document.getElementById(id); };
-
-/* ---------- i18n ----------
-   Follows the device language: Slovak UI when the browser reports sk,
-   English otherwise. English strings live here too so every dynamic
-   message goes through t(). */
-const LANG = (function(){
-  try{
-    const ls = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || "en"];
-    for (let i=0;i<ls.length;i++) if (String(ls[i]).toLowerCase().indexOf("sk") === 0) return "sk";
-  }catch(e){}
-  return "en";
-})();
-
-const I18N = {
-en: {
-  black:"Black", white:"White", youWord:"You", yourOpp:"Your opponent",
-  yes:"Yes", cancel:"Cancel", areYouSure:"Are you sure?",
-  newGame:"New game", newShort:"New", menu:"Menu", playAgain:"Play again", leaveOnline:"Leave online",
-  loading:"Loading…", welcomeBack:"Welcome back! Last game is shown — hit Play again for a rematch.",
-  occupied:"That spot is already taken.",
-  suicide:"Can't play there — that stone would have no breathing room.",
-  ko:"Ko rule: play somewhere else first, then you can come back.",
-  passed:"{name} passed.",
-  bothPassed:"Both passed — time to count! Tap dead stones to remove them.",
-  turnOf:"It's {name}'s turn.",
-  notConnected:"Not connected right now.",
-  statusMove:"Move {n} — {who} to play", onePass:" (one more pass ends the game)",
-  statusCounting:"Counting: tap any dead stones to remove them, then confirm.",
-  statusOver:"Game over.",
-  winResign:"🏆 {name} wins by resignation",
-  winBy:"🏆 {name} wins by {pts}!", tie:"It's a tie!",
-  resignAsk:"{loser}, resign and give {winner} the win?",
-  gameOverTitle:"Game over", resignedDlg:"<b>{loser}</b> resigned — {winner} wins! 🏆",
-  abandonAsk:"Abandon the current game and start fresh?",
-  leaveAsk:"Leave the online game?",
-  enterCode:"Enter the 5-character game code.",
-  needNet:"Online play needs an internet connection — the networking library didn't load. Same-device play still works.",
-  newLuck:"New game — good luck!",
-  movedBack:"Move taken back.", tookBack:"{name} took back their move.",
-  onlyOwn:"You can only take back your own last move.",
-  tooLate:"Too late — the position already changed.",
-  declinedT:"{name} declined.", busyT:"{name} is busy with another request.",
-  noAnswer:"No answer from {name} — try again in a moment.",
-  withdrew:"{name} withdrew the request.",
-  resumedT:"{name} resumed play — the game continues.",
-  connectedWhite:"Connected — you play White.",
-  joinedT:"{name} joined — game on!",
-  connLostGuest:"Connection lost. You can Leave and re-join with the same code.",
-  connLostHost:"Connection lost. If they re-join with the same code, the game resumes.",
-  netYou:"Online — you play <b>{me}</b> vs {opp}",
-  netDiscGuest:"Disconnected. Leave, then re-join with code <b>{code}</b> to resume.",
-  netDiscHost:"Disconnected. Waiting — they can re-join with code <b>{code}</b>.",
-  netSetup:"Setting up online game (code <b>{code}</b>)…",
-  req_new_title:"New game?", req_new_verb:"wants to start a new game on this board", req_new_wait:"Asking {opp} to start a new game…",
-  req_undo_title:"Take back?", req_undo_verb:"asks to take back their last move", req_undo_wait:"Asking {opp} to allow the takeback…",
-  req_confirm_title:"End the game?", req_confirm_verb:"proposes to end the game with this score", req_confirm_wait:"Asking {opp} to accept the score…",
-  accept:"Accept", allow:"Allow", decline:"Decline",
-  shareCode:"Share this code", joiningGame:"Joining game", tryAgain:"Try again",
-  connectingSignal:"Connecting to the signaling service…",
-  waitingOpponent:"Waiting for your opponent — they can scan the QR with their phone camera, or type the code into Join online.",
-  lookingHost:"Looking for the host…",
-  foundService:"Found the service — opening a direct connection…",
-  noGameFound:"No game found with code <b>{code}</b>. Double-check it (the host must be on the waiting screen), then hit Try again.",
-  failP2P:"Reached the signaling service, but couldn't open a direct connection between your two browsers. Strict firewalls or some mobile networks block peer-to-peer — try putting both computers on the same Wi-Fi, then hit Try again.",
-  failArtifact:"<b>Can't connect from inside the Claude preview</b> — its sandbox blocks the signaling connection. Download this file and open it directly in your browser (both players do this), then try again there.",
-  failSignal:"Can't reach the signaling service. It may be blocked by a firewall or briefly down — check your internet connection and hit Try again.",
-  startGame:"Start game", createGame:"Create game", joinGameBtn:"Join game",
-  noteLocal:"The game saves itself after every move — close the tab and pick up where you left off.",
-  installHint:" <br>Tip: add this page to your home screen (Share → Add to Home Screen) and it plays full-screen like an app.",
-  noteHost:"You'll get a 5-letter code (and QR) to share. You play Black. Moves travel directly between your two browsers over an encrypted WebRTC channel; a small free service (PeerJS) is used only for the introduction handshake.",
-  noteJoin:"Enter the code your opponent shares. You play White. If you got disconnected earlier, re-joining with the same code resumes the game.",
-  artifactWarn:" <br><b>Heads up:</b> you’re viewing this inside Claude, and the preview blocks online connections — download this file and open it directly in your browser to play online."
-},
-sk: {
-  black:"Čierny", white:"Biely", youWord:"Ty", yourOpp:"Tvoj súper",
-  yes:"Áno", cancel:"Zrušiť", areYouSure:"Naozaj?",
-  newGame:"Nová hra", newShort:"Nová", menu:"Menu", playAgain:"Hrať znova", leaveOnline:"Odísť z online",
-  loading:"Načítavam…", welcomeBack:"Vitaj späť! Posledná hra je na doske — ťukni na Hrať znova.",
-  occupied:"To miesto je už obsadené.",
-  suicide:"Tam sa hrať nedá — kameň by nemal žiadnu slobodu.",
-  ko:"Pravidlo ko: najprv zahraj inde, potom sa môžeš vrátiť.",
-  passed:"{name} pasuje.",
-  bothPassed:"Obaja pasovali — ideme počítať! Ťukni na mŕtve kamene a odstráň ich.",
-  turnOf:"Na ťahu je {name}.",
-  notConnected:"Momentálne nie ste spojení.",
-  statusMove:"Ťah {n} — na ťahu: {who}", onePass:" (ešte jeden pas ukončí hru)",
-  statusCounting:"Počítanie: ťukni na mŕtve kamene a potom potvrď skóre.",
-  statusOver:"Koniec hry.",
-  winResign:"🏆 {name} vyhráva — súper sa vzdal",
-  winBy:"🏆 {name} vyhráva o {pts}!", tie:"Remíza!",
-  resignAsk:"{loser}, vzdáš sa a prenecháš výhru hráčovi {winner}?",
-  gameOverTitle:"Koniec hry", resignedDlg:"<b>{loser}</b> sa vzdal — vyhráva {winner}! 🏆",
-  abandonAsk:"Zahodiť rozohranú hru a začať novú?",
-  leaveAsk:"Odísť z online hry?",
-  enterCode:"Zadaj 5-znakový kód hry.",
-  needNet:"Online hra potrebuje internet — sieťová knižnica sa nenačítala. Hra na jednom zariadení funguje ďalej.",
-  newLuck:"Nová hra — veľa šťastia!",
-  movedBack:"Ťah vrátený.", tookBack:"{name} vrátil svoj posledný ťah.",
-  onlyOwn:"Vrátiť môžeš len svoj posledný ťah.",
-  tooLate:"Neskoro — pozícia sa už zmenila.",
-  declinedT:"{name} odmieta.", busyT:"{name} práve rieši inú požiadavku.",
-  noAnswer:"{name} neodpovedá — skús to o chvíľu znova.",
-  withdrew:"{name} stiahol požiadavku.",
-  resumedT:"{name} pokračuje — hra ide ďalej.",
-  connectedWhite:"Pripojené — hráš bielymi.",
-  joinedT:"{name} sa pripojil — hráme!",
-  connLostGuest:"Spojenie sa prerušilo. Odíď a pripoj sa znova s rovnakým kódom.",
-  connLostHost:"Spojenie sa prerušilo. Ak sa súper vráti s rovnakým kódom, hra pokračuje.",
-  netYou:"Online — hráš <b>{me}</b> proti {opp}",
-  netDiscGuest:"Odpojené. Odíď a pripoj sa znova s kódom <b>{code}</b>.",
-  netDiscHost:"Odpojené — súper sa môže vrátiť s kódom <b>{code}</b>.",
-  netSetup:"Zakladám online hru (kód <b>{code}</b>)…",
-  req_new_title:"Nová hra?", req_new_verb:"chce začať novú hru na tejto doske", req_new_wait:"Čakám, či {opp} prijme novú hru…",
-  req_undo_title:"Vrátiť ťah?", req_undo_verb:"žiada o vrátenie svojho posledného ťahu", req_undo_wait:"Čakám, či {opp} povolí vrátenie ťahu…",
-  req_confirm_title:"Ukončiť hru?", req_confirm_verb:"navrhuje ukončiť hru s týmto skóre", req_confirm_wait:"Čakám, či {opp} prijme skóre…",
-  accept:"Prijať", allow:"Povoliť", decline:"Odmietnuť",
-  shareCode:"Zdieľaj tento kód", joiningGame:"Pripájanie", tryAgain:"Skúsiť znova",
-  connectingSignal:"Pripájam sa k sprostredkovacej službe…",
-  waitingOpponent:"Čakáme na súpera — môže naskenovať QR kód fotoaparátom alebo zadať kód cez „Pripojiť sa“.",
-  lookingHost:"Hľadám hostiteľa…",
-  foundService:"Služba nájdená — otváram priame spojenie…",
-  noGameFound:"Hra s kódom <b>{code}</b> sa nenašla. Skontroluj ho (hostiteľ musí byť na čakacej obrazovke) a ťukni Skúsiť znova.",
-  failP2P:"So službou sa podarilo spojiť, ale priame spojenie medzi prehliadačmi sa nepodarilo otvoriť. Prísne firewally a niektoré mobilné siete blokujú P2P — skúste obe zariadenia na rovnakej Wi-Fi a ťukni Skúsiť znova.",
-  failArtifact:"<b>Z náhľadu v Claude sa nedá pripojiť</b> — sandbox blokuje spojenie. Stiahni si tento súbor a otvor ho priamo v prehliadači (obaja hráči), potom to skús znova.",
-  failSignal:"Nedá sa spojiť so sprostredkovacou službou. Môže ju blokovať firewall alebo je dočasne nedostupná — skontroluj internet a ťukni Skúsiť znova.",
-  startGame:"Začať hru", createGame:"Vytvoriť hru", joinGameBtn:"Pripojiť sa",
-  noteLocal:"Hra sa po každom ťahu sama uloží — môžeš zavrieť kartu a pokračovať neskôr.",
-  installHint:" <br>Tip: pridaj si stránku na plochu (Zdieľať → Pridať na plochu) a hra pobeží na celú obrazovku ako aplikácia.",
-  noteHost:"Dostaneš 5-znakový kód (a QR) na zdieľanie. Hráš čiernymi. Ťahy putujú priamo medzi vašimi prehliadačmi cez šifrovaný WebRTC kanál; malá bezplatná služba (PeerJS) sa použije len na úvodné spojenie.",
-  noteJoin:"Zadaj kód od súpera. Hráš bielymi. Ak ťa odpojilo, opätovné pripojenie s rovnakým kódom hru obnoví.",
-  artifactWarn:" <br><b>Pozor:</b> pozeráš si hru vnútri Claude a náhľad blokuje online spojenia — stiahni si súbor a otvor ho priamo v prehliadači.",
-  /* static UI swapped in by applyStaticLang() */
-  sub:"dvaja hráči · jedno zariadenie alebo online · biely má +6,5 komi",
-  blackPh:"Čierny hráč", whitePh:"Biely hráč", toPlay:"Na ťahu",
-  captured:"Zajaté: ", wins:"Výhry: ", you:"← ty", leave:"Odísť",
-  pass:"Pas", undo:"Späť", redo:"Znova", resign:"Vzdať sa",
-  confirmScore:"Potvrdiť skóre", resumePlay:"Hrať ďalej",
-  score:"Skóre", stonesOnBoard:"Kamene na doske", territory:"Územie", total:"Spolu",
-  setupTitle:"Nová hra", setupTag:"Priprav dosku a zaujmite miesta.",
-  howPlaying:"Ako hráte?", sameDevice:"Jedno zariadenie", hostOnline:"Založiť online", joinOnline:"Pripojiť sa",
-  blackFirst:"Čierny (začína)", whiteKomi:"Biely (+6,5 komi)",
-  yourName:"Tvoje meno", gameCode:"Kód hry", boardSize:"Veľkosť dosky",
-  size9:"9×9 · rýchla", size19:"19×19 · celá",
-  phUncle:"napr. Ujo", phNephew:"napr. Synovec",
-  rulesSummary:"Rýchle pravidlá",
-  rulesHtml:"<li>Striedajte sa v ukladaní kameňov na priesečníky čiar. Čierny začína.</li>"+
-    "<li>Obkľúč súperovu skupinu zo všetkých strán (žiadne voľné susedné body) a zajmeš ju.</li>"+
-    "<li>Kameň nemôžeš položiť tam, kde by okamžite nemal žiadnu slobodu, a nemôžeš hneď vrátiť zajatie jedného kameňa (ko).</li>"+
-    "<li>Keď už nikto nechce ťahať, obaja pasujte. Potom ťuknite na beznádejné „mŕtve“ kamene a potvrďte skóre.</li>"+
-    "<li>Skóre = tvoje kamene na doske + prázdne body, ktoré obkľučuješ len ty. Biely dostáva 6,5 bodu navyše za to, že ťahá druhý.</li>"
-}
-};
-
-function t(key, vars){
-  let s = I18N[LANG] && I18N[LANG][key];
-  if (s == null) s = I18N.en[key];
-  if (s == null) s = key;
-  if (vars) for (const k in vars) s = s.split("{"+k+"}").join(vars[k]);
-  return s;
-}
-/* decimal comma + Slovak point-count declension */
-function fmtNum(n){ return LANG === "sk" ? String(n).replace(".", ",") : String(n); }
-function ptsPhrase(n){
-  if (LANG !== "sk") return fmtNum(n) + (n === 1 ? " point" : " points");
-  let w = "bodov";
-  if (n === 1) w = "bod";
-  else if (!Number.isInteger(n)) w = "boda";
-  else if (n >= 2 && n <= 4) w = "body";
-  return fmtNum(n) + " " + w;
-}
-
-/* Swap the static English markup for the device language. */
-function applyStaticLang(){
-  document.documentElement.lang = LANG;
-  if (LANG === "en") return;
-  document.querySelector("header .sub").textContent = t("sub");
-  $("nameB").placeholder = t("blackPh");
-  $("nameW").placeholder = t("whitePh");
-  document.querySelectorAll(".turn-pill").forEach(function(el){ el.textContent = t("toPlay"); });
-  [["capB","captured"],["winB","wins"],["capW","captured"],["winW","wins"]].forEach(function(p){
-    $(p[0]).parentNode.firstChild.nodeValue = t(p[1]);
-  });
-  $("youB").textContent = t("you"); $("youW").textContent = t("you");
-  $("btnLeave").textContent = t("leave");
-  $("btnPass").textContent = t("pass");
-  $("btnUndo").textContent = t("undo");
-  $("btnRedo").textContent = t("redo");
-  $("btnResign").textContent = t("resign");
-  $("btnConfirm").textContent = t("confirmScore");
-  $("btnResume").textContent = t("resumePlay");
-  document.querySelector(".scorecard h3").textContent = t("score");
-  const ths = document.querySelectorAll("#scorecard tbody th");
-  if (ths[0]) ths[0].textContent = t("stonesOnBoard");
-  if (ths[1]) ths[1].textContent = t("territory");
-  const komiRow = ths[2] && ths[2].parentNode;
-  if (komiRow) komiRow.lastElementChild.textContent = "6,5";
-  const tfth = document.querySelector("#scorecard tfoot th");
-  if (tfth) tfth.textContent = t("total");
-  const rules = document.querySelector("details.rules");
-  rules.querySelector("summary").textContent = t("rulesSummary");
-  rules.querySelector("ul").innerHTML = t("rulesHtml");
-  document.querySelector("#setup h2").textContent = t("setupTitle");
-  document.querySelector("#setup .tag").textContent = t("setupTag");
-  const labelKeys = ["howPlaying","blackFirst","whiteKomi","yourName","gameCode","boardSize"];
-  document.querySelectorAll("#setup .field label").forEach(function(el, i){
-    if (labelKeys[i]) el.textContent = t(labelKeys[i]);
-  });
-  document.querySelectorAll("#modeSeg button").forEach(function(b){
-    b.textContent = t({ local:"sameDevice", host:"hostOnline", join:"joinOnline" }[b.dataset.mode]);
-  });
-  document.querySelectorAll("#sizeSeg button").forEach(function(b){
-    if (b.dataset.size === "9") b.textContent = t("size9");
-    if (b.dataset.size === "19") b.textContent = t("size19");
-  });
-  $("setupNameB").placeholder = t("phUncle");
-  $("setupNameW").placeholder = t("phNephew");
-  $("setupMyName").placeholder = t("phUncle");
-  $("waitRetry").textContent = t("tryAgain");
-  $("waitCancel").textContent = t("cancel");
-}
+const KOMI = 6.5;
+const EMPTY = 0, BLACK = 1, WHITE = 2;
 
 /* True when running inside the Claude artifact preview (its sandbox blocks
    outbound WebSocket connections, so online signaling can't work there). */
 const ENV_ARTIFACT = !!(typeof window.storage === "object" && window.storage && window.storage.get);
 
-/* ---------- storage adapter ----------
-   Prefers the Claude artifact storage API (window.storage).
-   Falls back to localStorage when the file is opened directly in a browser,
-   then to in-memory (no persistence) as a last resort. */
-const store = (function(){
-  if (typeof window.storage === "object" && window.storage && window.storage.get){
-    return {
-      async get(k){ try{ const r = await window.storage.get(k); return r ? r.value : null; }catch(e){ return null; } },
-      async set(k,v){ try{ await window.storage.set(k,v); }catch(e){} }
-    };
-  }
-  let ls = null;
-  try { ls = window.localStorage; ls.setItem("__go_t","1"); ls.removeItem("__go_t"); } catch(e){ ls = null; }
-  if (ls){
-    return {
-      async get(k){ try{ return ls.getItem(k); }catch(e){ return null; } },
-      async set(k,v){ try{ ls.setItem(k,v); }catch(e){} }
-    };
-  }
-  const mem = {};
-  return { async get(k){ return (k in mem) ? mem[k] : null; }, async set(k,v){ mem[k]=v; } };
-})();
-
 /* ---------- state ---------- */
-let S = null;                       // game state
-let names = { 1:"", 2:"" };         // player names
-let tally = { 1:0, 2:0 };           // games won
-let pendingSize = 9;                // size chosen in setup
-let setupMode = "local";            // local | host | join
+let S = null;
+let pendingSize = 9;
 
 function freshState(size){
   const n = size*size;
@@ -715,405 +205,7 @@ function freshState(size){
   };
 }
 
-/* ---------- networking (PeerJS over WebRTC data channels) ---------- */
-const net = {
-  mode: "local",     // local | host | guest
-  myColor: 0,
-  peer: null,
-  conn: null,
-  connected: false,
-  code: "",
-  everConnected: false
-};
-function isOnline(){ return net.mode !== "local"; }
-function isLive(){ return isOnline() && net.connected; }
-function hasPeerLib(){ return typeof Peer !== "undefined"; }
-
-function makeCode(){
-  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I
-  let s = "";
-  for (let i=0;i<5;i++) s += A[Math.floor(Math.random()*A.length)];
-  return s;
-}
-function sendMsg(m){
-  if (net.conn && net.conn.open){
-    try{ net.conn.send(m); }catch(e){}
-  }
-}
-function teardownNet(){
-  clearNegotiation();
-  try{ if (net.conn) net.conn.close(); }catch(e){}
-  try{ if (net.peer) net.peer.destroy(); }catch(e){}
-  net.mode = "local"; net.myColor = 0; net.peer = null; net.conn = null;
-  net.connected = false; net.code = ""; net.everConnected = false;
-  updateNetBar();
-}
-
-let hostAttempts = 0;
-let waitTimer = null;
-function armWaitWatchdog(ms, stage){
-  clearTimeout(waitTimer);
-  $("waitRetry").style.display = "none";
-  waitTimer = setTimeout(function(){
-    if (!isOnline() || net.connected) return;
-    signalFailure(stage);
-  }, ms);
-}
-function clearWaitWatchdog(){ clearTimeout(waitTimer); }
-function signalFailure(stage){
-  clearWaitWatchdog();
-  if (stage === "p2p"){
-    setWaitMsg(t("failP2P"));
-  } else if (ENV_ARTIFACT){
-    setWaitMsg(t("failArtifact"));
-  } else {
-    setWaitMsg(t("failSignal"));
-  }
-  $("waitRetry").style.display = "";
-}
-function hostGame(myName, size){
-  names[1] = myName; names[2] = "";
-  net.mode = "host"; net.myColor = BLACK;
-  net.code = makeCode();
-  S = freshState(size);
-  persist();
-  showWait("host");
-  createHostPeer();
-}
-function createHostPeer(){
-  try{ if (net.peer) net.peer.destroy(); }catch(e){}
-  armWaitWatchdog(9000, "broker");
-  const p = new Peer(PEER_PREFIX + net.code, { debug: 0 });
-  net.peer = p;
-  p.on("open", function(){
-    if (net.mode !== "host") return;
-    clearWaitWatchdog();
-    setWaitMsg('<span class="waitspin"></span>' + t("waitingOpponent"));
-  });
-  p.on("connection", function(c){
-    if (net.mode !== "host") return;
-    if (net.conn && net.conn.open){ try{ c.close(); }catch(e){} return; } // one opponent
-    net.conn = c;
-    wireConn(c);
-  });
-  p.on("error", function(err){
-    if (net.mode !== "host") return;
-    if (err && err.type === "unavailable-id" && hostAttempts < 3){
-      hostAttempts++;
-      net.code = makeCode();
-      showWait("host");
-      createHostPeer();
-      return;
-    }
-    if (err && (err.type === "network" || err.type === "server-error" || err.type === "socket-error" || err.type === "socket-closed" || err.type === "browser-incompatible")){
-      signalFailure("broker");
-    }
-  });
-  p.on("disconnected", function(){
-    // signaling socket dropped; the game channel (if open) keeps working
-    try{ if (net.peer && !net.peer.destroyed) net.peer.reconnect(); }catch(e){}
-  });
-}
-function joinGame(myName, code){
-  names[2] = myName;
-  net.mode = "guest"; net.myColor = WHITE;
-  net.code = code;
-  showWait("join");
-  armWaitWatchdog(9000, "broker");
-  const p = new Peer({ debug: 0 });
-  net.peer = p;
-  p.on("open", function(){
-    if (net.mode !== "guest") return;
-    armWaitWatchdog(15000, "p2p"); // broker reached; now the direct channel must open
-    setWaitMsg('<span class="waitspin"></span>' + t("foundService"));
-    const c = p.connect(PEER_PREFIX + code, { reliable: true });
-    net.conn = c;
-    wireConn(c);
-  });
-  p.on("error", function(err){
-    if (net.mode !== "guest") return;
-    if (err && err.type === "peer-unavailable"){
-      clearWaitWatchdog();
-      setWaitMsg(t("noGameFound", { code: code }));
-      $("waitRetry").style.display = "";
-    } else if (err && (err.type === "network" || err.type === "server-error" || err.type === "socket-error" || err.type === "socket-closed" || err.type === "browser-incompatible")){
-      signalFailure("broker");
-    }
-  });
-}
-function wireConn(c){
-  c.on("open", function(){
-    net.connected = true;
-    net.everConnected = true;
-    clearWaitWatchdog();
-    hideWait();
-    if (net.mode === "guest"){
-      sendMsg({ t:"hello", name: names[2] });
-    }
-    updateNetBar();
-    renderAll();
-  });
-  c.on("data", handleMsg);
-  c.on("close", function(){
-    if (net.conn !== c) return;
-    net.connected = false;
-    clearNegotiation(); // any open request/answer dialog is void now
-    updateNetBar();
-    renderPanel();
-    if (isOnline()) toast(t(net.mode === "guest" ? "connLostGuest" : "connLostHost"));
-  });
-  c.on("error", function(){ /* close handler covers UX */ });
-}
-/* ---------- action negotiation ----------
-   Anything that rewrites shared history (new game, takeback, final score) is
-   never applied unilaterally in an online game. It ping-pongs:
-
-     requester                                responder
-     req {action,id,moveNum}  ───────────────▶  validates; shows Accept/Decline
-     (waiting dialog, Cancel)                   dialog to the human
-     ◀─────────────────────────  res {id,accept[,reason]}
-     applies on accept                          applies on accept (before res)
-
-   - moveNum pins the request to a position; a move landing in between
-     auto-declines it as stale on the responder and re-checks on the requester.
-   - reqCancel {id} withdraws a request (Cancel button or 45s timeout).
-   - If both sides request the same action simultaneously, that counts as
-     agreement: the incoming req is treated as an accept of ours.
-   - One negotiation at a time; a second incoming req is declined as "busy".
-   - "undo" is applied only by the requester (owner of the history stack),
-     which then broadcasts the resulting state — the responder just approves.
-   - Disconnect clears any pending negotiation on both sides. */
-const REQ_TIMEOUT = 45000;
-let reqSeq = 0;
-let pendingOut = null;   // { id, action, moveNum, timer } — our outstanding request
-let pendingIn = null;    // { id, action } — opponent's request we're answering
-
-const REQ_ACTIONS = ["new", "undo", "confirm"];
-function reqText(action){
-  return {
-    title: t("req_" + action + "_title"),
-    verb: t("req_" + action + "_verb"),
-    yes: action === "undo" ? t("allow") : t("accept"),
-    waiting: t("req_" + action + "_wait")
-  };
-}
-
-function oppName(){ return pname(3 - net.myColor); }
-
-function sendRequest(action){
-  if (!isLive()){ toast(t("notConnected")); return; }
-  if (pendingOut || pendingIn) return;
-  pendingOut = { id: net.myColor + "-" + (++reqSeq), action: action, moveNum: S.moveNum };
-  sendMsg({ t:"req", action: action, id: pendingOut.id, moveNum: S.moveNum });
-  pendingOut.timer = setTimeout(function(){
-    if (!pendingOut) return;
-    sendMsg({ t:"reqCancel", id: pendingOut.id });
-    pendingOut = null;
-    hideDialog();
-    toast(t("noAnswer", { name: oppName() }));
-  }, REQ_TIMEOUT);
-  const rt = reqText(action);
-  showDialog({
-    title: rt.title,
-    msg: '<span class="waitspin"></span>' + escapeHtml(rt.waiting.replace("{opp}", oppName())),
-    hideYes: true,
-    no: t("cancel"),
-    onNo: function(){
-      if (!pendingOut) return;
-      clearTimeout(pendingOut.timer);
-      sendMsg({ t:"reqCancel", id: pendingOut.id });
-      pendingOut = null;
-    }
-  });
-}
-
-function reqValidHere(action, moveNum){
-  if (action === "new") return true;
-  /* takeback: only of the requester's last move, so on our machine it must be
-     our turn and the position must not have moved on */
-  if (action === "undo") return S.phase === "play" && S.moveNum === moveNum && S.turn === net.myColor;
-  if (action === "confirm") return S.phase === "score";
-  return false;
-}
-
-function applyAgreed(action){
-  if (action === "new"){
-    S = freshState(S.size);
-    persist(); renderAll();
-    toast(t("newLuck"));
-  } else if (action === "confirm"){
-    doConfirm();
-  }
-  /* "undo": nothing here — the requester rewinds and broadcasts the state */
-}
-
-function handleIncomingReq(m){
-  const action = m.action;
-  if (REQ_ACTIONS.indexOf(action) < 0 || typeof m.id !== "string") return;
-  if (pendingOut && pendingOut.action === action && action !== "undo"){
-    // we asked for the same thing — that's an agreement, not a conflict
-    // (takeback is turn-gated, so simultaneous undo requests can't happen)
-    clearTimeout(pendingOut.timer);
-    pendingOut = null;
-    hideDialog();
-    sendMsg({ t:"res", id: m.id, action: action, accept: true });
-    applyAgreed(action);
-    return;
-  }
-  if (pendingOut || pendingIn){
-    sendMsg({ t:"res", id: m.id, action: action, accept: false, reason: "busy" });
-    return;
-  }
-  if (!reqValidHere(action, m.moveNum)){
-    sendMsg({ t:"res", id: m.id, action: action, accept: false, reason: "stale" });
-    return;
-  }
-  pendingIn = { id: m.id, action: action };
-  const rt = reqText(action);
-  let extra = "";
-  if (action === "confirm"){
-    const sc = computeScore();
-    extra = "<br>" + escapeHtml(pname(1)) + " " + fmtNum(sc.black) + " — " + escapeHtml(pname(2)) + " " + fmtNum(sc.white) + ".";
-  }
-  showDialog({
-    title: rt.title,
-    msg: "<b>" + escapeHtml(oppName()) + "</b> " + rt.verb + "." + extra,
-    yes: rt.yes,
-    no: t("decline"),
-    onYes: function(){
-      if (!pendingIn) return;
-      const id = pendingIn.id; pendingIn = null;
-      sendMsg({ t:"res", id: id, action: action, accept: true });
-      applyAgreed(action);
-    },
-    onNo: function(){
-      if (!pendingIn) return;
-      const id = pendingIn.id; pendingIn = null;
-      sendMsg({ t:"res", id: id, action: action, accept: false });
-    }
-  });
-}
-
-function handleIncomingRes(m){
-  if (!pendingOut || pendingOut.id !== m.id) return;
-  const action = pendingOut.action;
-  const atMove = pendingOut.moveNum;
-  clearTimeout(pendingOut.timer);
-  pendingOut = null;
-  hideDialog();
-  if (!m.accept){
-    toast(m.reason === "stale" ? t("tooLate") :
-          m.reason === "busy"  ? t("busyT", { name: oppName() }) :
-          t("declinedT", { name: oppName() }));
-    return;
-  }
-  if (action === "undo"){
-    if (S.phase === "play" && S.moveNum === atMove && S.turn !== net.myColor && S.history.length){
-      undo(); // rewinds locally and broadcasts the state to the opponent
-      toast(t("movedBack"));
-    } else {
-      toast(t("tooLate"));
-    }
-    return;
-  }
-  applyAgreed(action);
-}
-
-function handleReqCancel(m){
-  if (pendingIn && pendingIn.id === m.id){
-    pendingIn = null;
-    hideDialog();
-    toast(t("withdrew", { name: oppName() }));
-  }
-}
-
-function clearNegotiation(){
-  if (pendingOut){ clearTimeout(pendingOut.timer); pendingOut = null; hideDialog(); }
-  if (pendingIn){ pendingIn = null; hideDialog(); }
-}
-
-function handleMsg(m){
-  if (!m || typeof m !== "object") return;
-  switch (m.t){
-    case "hello":
-      if (net.mode !== "host") return;
-      if (m.name) names[2] = String(m.name).slice(0,18);
-      sendMsg({ t:"sync", core: serializeCore(), names: names, size: S.size });
-      persist(); renderAll();
-      toast(t("joinedT", { name: names[2] || t("yourOpp") }));
-      break;
-    case "sync":
-      if (net.mode !== "guest") return;
-      clearNegotiation();
-      S = freshState(m.size || 9);
-      try{ restoreCore(m.core); }catch(e){}
-      if (m.names){
-        if (m.names[1]) names[1] = String(m.names[1]).slice(0,18);
-        if (m.names[2]) names[2] = String(m.names[2]).slice(0,18);
-      }
-      persist(); renderAll();
-      toast(t("connectedWhite"));
-      break;
-    case "name":
-      if (m.color === 1 || m.color === 2){
-        names[m.color] = String(m.name || "").slice(0,18);
-        persist(); renderPanel();
-      }
-      break;
-    case "move":   playAt(m.i, true); break;
-    case "dead":   playAt(m.i, true); break;
-    case "pass":   doPass(true); break;
-    case "resign":
-      if (m.loser === 1 || m.loser === 2){
-        clearNegotiation();
-        applyResign(m.loser);
-        showDialog({
-          title: t("gameOverTitle"),
-          msg: t("resignedDlg", { loser: escapeHtml(pname(m.loser)), winner: escapeHtml(pname(3 - m.loser)) }),
-          yes: "OK",
-          hideNo: true
-        });
-      }
-      break;
-    case "resume":
-      if (S.phase === "score"){
-        doResume(true);
-        toast(t("resumedT", { name: oppName() }));
-      }
-      break;
-    case "state":
-      snapshot();
-      try{ restoreCore(m.core); }catch(e){}
-      persist(); renderAll();
-      if (m.reason === "undo") toast(t("tookBack", { name: oppName() }));
-      break;
-    case "req":       handleIncomingReq(m); break;
-    case "res":       handleIncomingRes(m); break;
-    case "reqCancel": handleReqCancel(m); break;
-  }
-}
-
-/* ---------- persistence ---------- */
-let saveTimer = null;
-function persist(){
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(function(){
-    store.set(SAVE_KEY, JSON.stringify({ S:S, names:names, tally:tally }));
-  }, 120);
-}
-async function restoreSave(){
-  const raw = await store.get(SAVE_KEY);
-  if (!raw) return false;
-  try{
-    const d = JSON.parse(raw);
-    if (d && d.names) names = d.names;
-    if (d && d.tally) tally = d.tally;
-    if (d && d.S && d.S.board && d.S.size){ S = d.S; if (!S.redo) S.redo = []; return true; }
-  }catch(e){}
-  return false;
-}
-
-/* ---------- go logic ---------- */
+/* ---------- go engine ---------- */
 function neighbors(i, size){
   const r = Math.floor(i/size), c = i % size, out = [];
   if (r > 0) out.push(i - size);
@@ -1163,7 +255,7 @@ function tryMove(i){
   return { ok:true, board:b, captured:captured, str:str };
 }
 
-/* ---------- undo / redo snapshots ---------- */
+/* ---------- undo / redo ---------- */
 function serializeCore(){
   return JSON.stringify({
     board:S.board, turn:S.turn, caps:S.caps, passes:S.passes, phase:S.phase,
@@ -1181,34 +273,21 @@ function restoreCore(json){
 function snapshot(){
   S.history.push(serializeCore());
   if (S.history.length > 400) S.history.shift();
-  S.redo = []; // a fresh action invalidates the redo trail
+  S.redo = [];
 }
-function undo(){
+function localUndo(){
   if (!S.history.length || S.phase === "over") return;
   S.redo.push(serializeCore());
   if (S.redo.length > 400) S.redo.shift();
   restoreCore(S.history.pop());
-  persist(); renderAll();
-  if (isLive()) sendMsg({ t:"state", core: serializeCore(), reason:"undo" });
+  shell.persist(); renderAll();
 }
-function redo(){
-  if (isOnline()) return; // no redo online — takebacks are negotiated, not replayed
+function localRedo(){
   if (!S.redo || !S.redo.length || S.phase === "over") return;
   S.history.push(serializeCore());
   if (S.history.length > 400) S.history.shift();
   restoreCore(S.redo.pop());
-  persist(); renderAll();
-}
-/* Online, undo means asking to take back your own last move: available only
-   when the previous action was yours (it's the opponent's turn again). */
-function canTakeback(){
-  return S.phase === "play" && S.history.length > 0 && S.moveNum > 0 && S.turn !== net.myColor;
-}
-function undoPressed(){
-  if (!isOnline()){ undo(); return; }
-  if (!net.connected){ toast(t("notConnected")); return; }
-  if (!canTakeback()){ toast(t("onlyOwn")); return; }
-  sendRequest("undo");
+  shell.persist(); renderAll();
 }
 
 /* ---------- scoring (area / Chinese counting) ---------- */
@@ -1247,20 +326,30 @@ function computeScore(){
     white: stones[2] + terr[2] + KOMI
   };
 }
+/* decimal comma + Slovak point-count declension */
+function fmtNum(n){ return shell.LANG === "sk" ? String(n).replace(".", ",") : String(n); }
+function ptsPhrase(n){
+  if (shell.LANG !== "sk") return fmtNum(n) + (n === 1 ? " point" : " points");
+  let w = "bodov";
+  if (n === 1) w = "bod";
+  else if (!Number.isInteger(n)) w = "boda";
+  else if (n >= 2 && n <= 4) w = "body";
+  return fmtNum(n) + " " + w;
+}
 
 /* ---------- actions ---------- */
 function playAt(i, remote){
   if (S.phase === "play"){
-    if (!remote && isOnline()){
-      if (!net.connected){ toast(t("notConnected")); return; }
-      if (S.turn !== net.myColor){ toast(t("turnOf", { name: pname(S.turn) })); return; }
+    if (!remote && shell.isOnline()){
+      if (!shell.net.connected){ shell.toast(shell.t("notConnected")); return; }
+      if (S.turn !== shell.net.myColor){ shell.toast(shell.t("turnOf", { name: shell.pname(S.turn) })); return; }
     }
     const mv = tryMove(i);
     if (!mv.ok){
       if (remote) return;
-      if (mv.reason === "occupied") toast(t("occupied"));
-      else if (mv.reason === "suicide") toast(t("suicide"));
-      else toast(t("ko"));
+      if (mv.reason === "occupied") shell.toast(shell.t("occupied"));
+      else if (mv.reason === "suicide") shell.toast(shell.t("suicide"));
+      else shell.toast(shell.t("ko"));
       return;
     }
     snapshot();
@@ -1273,11 +362,11 @@ function playAt(i, remote){
     S.passes = 0;
     const mover = S.turn;
     S.turn = 3 - S.turn;
-    persist();
+    shell.persist();
     renderAll({ placed:i, placedColor:mover, captured:mv.captured, capturedColor:3-mover });
-    sound(mv.captured.length ? "capture" : "place");
-    if (!remote) buzz(mv.captured.length ? 20 : 8);
-    if (!remote && isLive()) sendMsg({ t:"move", i:i });
+    shell.sound(mv.captured.length ? "capture" : "place");
+    if (!remote) shell.buzz(mv.captured.length ? 20 : 8);
+    if (!remote && shell.isLive()) shell.sendMsg({ t:"move", i:i });
   } else if (S.phase === "score"){
     if (S.board[i] === EMPTY) return;
     snapshot();
@@ -1288,15 +377,15 @@ function playAt(i, remote){
       if (isDead) deadSet.delete(g.stones[k]); else deadSet.add(g.stones[k]);
     }
     S.dead = Array.from(deadSet);
-    persist(); renderAll();
-    if (!remote && isLive()) sendMsg({ t:"dead", i:i });
+    shell.persist(); renderAll();
+    if (!remote && shell.isLive()) shell.sendMsg({ t:"dead", i:i });
   }
 }
 function doPass(remote){
   if (S.phase !== "play") return;
-  if (!remote && isOnline()){
-    if (!net.connected){ toast(t("notConnected")); return; }
-    if (S.turn !== net.myColor){ toast(t("turnOf", { name: pname(S.turn) })); return; }
+  if (!remote && shell.isOnline()){
+    if (!shell.net.connected){ shell.toast(shell.t("notConnected")); return; }
+    if (S.turn !== shell.net.myColor){ shell.toast(shell.t("turnOf", { name: shell.pname(S.turn) })); return; }
   }
   snapshot();
   S.passes++;
@@ -1308,29 +397,12 @@ function doPass(remote){
   if (S.passes >= 2){
     S.phase = "score";
     S.dead = [];
-    toast(t("bothPassed"));
+    shell.toast(shell.t("bothPassed"));
   } else {
-    toast(t("passed", { name: pname(passer) }));
+    shell.toast(shell.t("passed", { name: shell.pname(passer) }));
   }
-  persist(); renderAll();
-  if (!remote && isLive()) sendMsg({ t:"pass" });
-}
-function applyResign(loser){
-  if (S.phase === "over") return;
-  S.phase = "over";
-  S.result = { winner: 3 - loser, reason: "resign" };
-  tally[3 - loser]++;
-  persist(); renderAll();
-}
-function doResign(){
-  if (S.phase !== "play") return;
-  const loser = isOnline() ? net.myColor : S.turn;
-  const winner = 3 - loser;
-  askConfirm(t("resignAsk", { loser: pname(loser), winner: pname(winner) }), t("resign"), function(){
-    if (S.phase !== "play") return;
-    applyResign(loser);
-    if (isLive()) sendMsg({ t:"resign", loser:loser });
-  });
+  shell.persist(); renderAll();
+  if (!remote && shell.isLive()) shell.sendMsg({ t:"pass" });
 }
 function doConfirm(){
   if (S.phase !== "score") return;
@@ -1340,14 +412,14 @@ function doConfirm(){
   else if (sc.white > sc.black) winner = WHITE;
   S.phase = "over";
   S.result = { winner:winner, reason:"score", black:sc.black, white:sc.white };
-  if (winner) tally[winner]++;
-  persist(); renderAll();
+  if (winner) shell.tally[winner]++;
+  shell.persist(); renderAll();
 }
 function confirmPressed(){
   if (S.phase !== "score") return;
-  if (isOnline()){
-    if (!net.connected){ toast(t("notConnected")); return; }
-    sendRequest("confirm"); // both players must agree on the final score
+  if (shell.isOnline()){
+    if (!shell.net.connected){ shell.toast(shell.t("notConnected")); return; }
+    shell.sendRequest("confirm"); // both players must agree on the final score
     return;
   }
   doConfirm();
@@ -1358,230 +430,12 @@ function doResume(remote){
   S.phase = "play";
   S.passes = 0;
   S.dead = [];
-  persist(); renderAll();
-  if (!remote && isLive()) sendMsg({ t:"resume" });
-}
-function newGame(){
-  if (isOnline()){
-    if (net.connected) sendRequest("new"); // opponent gets an Accept/Decline dialog
-    else leaveOnline();
-    return;
-  }
-  // local: back-to-back games — fresh board right away, same size and names
-  if (S.moveNum > 0 || S.phase !== "play"){
-    S = freshState(S.size);
-    persist(); renderAll();
-    toast(t("newLuck"));
-  } else {
-    openSetup(); // empty board: nothing to restart — open the menu instead
-  }
-}
-function openSetup(){
-  $("setupNameB").value = names[1] || "";
-  $("setupNameW").value = names[2] || "";
-  $("setupMyName").value = (net.mode === "guest" ? names[2] : names[1]) || "";
-  $("setup").classList.remove("hidden");
-}
-function startPressed(){
-  if (setupMode === "local"){
-    teardownNet();
-    names[1] = $("setupNameB").value.trim();
-    names[2] = $("setupNameW").value.trim();
-    S = freshState(pendingSize);
-    $("setup").classList.add("hidden");
-    persist(); renderAll();
-    return;
-  }
-  if (!hasPeerLib()){
-    toast(t("needNet"));
-    return;
-  }
-  const myName = $("setupMyName").value.trim();
-  if (setupMode === "host"){
-    teardownNet();
-    hostAttempts = 0;
-    $("setup").classList.add("hidden");
-    hostGame(myName, pendingSize);
-    renderAll();
-  } else {
-    const code = $("setupCode").value.trim().toUpperCase();
-    if (code.length !== 5){ toast(t("enterCode")); return; }
-    teardownNet();
-    $("setup").classList.add("hidden");
-    joinGame(myName, code);
-  }
-}
-function leaveOnline(){
-  teardownNet();
-  openSetup();
-  renderAll();
-}
-
-/* ---------- waiting overlay ---------- */
-function showWait(kind){
-  const box = $("waitBox");
-  const qr = $("waitQR");
-  qr.innerHTML = "";
-  $("waitRetry").style.display = "none";
-  if (kind === "host"){
-    $("waitTitle").textContent = t("shareCode");
-    $("waitCode").textContent = net.code;
-    $("waitCode").style.display = "";
-    setWaitMsg('<span class="waitspin"></span>' + t("connectingSignal"));
-    if (typeof QRCode !== "undefined"){
-      try{
-        new QRCode(qr, { text: joinLink(net.code), width: 148, height: 148,
-          colorDark: "#1c1a16", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
-      }catch(e){}
-    }
-  } else {
-    $("waitTitle").textContent = t("joiningGame");
-    $("waitCode").textContent = net.code;
-    $("waitCode").style.display = "";
-    setWaitMsg('<span class="waitspin"></span>' + t("lookingHost"));
-  }
-  box.classList.remove("hidden");
-}
-function setWaitMsg(html){ $("waitMsg").innerHTML = html; }
-function hideWait(){ $("waitBox").classList.add("hidden"); }
-
-/* ---------- helpers ---------- */
-/* A scannable link that lands the opponent straight on the join screen with
-   the code filled in. Falls back to the bare code when not served over http. */
-function joinLink(code){
-  if (location.protocol === "https:" || location.protocol === "http:"){
-    return location.origin + location.pathname + "?join=" + code;
-  }
-  return code;
-}
-function readJoinParam(){
-  try{
-    const c = new URLSearchParams(location.search).get("join");
-    if (!c) return "";
-    history.replaceState(null, "", location.pathname);
-    return c.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
-  }catch(e){ return ""; }
-}
-
-/* Keep the screen on during a game (phones otherwise sleep mid-match). */
-let wakeLock = null;
-async function keepAwake(){
-  if (!("wakeLock" in navigator)) return;
-  try{
-    if (document.visibilityState === "visible" && !wakeLock){
-      wakeLock = await navigator.wakeLock.request("screen");
-      wakeLock.addEventListener("release", function(){ wakeLock = null; });
-    }
-  }catch(e){}
-}
-document.addEventListener("visibilitychange", function(){
-  if (document.visibilityState === "visible") keepAwake();
-});
-
-function buzz(ms){
-  try{ if (navigator.vibrate) navigator.vibrate(ms); }catch(e){}
-}
-
-/* Size the board to the space that's actually left after the header,
-   paddings and (on phones) the panel below it, so the whole game fits the
-   viewport without scrolling. */
-function fitBoard(){
-  try{
-    const hdr = document.querySelector("header").offsetHeight;
-    const cs = getComputedStyle(document.querySelector(".table"));
-    const pads = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-    let extra = 0;
-    if (window.matchMedia && window.matchMedia("(max-width:820px)").matches){
-      // single column: status, actions and player cards stack under the board
-      extra = document.querySelector(".panel").offsetHeight + (parseFloat(cs.rowGap) || 0);
-    }
-    const cap = Math.max(240, window.innerHeight - hdr - pads - extra);
-    document.documentElement.style.setProperty("--boardcap", cap + "px");
-  }catch(e){}
-}
-window.addEventListener("resize", fitBoard);
-window.addEventListener("orientationchange", function(){ setTimeout(fitBoard, 60); });
-
-function registerSW(){
-  if (ENV_ARTIFACT || !("serviceWorker" in navigator)) return;
-  if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") return;
-  try{
-    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(function(reg){
-      // look for a fresh version on launch and whenever the app is foregrounded
-      function check(){ try{ reg.update(); }catch(e){} }
-      document.addEventListener("visibilitychange", function(){
-        if (document.visibilityState === "visible") check();
-      });
-      setInterval(check, 60 * 60 * 1000);
-    }).catch(function(){});
-    // when a new version takes over, reload once so it runs right away —
-    // but never yank the page out from under a live online game
-    let hadController = !!navigator.serviceWorker.controller;
-    let reloaded = false;
-    navigator.serviceWorker.addEventListener("controllerchange", function(){
-      if (!hadController){ hadController = true; return; } // first install: page is already fresh
-      if (reloaded || isLive()) return;
-      reloaded = true;
-      location.reload();
-    });
-  }catch(e){}
-}
-
-function pname(c){
-  return names[c] || (c === BLACK ? t("black") : t("white"));
-}
-/* Generic modal dialog. opts: {title, msg (html), yes, no, onYes, onNo, hideYes, hideNo} */
-let dlgYesCb = null, dlgNoCb = null;
-function showDialog(o){
-  $("dlgTitle").textContent = o.title || t("areYouSure");
-  $("confirmMsg").innerHTML = o.msg || "";
-  const y = $("confirmYes"), n = $("confirmNo");
-  y.style.display = o.hideYes ? "none" : "";
-  n.style.display = o.hideNo ? "none" : "";
-  y.textContent = o.yes || t("yes");
-  n.textContent = o.no || t("cancel");
-  dlgYesCb = o.onYes || null;
-  dlgNoCb = o.onNo || null;
-  $("confirmBox").classList.remove("hidden");
-}
-function hideDialog(){
-  $("confirmBox").classList.add("hidden");
-  dlgYesCb = null; dlgNoCb = null;
-}
-function askConfirm(msg, yesLabel, cb){
-  showDialog({ msg: escapeHtml(msg), yes: yesLabel || "Yes", onYes: cb });
-}
-let toastTimer = null;
-function toast(msg){
-  const t = $("toast");
-  t.textContent = msg;
-  t.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2800);
-}
-
-/* ---------- sound ---------- */
-let audioCtx = null;
-function sound(kind){
-  try{
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") audioCtx.resume(); // iOS suspends until a gesture
-    const t0 = audioCtx.currentTime;
-    function tok(when, freq, vol){
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type = "triangle"; o.frequency.value = freq;
-      g.gain.setValueAtTime(vol, when);
-      g.gain.exponentialRampToValueAtTime(0.001, when + 0.09);
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start(when); o.stop(when + 0.1);
-    }
-    if (kind === "capture"){ tok(t0, 1500, .12); tok(t0 + .09, 950, .12); }
-    else tok(t0, 1750, .12);
-  }catch(e){}
+  shell.persist(); renderAll();
+  if (!remote && shell.isLive()) shell.sendMsg({ t:"resume" });
 }
 
 /* ---------- board rendering ---------- */
-const U = 40; // grid unit
+const U = 40;
 function hoshiPoints(n){
   if (n === 9)  return [[2,2],[6,2],[2,6],[6,6],[4,4]];
   if (n === 13) return [[3,3],[9,3],[3,9],[9,9],[6,6]];
@@ -1674,80 +528,38 @@ function renderBoard(fx){
   svg.innerHTML = parts.join("");
 }
 
-/* ---------- panel rendering ---------- */
-function updateNetBar(){
-  const bar = $("netbar");
-  if (!isOnline()){ bar.style.display = "none"; return; }
-  bar.style.display = "flex";
-  bar.classList.toggle("down", !net.connected);
-  const me = net.myColor === BLACK ? t("black") : t("white");
-  let txt;
-  if (net.connected){
-    txt = t("netYou", { me: me, opp: escapeHtml(pname(3 - net.myColor)) });
-  } else if (net.everConnected){
-    txt = t(net.mode === "guest" ? "netDiscGuest" : "netDiscHost", { code: net.code });
-  } else {
-    txt = t("netSetup", { code: net.code });
-  }
-  $("netText").innerHTML = txt;
-}
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, function(c){
-    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
-  });
-}
+/* ---------- panel ---------- */
 function renderPanel(){
-  const nb = $("nameB"), nw = $("nameW");
-  if (document.activeElement !== nb) nb.value = names[1];
-  if (document.activeElement !== nw) nw.value = names[2];
-  nb.readOnly = isOnline() && net.myColor !== BLACK;
-  nw.readOnly = isOnline() && net.myColor !== WHITE;
-  $("youB").style.display = (isOnline() && net.myColor === BLACK) ? "" : "none";
-  $("youW").style.display = (isOnline() && net.myColor === WHITE) ? "" : "none";
-
+  shell.renderPlayersChrome();
   $("capB").textContent = S.caps[1];
   $("capW").textContent = S.caps[2];
-  $("winB").textContent = tally[1];
-  $("winW").textContent = tally[2];
 
   const playing = S.phase === "play";
-  $("cardB").classList.toggle("active", playing && S.turn === BLACK);
-  $("cardW").classList.toggle("active", playing && S.turn === WHITE);
-
   $("playButtons").style.display = playing ? "flex" : "none";
   $("scoreButtons").style.display = S.phase === "score" ? "flex" : "none";
-  $("btnUndo").disabled = isOnline() ? !(net.connected && canTakeback()) : !S.history.length;
-  $("btnRedo").style.display = isOnline() ? "none" : "";
-  $("btnRedo").disabled = !(S.redo && S.redo.length);
-  const phone = window.matchMedia && window.matchMedia("(max-width:820px)").matches;
-  $("btnNew").textContent = (isOnline() && !net.connected) ? t("menu") : (phone ? t("newShort") : t("newGame"));
-
-  updateNetBar();
 
   const st = $("status");
-  if (S.phase === "play"){
-    let who = pname(S.turn);
-    if (isOnline() && S.turn === net.myColor) who = t("youWord");
-    st.textContent = t("statusMove", { n: S.moveNum + 1, who: who }) +
-      (S.passes === 1 ? t("onePass") : "");
+  if (playing){
+    let who = shell.pname(S.turn);
+    if (shell.isOnline() && S.turn === shell.net.myColor) who = shell.t("youWord");
+    st.textContent = shell.t("statusMove", { n: S.moveNum + 1, who: who }) +
+      (S.passes === 1 ? shell.t("onePass") : "");
   } else if (S.phase === "score"){
-    st.textContent = t("statusCounting");
+    st.textContent = shell.t("statusCounting");
   } else if (S.result){
-    st.textContent = t("statusOver");
+    st.textContent = shell.t("statusOver");
   }
 
   const scCard = $("scorecard");
   if (S.phase === "score" || (S.phase === "over" && S.result)){
     scCard.style.display = "block";
-    $("shNameB").textContent = pname(1);
-    $("shNameW").textContent = pname(2);
+    $("shNameB").textContent = shell.pname(1);
+    $("shNameW").textContent = shell.pname(2);
     const wl = $("winnerLine");
     if (S.result && S.result.reason === "resign"){
-      $("scStB").textContent = "—"; $("scStW").textContent = "—";
-      $("scTeB").textContent = "—"; $("scTeW").textContent = "—";
-      $("scToB").textContent = "—"; $("scToW").textContent = "—";
+      ["scStB","scStW","scTeB","scTeW","scToB","scToW"].forEach(function(id){ $(id).textContent = "—"; });
       wl.style.display = "block";
-      wl.textContent = t("winResign", { name: pname(S.result.winner) });
+      wl.textContent = shell.t("winResign", { name: shell.pname(S.result.winner) });
     } else {
       const sc = computeScore();
       $("scStB").textContent = sc.stones[1];
@@ -1760,205 +572,250 @@ function renderPanel(){
         wl.style.display = "block";
         if (S.result.winner){
           const m = Math.abs(sc.black - sc.white);
-          wl.textContent = t("winBy", { name: pname(S.result.winner), pts: ptsPhrase(m) });
-        } else wl.textContent = t("tie");
+          wl.textContent = shell.t("winBy", { name: shell.pname(S.result.winner), pts: ptsPhrase(m) });
+        } else wl.textContent = shell.t("tie");
       } else wl.style.display = "none";
-    }
-    if (S.phase === "over"){
-      const sb = $("scoreButtons");
-      sb.style.display = "flex";
-      $("btnConfirm").style.display = "none";
-      $("btnResume").style.display = "none";
-      if (!$("btnRematch")){
-        const b = document.createElement("button");
-        b.id = "btnRematch"; b.className = "btn-primary grow"; b.textContent = t("playAgain");
-        b.addEventListener("click", newGame);
-        sb.appendChild(b);
-      }
-      if (isOnline() && !$("btnLeave2")){
-        const b2 = document.createElement("button");
-        b2.id = "btnLeave2"; b2.className = "btn-ghost"; b2.textContent = t("leaveOnline");
-        b2.addEventListener("click", leaveOnline);
-        sb.appendChild(b2);
-      }
-      if (!isOnline() && !$("btnMenu2")){
-        const b3 = document.createElement("button");
-        b3.id = "btnMenu2"; b3.className = "btn-ghost"; b3.textContent = t("menu");
-        b3.addEventListener("click", openSetup);
-        sb.appendChild(b3);
-      }
-    } else {
-      ["btnRematch","btnLeave2","btnMenu2"].forEach(function(id){ const b = $(id); if (b) b.remove(); });
-      $("btnConfirm").style.display = "";
-      $("btnResume").style.display = "";
     }
   } else {
     scCard.style.display = "none";
-    ["btnRematch","btnLeave2","btnMenu2"].forEach(function(id){ const b = $(id); if (b) b.remove(); });
   }
+  shell.renderOverButtons();
 }
-
 function renderAll(fx){
   renderBoard(fx);
   renderPanel();
-  fitBoard(); // panel height can change (scorecard, buttons) — re-fit the board
+  shell.fitBoard();
 }
 
-/* ---------- setup UI ---------- */
-function applySetupMode(){
-  $("fieldsLocal").style.display = setupMode === "local" ? "" : "none";
-  $("fieldsOnline").style.display = setupMode === "local" ? "none" : "";
-  $("fieldJoin").style.display = setupMode === "join" ? "" : "none";
-  $("fieldSize").style.display = setupMode === "join" ? "none" : "";
-  const btn = $("btnStart");
-  const note = $("setupNote");
-  const artifactWarn = ENV_ARTIFACT ? t("artifactWarn") : "";
-  if (setupMode === "local"){
-    btn.textContent = t("startGame");
-    const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone;
-    const installHint = (!standalone && !ENV_ARTIFACT && location.protocol === "https:") ? t("installHint") : "";
-    note.innerHTML = t("noteLocal") + installHint;
-  } else if (setupMode === "host"){
-    btn.textContent = t("createGame");
-    note.innerHTML = t("noteHost") + artifactWarn;
-  } else {
-    btn.textContent = t("joinGameBtn");
-    note.innerHTML = t("noteJoin") + artifactWarn;
-  }
-}
-
-/* ---------- events ---------- */
-function wire(){
-  const svg = $("board");
-  svg.addEventListener("contextmenu", function(ev){ ev.preventDefault(); }); // no long-press menu mid-game
-  svg.addEventListener("click", function(ev){
-    const t = ev.target;
-    if (t && t.dataset && t.dataset.i !== undefined) playAt(+t.dataset.i);
-  });
-  svg.addEventListener("pointermove", function(ev){
-    if (ev.pointerType === "touch") return;
-    const ghost = $("ghost");
-    if (!ghost) return;
-    const t = ev.target;
-    if (S.phase === "play" && t && t.dataset && t.dataset.i !== undefined){
-      if (!isOnline() || (net.connected && S.turn === net.myColor)){
-        const i = +t.dataset.i;
-        if (S.board[i] === EMPTY && tryMove(i).ok){
-          const p = xy(i);
-          ghost.setAttribute("cx", p[0]); ghost.setAttribute("cy", p[1]);
-          ghost.setAttribute("opacity", "0.45");
-          return;
-        }
+/* ---------- shell config ---------- */
+const shell = Tabletop({
+  key: "go:save",
+  peerPrefix: "goban-k7-",
+  colorKeys: { 1:"black", 2:"white" },
+  reqActions: ["new", "undo", "confirm"],
+  artifactEnv: ENV_ARTIFACT,
+  store: ENV_ARTIFACT ? {
+    async get(k){ try{ const r = await window.storage.get(k); return r ? r.value : null; }catch(e){ return null; } },
+    async set(k,v){ try{ await window.storage.set(k,v); }catch(e){} }
+  } : null,
+  sounds: {
+    place:   [[1750, 0, .12]],
+    capture: [[1500, 0, .12], [950, .09, .12]]
+  },
+  ui: {
+    1: { nameInput:"nameB", youMark:"youB", card:"cardB", wins:"winB" },
+    2: { nameInput:"nameW", youMark:"youW", card:"cardW", wins:"winW" }
+  },
+  strings: {
+    en: {
+      occupied:"That spot is already taken.",
+      suicide:"Can't play there — that stone would have no breathing room.",
+      ko:"Ko rule: play somewhere else first, then you can come back.",
+      passed:"{name} passed.",
+      bothPassed:"Both passed — time to count! Tap dead stones to remove them.",
+      onePass:" (one more pass ends the game)",
+      statusCounting:"Counting: tap any dead stones to remove them, then confirm.",
+      winBy:"🏆 {name} wins by {pts}!", tie:"It's a tie!",
+      req_confirm_title:"End the game?", req_confirm_verb:"proposes to end the game with this score", req_confirm_wait:"Asking {opp} to accept the score…",
+      failArtifact:"<b>Can't connect from inside the Claude preview</b> — its sandbox blocks the signaling connection. Download this file and open it directly in your browser (both players do this), then try again there.",
+      artifactWarn:" <br><b>Heads up:</b> you’re viewing this inside Claude, and the preview blocks online connections — download this file and open it directly in your browser to play online.",
+      noteHost:"You'll get a 5-letter code (and QR) to share. You play Black. Moves travel directly between your two browsers over an encrypted WebRTC channel; a small free service (PeerJS) is used only for the introduction handshake.",
+      noteJoin:"Enter the code your opponent shares. You play White. If you got disconnected earlier, re-joining with the same code resumes the game."
+    },
+    sk: {
+      occupied:"To miesto je už obsadené.",
+      suicide:"Tam sa hrať nedá — kameň by nemal žiadnu slobodu.",
+      ko:"Pravidlo ko: najprv zahraj inde, potom sa môžeš vrátiť.",
+      passed:"{name} pasuje.",
+      bothPassed:"Obaja pasovali — ideme počítať! Ťukni na mŕtve kamene a odstráň ich.",
+      onePass:" (ešte jeden pas ukončí hru)",
+      statusCounting:"Počítanie: ťukni na mŕtve kamene a potom potvrď skóre.",
+      winBy:"🏆 {name} vyhráva o {pts}!", tie:"Remíza!",
+      req_confirm_title:"Ukončiť hru?", req_confirm_verb:"navrhuje ukončiť hru s týmto skóre", req_confirm_wait:"Čakám, či {opp} prijme skóre…",
+      failArtifact:"<b>Z náhľadu v Claude sa nedá pripojiť</b> — sandbox blokuje spojenie. Stiahni si tento súbor a otvor ho priamo v prehliadači (obaja hráči), potom to skús znova.",
+      artifactWarn:" <br><b>Pozor:</b> pozeráš si hru vnútri Claude a náhľad blokuje online spojenia — stiahni si súbor a otvor ho priamo v prehliadači.",
+      noteHost:"Dostaneš 5-znakový kód (a QR) na zdieľanie. Hráš čiernymi. Ťahy putujú priamo medzi vašimi prehliadačmi cez šifrovaný WebRTC kanál; malá bezplatná služba (PeerJS) sa použije len na úvodné spojenie.",
+      noteJoin:"Zadaj kód od súpera. Hráš bielymi. Ak ťa odpojilo, opätovné pripojenie s rovnakým kódom hru obnoví.",
+      sub:"dvaja hráči · jedno zariadenie alebo online · biely má +6,5 komi",
+      blackPh:"Čierny hráč", whitePh:"Biely hráč", toPlay:"Na ťahu",
+      captured:"Zajaté: ", wins:"Výhry: ", you:"← ty",
+      pass:"Pas",
+      confirmScore:"Potvrdiť skóre", resumePlay:"Hrať ďalej",
+      score:"Skóre", stonesOnBoard:"Kamene na doske", territory:"Územie", total:"Spolu",
+      setupTitle:"Nová hra", setupTag:"Priprav dosku a zaujmite miesta.",
+      blackFirst:"Čierny (začína)", whiteKomi:"Biely (+6,5 komi)",
+      boardSize:"Veľkosť dosky", size9:"9×9 · rýchla", size19:"19×19 · celá",
+      phUncle:"napr. Ujo", phNephew:"napr. Synovec",
+      rulesSummary:"Rýchle pravidlá",
+      rulesHtml:"<li>Striedajte sa v ukladaní kameňov na priesečníky čiar. Čierny začína.</li>"+
+        "<li>Obkľúč súperovu skupinu zo všetkých strán (žiadne voľné susedné body) a zajmeš ju.</li>"+
+        "<li>Kameň nemôžeš položiť tam, kde by okamžite nemal žiadnu slobodu, a nemôžeš hneď vrátiť zajatie jedného kameňa (ko).</li>"+
+        "<li>Keď už nikto nechce ťahať, obaja pasujte. Potom ťuknite na beznádejné „mŕtve“ kamene a potvrďte skóre.</li>"+
+        "<li>Skóre = tvoje kamene na doske + prázdne body, ktoré obkľučuješ len ty. Biely dostáva 6,5 bodu navyše za to, že ťahá druhý.</li>"
+    }
+  },
+  hooks: {
+    getS: function(){ return S; },
+    setS: function(saved){
+      if (!saved || !saved.board || !saved.size) return false;
+      S = saved;
+      if (!S.redo) S.redo = [];
+      return true;
+    },
+    resetGame: function(){ S = freshState(S ? S.size : pendingSize); },
+    freshForHost: function(){ S = freshState(pendingSize); },
+    serializeCore: serializeCore,
+    restoreCore: restoreCore,
+    snapshot: snapshot,
+    renderAll: renderAll,
+    onBoardClick: function(i){ playAt(i, false); },
+    moveNum: function(){ return S.moveNum; },
+    phase: function(){ return S.phase; },
+    currentTurn: function(){ return S.turn; },
+    canLocalUndo: function(){ return S.history.length > 0 && S.phase !== "over"; },
+    canLocalRedo: function(){ return !!(S.redo && S.redo.length) && S.phase !== "over"; },
+    localUndo: localUndo,
+    localRedo: localRedo,
+    canTakeback: function(){
+      return S.phase === "play" && S.history.length > 0 && S.moveNum > 0 && S.turn !== shell.net.myColor;
+    },
+    performTakeback: function(atMove){
+      if (S.phase !== "play" || S.moveNum !== atMove || S.turn === shell.net.myColor || !S.history.length) return false;
+      localUndo();
+      return true;
+    },
+    reqValid: function(action, moveNum){
+      if (action === "new") return true;
+      if (action === "undo") return S.phase === "play" && S.moveNum === moveNum && S.turn === shell.net.myColor;
+      if (action === "confirm") return S.phase === "score";
+      return false;
+    },
+    reqExtraHtml: function(action){
+      if (action !== "confirm") return "";
+      const sc = computeScore();
+      return "<br>" + shell.escapeHtml(shell.pname(1)) + " " + fmtNum(sc.black) + " — " + shell.escapeHtml(shell.pname(2)) + " " + fmtNum(sc.white) + ".";
+    },
+    applyAgreedExtra: function(action){
+      if (action === "confirm") doConfirm();
+    },
+    applyResign: function(loser){
+      if (S.phase === "over") return;
+      S.phase = "over";
+      S.result = { winner: 3 - loser, reason: "resign" };
+      shell.tally[3 - loser]++;
+      shell.persist(); renderAll();
+    },
+    onGameMsg: function(m){
+      switch (m.t){
+        case "move": playAt(m.i, true); break;
+        case "dead": playAt(m.i, true); break;
+        case "pass": doPass(true); break;
+        case "resume":
+          if (S.phase === "score"){
+            doResume(true);
+            shell.toast(shell.t("resumedT", { name: shell.oppName() }));
+          }
+          break;
       }
+    },
+    syncExtra: function(){ return { size: S.size }; },
+    onSync: function(m){
+      S = freshState((m.x && m.x.size) || (m.size || 9));
+      try{ restoreCore(m.core); }catch(e){}
+    },
+    startLocal: function(){
+      shell.names[1] = $("setupNameB").value.trim();
+      shell.names[2] = $("setupNameW").value.trim();
+      S = freshState(pendingSize);
+    },
+    fillSetupFields: function(){
+      $("setupNameB").value = shell.names[1] || "";
+      $("setupNameW").value = shell.names[2] || "";
+    },
+    setupNoteExtra: function(mode){
+      return (mode !== "local" && ENV_ARTIFACT) ? shell.t("artifactWarn") : "";
+    },
+    afterRestore: function(had){
+      if (had && S) pendingSize = S.size;
+    },
+    wireExtra: function(){
+      $("btnPass").addEventListener("click", function(){ doPass(false); });
+      $("btnConfirm").addEventListener("click", confirmPressed);
+      $("btnResume").addEventListener("click", function(){ doResume(false); });
+      $("sizeSeg").addEventListener("click", function(ev){
+        const b = ev.target.closest("button");
+        if (!b) return;
+        pendingSize = +b.dataset.size;
+        this.querySelectorAll("button").forEach(function(x){ x.classList.toggle("sel", x === b); });
+      });
+      // ghost stone under the cursor
+      const svg = $("board");
+      svg.addEventListener("pointermove", function(ev){
+        if (ev.pointerType === "touch") return;
+        const ghost = $("ghost");
+        if (!ghost) return;
+        const el = ev.target;
+        if (S.phase === "play" && el && el.dataset && el.dataset.i !== undefined){
+          if (!shell.isOnline() || (shell.net.connected && S.turn === shell.net.myColor)){
+            const i = +el.dataset.i;
+            if (S.board[i] === EMPTY && tryMove(i).ok){
+              const p = xy(i);
+              ghost.setAttribute("cx", p[0]); ghost.setAttribute("cy", p[1]);
+              ghost.setAttribute("opacity", "0.45");
+              return;
+            }
+          }
+        }
+        ghost.setAttribute("opacity", "0");
+      });
+      svg.addEventListener("pointerleave", function(){
+        const ghost = $("ghost");
+        if (ghost) ghost.setAttribute("opacity", "0");
+      });
+    },
+    applyStaticLang: function(){
+      if (shell.LANG === "en") return;
+      const t = shell.t;
+      document.querySelector("header .sub").textContent = t("sub");
+      $("nameB").placeholder = t("blackPh");
+      $("nameW").placeholder = t("whitePh");
+      document.querySelectorAll(".turn-pill").forEach(function(el){ el.textContent = t("toPlay"); });
+      [["capB","captured"],["winB","wins"],["capW","captured"],["winW","wins"]].forEach(function(p){
+        $(p[0]).parentNode.firstChild.nodeValue = t(p[1]);
+      });
+      $("youB").textContent = t("you"); $("youW").textContent = t("you");
+      $("btnPass").textContent = t("pass");
+      $("btnConfirm").textContent = t("confirmScore");
+      $("btnResume").textContent = t("resumePlay");
+      document.querySelector(".scorecard h3").textContent = t("score");
+      const ths = document.querySelectorAll("#scorecard tbody th");
+      if (ths[0]) ths[0].textContent = t("stonesOnBoard");
+      if (ths[1]) ths[1].textContent = t("territory");
+      const komiRow = ths[2] && ths[2].parentNode;
+      if (komiRow) komiRow.lastElementChild.textContent = "6,5";
+      const tfth = document.querySelector("#scorecard tfoot th");
+      if (tfth) tfth.textContent = t("total");
+      const rules = document.querySelector("details.rules");
+      rules.querySelector("summary").textContent = t("rulesSummary");
+      rules.querySelector("ul").innerHTML = t("rulesHtml");
+      document.querySelector("#setup h2").textContent = t("setupTitle");
+      document.querySelector("#setup .tag").textContent = t("setupTag");
+      const labelKeys = ["howPlaying","blackFirst","whiteKomi","yourName","gameCode","boardSize"];
+      document.querySelectorAll("#setup .field label").forEach(function(el, i){
+        if (labelKeys[i]) el.textContent = t(labelKeys[i]);
+      });
+      document.querySelectorAll("#sizeSeg button").forEach(function(b){
+        if (b.dataset.size === "9") b.textContent = t("size9");
+        if (b.dataset.size === "19") b.textContent = t("size19");
+      });
+      $("setupNameB").placeholder = t("phUncle");
+      $("setupNameW").placeholder = t("phNephew");
+      $("setupMyName").placeholder = t("phUncle");
     }
-    ghost.setAttribute("opacity", "0");
-  });
-  svg.addEventListener("pointerleave", function(){
-    const ghost = $("ghost");
-    if (ghost) ghost.setAttribute("opacity", "0");
-  });
-
-  $("btnPass").addEventListener("click", function(){ doPass(false); });
-  $("btnUndo").addEventListener("click", undoPressed);
-  $("btnRedo").addEventListener("click", redo);
-  $("btnResign").addEventListener("click", doResign);
-  $("btnNew").addEventListener("click", function(){
-    if (!isOnline() && S.moveNum > 0 && S.phase === "play"){
-      askConfirm(t("abandonAsk"), t("newGame"), newGame);
-      return;
-    }
-    newGame();
-  });
-  $("btnConfirm").addEventListener("click", confirmPressed);
-  $("btnResume").addEventListener("click", function(){ doResume(false); });
-  $("btnStart").addEventListener("click", startPressed);
-  $("btnLeave").addEventListener("click", function(){
-    askConfirm(t("leaveAsk"), t("leave"), leaveOnline);
-  });
-  $("waitRetry").addEventListener("click", function(){
-    if (net.mode === "host"){
-      showWait("host");
-      createHostPeer();
-    } else if (net.mode === "guest"){
-      try{ if (net.peer) net.peer.destroy(); }catch(e){}
-      net.peer = null; net.conn = null; net.connected = false;
-      joinGame(names[2], net.code);
-    }
-  });
-  $("waitCancel").addEventListener("click", function(){
-    clearWaitWatchdog();
-    teardownNet();
-    openSetup();
-    hideWait();
-    renderAll();
-  });
-
-  $("confirmYes").addEventListener("click", function(){
-    const cb = dlgYesCb; hideDialog();
-    if (cb) cb();
-  });
-  $("confirmNo").addEventListener("click", function(){
-    const cb = dlgNoCb; hideDialog();
-    if (cb) cb();
-  });
-
-  $("modeSeg").addEventListener("click", function(ev){
-    const b = ev.target.closest("button");
-    if (!b) return;
-    setupMode = b.dataset.mode;
-    this.querySelectorAll("button").forEach(function(x){ x.classList.toggle("sel", x === b); });
-    applySetupMode();
-  });
-  $("sizeSeg").addEventListener("click", function(ev){
-    const b = ev.target.closest("button");
-    if (!b) return;
-    pendingSize = +b.dataset.size;
-    this.querySelectorAll("button").forEach(function(x){ x.classList.toggle("sel", x === b); });
-  });
-
-  $("nameB").addEventListener("input", function(){
-    if (this.readOnly) return;
-    names[1] = this.value; renderPanel(); persist();
-    if (isLive() && net.myColor === BLACK) sendMsg({ t:"name", color:1, name:names[1] });
-  });
-  $("nameW").addEventListener("input", function(){
-    if (this.readOnly) return;
-    names[2] = this.value; renderPanel(); persist();
-    if (isLive() && net.myColor === WHITE) sendMsg({ t:"name", color:2, name:names[2] });
-  });
-  $("setupCode").addEventListener("input", function(){ this.value = this.value.toUpperCase(); });
-}
-
-/* ---------- boot ---------- */
-(async function boot(){
-  applyStaticLang();
-  $("status").textContent = t("loading");
-  const had = await restoreSave();
-  wire();
-  fitBoard();
-  if (!had || !S) S = freshState(9);
-  pendingSize = S.size;
-  applySetupMode();
-  renderAll();
-
-  const qJoin = readJoinParam(); // arrived via a scanned QR / shared join link
-  if (qJoin.length === 5){
-    setupMode = "join";
-    document.querySelectorAll("#modeSeg button").forEach(function(b){
-      b.classList.toggle("sel", b.dataset.mode === "join");
-    });
-    applySetupMode();
-    $("setupCode").value = qJoin;
-    openSetup();
-  } else if (had){
-    if (S.phase === "over") toast(t("welcomeBack"));
-  } else {
-    openSetup();
   }
+});
 
-  keepAwake();
-  registerSW();
-})();
+shell.boot();
 
 })();
 </script>
