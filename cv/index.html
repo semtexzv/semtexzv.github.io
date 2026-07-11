@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Michal Hornicky — Senior Software Engineer</title>
-<link rel="icon" type="image/svg+xml" href="/icons/site.svg">
-<link rel="icon" type="image/png" sizes="128x128" href="/icons/site.png">
+<link rel="icon" type="image/svg+xml" href="/icons/cv.svg">
+<link rel="icon" type="image/png" sizes="128x128" href="/icons/cv.png">
 <meta name="description" content="Michal Hornicky — Senior Software Engineer · Agent Infrastructure · ML Systems. Engineer who builds the harnesses that make agentic loops fast.">
 <meta name="author" content="Michal Hornicky">
 <!-- Open Graph -->
@@ -225,6 +225,8 @@
   }
   ul.bullets li:last-child { margin-bottom: 0; }
   .bullets b { color: var(--fg-strong); font-weight: 700; }
+  .bullets a { border-bottom: 1px solid var(--hair); }
+  .bullets a:hover { color: var(--accent); border-color: var(--accent); }
 
   /* repo tag */
   .repo {
@@ -356,14 +358,14 @@
           <span class="sep">/</span>ML Systems
         </div>
       </div>
-      <img class="portrait" src="photo.jpg" alt="Michal Hornicky">
+      <img class="portrait" src="/photo.jpg" alt="Michal Hornicky">
     </div>
 
     <nav class="contact mono">
       <a href="mailto:semtexzv@gmail.com"><span class="k">@</span>semtexzv@gmail.com</a>
       <a href="https://github.com/semtexzv" target="_blank" rel="noopener"><span class="k">gh</span>github.com/semtexzv</a>
       <span><span class="k" style="margin-right:.45em">~</span>Zürich, Switzerland</span>
-      <a class="dl-pdf" href="resume.pdf"><span class="k">↓</span>resume.pdf</a>
+      <a class="dl-pdf" href="/resume.pdf"><span class="k">↓</span>resume.pdf</a>
     </nav>
   </header>
 
@@ -372,10 +374,9 @@
     <div class="row-label"><span class="num">00</span> / Current Focus</div>
     <div class="row-body">
       <p class="thesis-text">
-        Right now I'm focused on one problem: recursive self-improvement isn't a model problem —
-        it's an <em>environment problem</em>, the tooling and harness and whole ecosystem around
-        the model. I can't train a frontier model alone; what I can build is the self-improving
-        developer environments that drive those models to their maximum effectiveness.
+        Self-modifying agentic environments. RLVR environments and the data they generate.
+        Constitutional AI for agent systems. The <em>environment side</em> of recursive
+        self-improvement: the harness, the tooling, the feedback loops around the model.
       </p>
     </div>
   </section>
@@ -384,18 +385,12 @@
   <section class="row">
     <div class="row-label"><span class="num">01</span> / About</div>
     <div class="row-body">
-      <p class="lede">
-        Engineer who builds the harnesses that make agentic loops fast — at
-        <b>Google DeepMind on the Gemini team</b> by day, on a fleet of
-        autonomous-agent systems by night. I'm <b>goal-oriented</b> and I prioritize
-        <b>developer velocity</b>; my process is built on fast idea exploration —
-        prototypes, design docs, and collaborative discussion. I build
-        <b>self-improving platforms</b> where the engineering process generates the
-        data that improves first the harness, then the model. Ten years across ML
-        systems, distributed infrastructure, and large-scale applications. I ship
-        self-modifying agents <b>gated, sandboxed, and fully auditable</b> —
-        because I think that's the only responsible way to build them.
-      </p>
+      <ul class="bullets">
+        <li>Engineer at <b>Google DeepMind</b> on the Gemini team; ten years across ML systems, distributed infrastructure, and large-scale applications; in my free time, a fleet of my own agent systems</li>
+        <li>I work <b>prototype-first</b>: try the idea, survey the state of the art, then turn the exploration into a design doc and a shipped system</li>
+        <li>I optimize for <b>developer velocity</b>: every other metric can be improved if velocity is fast</li>
+        <li><b>Alignment-aware</b>: the systems I build ensure alignment through the environment and reduce hallucinations, model drift, and reward hacking</li>
+      </ul>
     </div>
   </section>
 
@@ -406,48 +401,49 @@
 
       <div class="entry">
         <div class="entry-head">
-          <div class="entry-title">Senior Software Engineer — Gemini / Google DeepMind</div>
-          <div class="entry-date">Nov 2024 — Present</div>
+          <div class="entry-title">Senior Software Engineer · Gemini / Google DeepMind</div>
+          <div class="entry-date">Nov 2024 – Present</div>
         </div>
         <div class="entry-meta"><span class="org">Google</span> · Zürich</div>
         <ul class="bullets">
-          <li>Lead a small team building <b>agent-native developer infrastructure</b> for the Gemini organization — fleets of collaborating agents that take over significant parts of the engineering loop: planning, implementation, and review</li>
-          <li>Pioneered agent integration across the Gemini application stack: multi-agent orchestration, tool-augmented workflows, and the internal best practices around them</li>
-          <li>Drive adoption through tooling and workshops — the function is researcher and engineer <b>velocity</b>: make the people around me faster by giving them better machinery</li>
-          <li>Implemented core product features in the Gemini mobile application</li>
+          <li>Technical lead of a small team working on <b>agent infrastructure and product quality</b> for the Gemini application: agent development environments where fleets of collaborating agents take on planning, implementation, and review</li>
+          <li>Early adopter of agents across the Gemini application stack; built many of the <b>early integration systems</b>: multi-agent orchestration, tool use, and the internal best practices around them</li>
+          <li>Developed an <b>agent-driven testing and QA framework</b> from scratch; the team is now building new capabilities on top of it</li>
+          <li>Drive adoption through tooling and workshops; the job is researcher and engineer <b>velocity</b>, making the people around me faster with better machinery</li>
+          <li>Implemented product features in the Gemini mobile application</li>
         </ul>
       </div>
 
       <div class="entry">
         <div class="entry-head">
-          <div class="entry-title">Software Engineer — Assistant &amp; Gemini</div>
-          <div class="entry-date">Nov 2021 — Nov 2024</div>
+          <div class="entry-title">Software Engineer · Assistant &amp; Gemini</div>
+          <div class="entry-date">Nov 2021 – Nov 2024</div>
         </div>
         <div class="entry-meta"><span class="org">Google</span> · Zürich</div>
         <ul class="bullets">
-          <li>Developed automated testing architecture and tooling for Android and iOS applications at scale</li>
+          <li>Developed automated test infrastructure and tooling for Android and iOS applications</li>
           <li>Supported testing and releases for Google Assistant, Search, and Gemini/Bard mobile apps</li>
-          <li>Pioneered use of LLMs for automated testing and software verification, building early internal tools for AI-assisted development</li>
+          <li>Built early internal LLM tools for automated testing and software verification</li>
         </ul>
       </div>
 
       <div class="entry">
         <div class="entry-head">
           <div class="entry-title">Senior Software Engineer / Team Lead</div>
-          <div class="entry-date">Jul 2020 — Sep 2021</div>
+          <div class="entry-date">Jul 2020 – Sep 2021</div>
         </div>
         <div class="entry-meta"><span class="org">Red Hat</span> · Brno</div>
         <ul class="bullets">
-          <li>Led a team of 5 engineers building the Patch application on cloud.redhat.com</li>
-          <li>Engineered a custom database and evaluation engine for RHEL package dependency resolution, overcoming PostgreSQL performance limits — required novel algorithmic approaches to graph traversal at scale</li>
-          <li>Scaled the platform to serve thousands of large-scale RHEL fleet deployments daily</li>
+          <li>Led a team of 5 engineers building the Patch application on Red Hat Insights (cloud.redhat.com)</li>
+          <li>Engineered a custom in-memory <b>dependency solver</b> and evaluation engine for RHEL package resolution after PostgreSQL hit its limits on graph traversal</li>
+          <li>Scaled the platform to serve thousands of RHEL fleet deployments daily</li>
         </ul>
       </div>
 
       <div class="entry">
         <div class="entry-head">
           <div class="entry-title">Software Engineer</div>
-          <div class="entry-date">Sep 2019 — Jul 2020</div>
+          <div class="entry-date">Sep 2019 – Jul 2020</div>
         </div>
         <div class="entry-meta"><span class="org">Red Hat</span> · Brno</div>
         <ul class="bullets">
@@ -458,7 +454,7 @@
       <div class="entry">
         <div class="entry-head">
           <div class="entry-title">Android Developer</div>
-          <div class="entry-date">Mar 2016 — Sep 2019</div>
+          <div class="entry-date">Mar 2016 – Sep 2019</div>
         </div>
         <div class="entry-meta"><span class="org">TouchArt s.r.o</span> · Brno</div>
         <ul class="bullets">
@@ -476,62 +472,63 @@
 
       <div class="entry">
         <div class="entry-head">
-          <div class="entry-title">Bedrock — AI-Native Software Company in a Box</div>
-          <a class="repo" href="bedrock/">semtexzv.github.io/bedrock</a>
+          <div class="entry-title">Bedrock · Autonomous Software Engineering Platform</div>
+          <a class="repo" href="/bedrock/">semtexzv.github.io/bedrock</a>
         </div>
-        <div class="entry-sub">A self-improving multi-agent collective that builds, reviews, and improves a software platform end to end · 2026 — Present</div>
+        <div class="entry-sub">A fleet of coding agents that builds, reviews, and ships a software platform end to end · 2026 – Present</div>
         <ul class="bullets">
-          <li>A <b>self-improving multi-agent collective</b> — effectively <b>"Kubernetes for agents":</b> an orchestration layer where a swarm of collaborating coding agents (≈15 today) continuously build, review, and integrate changes into a shared, <b>self-building monorepo</b>, end to end</li>
-          <li>Built on <b>Buck2</b> and <b>jj</b> — a self-integrating monorepo with automatic CI and a web review front end, so every change an agent makes is reproducible and lands through one consistent pipeline</li>
-          <li><b>Generates its own data:</b> every change, dispatch, agent conversation, and review is a logged trajectory. I'm building it toward a <b>self-researching environment that creates its own training data and fine-tunes its own agents</b> — the system producing the data that makes its next generation better. A <b>Voyager-style lifelong-learning loop</b>, applied to a software platform</li>
-          <li><b>Bounded self-modification:</b> a structured security layer protects the system's core, so agents can evolve the platform but can't make destructive or self-negative changes to its foundations. Changes to the protected core require human approval, and the automated code reviewer is explicitly advisory — never the sole authority on an adversarial change. Safety is a structural property, not a policy</li>
+          <li>A <b>control plane for coding agents</b>: a fleet of ≈15 collaborating agents that build, review, and integrate changes into a shared monorepo, end to end</li>
+          <li>Built on <b>Buck2</b> and <b>jj</b>: a self-integrating monorepo with hermetic builds, CI gating, and a web review front end, so every change an agent makes is reproducible and lands through one pipeline</li>
+          <li><b>Generates its own data</b>: every change, dispatch, conversation, and review is a logged trajectory. The direction is the platform as an <b>RL environment</b>, with rubric-scored trajectories (<b>rubrics as rewards</b>) and <b>GRPO-style post-training</b> of its own agents on its own data</li>
+          <li><b>Bounded self-modification, designed against reward hacking</b>: a structural security layer protects the core, changes to it require human approval, and the automated reviewer is advisory, never the sole authority on an adversarial change. Safety is a structural property, not a policy</li>
         </ul>
       </div>
 
       <div class="entry">
         <div class="entry-head">
-          <div class="entry-title">llm-lab — Exploratory LLM Training</div>
+          <div class="entry-title">llm-lab · Exploratory LLM Training</div>
           <a class="repo" href="https://github.com/semtexzv/llm-lab" target="_blank" rel="noopener">github.com/semtexzv/llm-lab</a>
         </div>
-        <div class="entry-sub">Training and evaluating language models on Apple Silicon · 2025 — Present</div>
+        <div class="entry-sub">A home-run LLM architecture research platform, executing an autoresearch loop targeting small models · 2025 – Present</div>
         <ul class="bullets">
-          <li>Complete 150M-parameter training/evaluation pipeline (MLX): custom optimizers, mixed precision, IsoFLOP comparison harness for controlled architecture comparisons</li>
-          <li>I reimplement current frontier architectures from the papers — linear-attention variants, attention-residual schemes — to keep a working feel for what the researchers I'd support actually do</li>
+          <li><b>Verifies or falsifies my hypotheses about LLM architecture</b>, with the goal of finding <b>more efficient architectures</b> that reduce training costs; results are analyzed on <b>FLOPs, memory, bandwidth, and token efficiency</b></li>
+          <li>Targets <b>Apple MLX</b> and <b>PyTorch/CUDA</b> for comparative performance analysis, validated against a measured hardware bandwidth model</li>
+          <li>Currently focused on <b>novel architectures of the residual stream</b> in decoder-only transformers, inspired by manifold hyper-connections (<a href="https://arxiv.org/abs/2512.24880" target="_blank" rel="noopener">arXiv:2512.24880</a>) and attention residuals (<a href="https://arxiv.org/abs/2603.15031" target="_blank" rel="noopener">arXiv:2603.15031</a>)</li>
         </ul>
       </div>
 
       <div class="entry">
         <div class="entry-head">
-          <div class="entry-title">mage — Self-Recompiling Coding Agent</div>
+          <div class="entry-title">mage · Self-Recompiling Coding Agent</div>
           <a class="repo" href="https://github.com/semtexzv/mage" target="_blank" rel="noopener">github.com/semtexzv/mage</a>
         </div>
         <div class="entry-sub">An agent that extends itself by recompiling its own binary</div>
         <ul class="bullets">
-          <li>Embeds a snapshot of its own source; splices in new modules, recompiles a fresh binary, and hot-swaps into the next generation via a supervising monitor — self-modification at the compiled-artifact level</li>
+          <li>A <b>Darwin Gödel Machine-style self-modifying agent</b> at the compiled-artifact level: embeds a snapshot of its own source, splices in new modules, recompiles a fresh binary, and hot-swaps into the next generation under a supervising monitor</li>
           <li>Rust workspace (edition 2024): concurrent/serial tool dispatch, hierarchical cancellation, and a differential terminal renderer</li>
         </ul>
       </div>
 
       <div class="entry">
         <div class="entry-head">
-          <div class="entry-title">Termineer — Autonomous AI Coding Agent</div>
+          <div class="entry-title">Termineer · Autonomous AI Coding Agent</div>
           <a class="repo" href="https://github.com/semtexzv/termineer" target="_blank" rel="noopener">github.com/semtexzv/termineer</a>
         </div>
         <div class="entry-sub">Self-directed coding agent built on a configurable tool-calling grammar</div>
         <ul class="bullets">
-          <li>A configurable grammar unified function calling across Anthropic, Google, and OpenAI — built when providers had no shared format for it</li>
+          <li>A <b>provider-agnostic function-calling abstraction</b>: one configurable grammar unified tool calling across Anthropic, Google, and OpenAI, built when providers had no shared format for it</li>
           <li>Autonomous task decomposition with specialized sub-agents; MCP protocol support</li>
         </ul>
       </div>
 
       <div class="entry">
         <div class="entry-head">
-          <div class="entry-title">GenAgent — Always-On Personal Assistant</div>
+          <div class="entry-title">GenAgent · Always-On Personal Assistant</div>
           <a class="repo" href="https://github.com/semtexzv/genagent" target="_blank" rel="noopener">github.com/semtexzv/genagent</a>
         </div>
         <div class="entry-sub">Taskbar AI assistant for macOS/iOS, explored alongside Termineer</div>
         <ul class="bullets">
-          <li>Menu-bar assistant invokable anytime for coding and general help — the personal-assistant thread, explored before and alongside Termineer's coding agent</li>
+          <li>Menu-bar assistant invokable anytime for coding and general help</li>
         </ul>
       </div>
 
@@ -545,17 +542,17 @@
 
       <div class="entry">
         <div class="entry-head">
-          <div class="entry-title">Rube — Generalized Control-Loop Architecture</div>
+          <div class="entry-title">Rube · Generalized Control-Loop Architecture</div>
           <a class="repo" href="https://github.com/semtexzv/rube" target="_blank" rel="noopener">github.com/semtexzv/rube</a>
         </div>
         <ul class="bullets">
-          <li>A reconciliation / control-loop runtime for arbitrary resources — "Kubernetes without the YAML or containers"</li>
+          <li>A generalized reconciliation and control-loop runtime: the Kubernetes <b>operator pattern</b> applied to arbitrary resources, desired-state management without the YAML or the containers</li>
         </ul>
       </div>
 
       <div class="entry">
         <div class="entry-head">
-          <div class="entry-title">Protokit — High-Performance Protocol Buffers for Rust</div>
+          <div class="entry-title">Protokit · High-Performance Protocol Buffers for Rust</div>
           <a class="repo" href="https://github.com/semtexzv/protokit" target="_blank" rel="noopener">github.com/semtexzv/protokit</a>
         </div>
         <ul class="bullets">
@@ -565,7 +562,7 @@
 
       <div class="entry">
         <div class="entry-head">
-          <div class="entry-title">Stor — Embedded Key-Value Database</div>
+          <div class="entry-title">Stor · Embedded Key-Value Database</div>
           <a class="repo" href="https://github.com/semtexzv/stor" target="_blank" rel="noopener">github.com/semtexzv/stor</a>
         </div>
         <ul class="bullets">
@@ -584,13 +581,13 @@
         <div class="skill-row">
           <div class="skill-cat">Agent Systems</div>
           <div class="skill-items">
-            <span class="key">Autonomous coding agents</span><span>Multi-agent orchestration</span><span>Self-improving loops</span><span>LLM harness design</span><span>Tool calling</span><span>MCP protocol</span>
+            <span class="key">Autonomous coding agents</span><span>Multi-agent orchestration</span><span>Agent harness design</span><span>RL environments</span><span>Context engineering</span><span>Tool calling</span><span>MCP protocol</span>
           </div>
         </div>
         <div class="skill-row">
           <div class="skill-cat">ML / AI</div>
           <div class="skill-items">
-            <span class="key">PyTorch</span><span class="key">MLX</span><span>Training pipelines</span><span>Distributed training</span><span>Reinforcement learning</span><span>Transformer architectures</span><span>Autodiff</span>
+            <span class="key">PyTorch</span><span class="key">MLX</span><span>Post-training (SFT, RLVR, GRPO)</span><span>Evals</span><span>Training pipelines</span><span>Distributed training</span><span>Reinforcement learning</span><span>Transformer architectures</span><span>Autodiff</span>
           </div>
         </div>
         <div class="skill-row">
@@ -629,7 +626,7 @@
       <div class="entry">
         <div class="entry-head">
           <div class="entry-title">Master's Degree, Information Technology</div>
-          <div class="entry-date">2017 — 2019</div>
+          <div class="entry-date">2017 – 2019</div>
         </div>
         <div class="entry-meta"><span class="org">Brno University of Technology</span> · Brno</div>
         <ul class="bullets">
@@ -640,7 +637,7 @@
       <div class="entry">
         <div class="entry-head">
           <div class="entry-title">Bachelor's Degree, Information Technology</div>
-          <div class="entry-date">2014 — 2017</div>
+          <div class="entry-date">2014 – 2017</div>
         </div>
         <div class="entry-meta"><span class="org">Brno University of Technology</span> · Brno</div>
       </div>
@@ -650,7 +647,7 @@
 
   <!-- ======================= FOOTER ======================= -->
   <footer>
-    <span>Michal Hornicky — Senior Software Engineer</span>
+    <span>Michal Hornicky · Senior Software Engineer</span>
     <span>
       <a href="mailto:semtexzv@gmail.com">semtexzv@gmail.com</a> ·
       <a href="https://github.com/semtexzv" target="_blank" rel="noopener">github.com/semtexzv</a>
