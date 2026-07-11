@@ -442,6 +442,226 @@ const PEER_PREFIX = "goban-k7-";
 
 const $ = function(id){ return document.getElementById(id); };
 
+/* ---------- i18n ----------
+   Follows the device language: Slovak UI when the browser reports sk,
+   English otherwise. English strings live here too so every dynamic
+   message goes through t(). */
+const LANG = (function(){
+  try{
+    const ls = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || "en"];
+    for (let i=0;i<ls.length;i++) if (String(ls[i]).toLowerCase().indexOf("sk") === 0) return "sk";
+  }catch(e){}
+  return "en";
+})();
+
+const I18N = {
+en: {
+  black:"Black", white:"White", youWord:"You", yourOpp:"Your opponent",
+  yes:"Yes", cancel:"Cancel", areYouSure:"Are you sure?",
+  newGame:"New game", newShort:"New", menu:"Menu", playAgain:"Play again", leaveOnline:"Leave online",
+  loading:"Loading…", welcomeBack:"Welcome back! Last game is shown — hit Play again for a rematch.",
+  occupied:"That spot is already taken.",
+  suicide:"Can't play there — that stone would have no breathing room.",
+  ko:"Ko rule: play somewhere else first, then you can come back.",
+  passed:"{name} passed.",
+  bothPassed:"Both passed — time to count! Tap dead stones to remove them.",
+  turnOf:"It's {name}'s turn.",
+  notConnected:"Not connected right now.",
+  statusMove:"Move {n} — {who} to play", onePass:" (one more pass ends the game)",
+  statusCounting:"Counting: tap any dead stones to remove them, then confirm.",
+  statusOver:"Game over.",
+  winResign:"🏆 {name} wins by resignation",
+  winBy:"🏆 {name} wins by {pts}!", tie:"It's a tie!",
+  resignAsk:"{loser}, resign and give {winner} the win?",
+  gameOverTitle:"Game over", resignedDlg:"<b>{loser}</b> resigned — {winner} wins! 🏆",
+  abandonAsk:"Abandon the current game and start fresh?",
+  leaveAsk:"Leave the online game?",
+  enterCode:"Enter the 5-character game code.",
+  needNet:"Online play needs an internet connection — the networking library didn't load. Same-device play still works.",
+  newLuck:"New game — good luck!",
+  movedBack:"Move taken back.", tookBack:"{name} took back their move.",
+  onlyOwn:"You can only take back your own last move.",
+  tooLate:"Too late — the position already changed.",
+  declinedT:"{name} declined.", busyT:"{name} is busy with another request.",
+  noAnswer:"No answer from {name} — try again in a moment.",
+  withdrew:"{name} withdrew the request.",
+  resumedT:"{name} resumed play — the game continues.",
+  connectedWhite:"Connected — you play White.",
+  joinedT:"{name} joined — game on!",
+  connLostGuest:"Connection lost. You can Leave and re-join with the same code.",
+  connLostHost:"Connection lost. If they re-join with the same code, the game resumes.",
+  netYou:"Online — you play <b>{me}</b> vs {opp}",
+  netDiscGuest:"Disconnected. Leave, then re-join with code <b>{code}</b> to resume.",
+  netDiscHost:"Disconnected. Waiting — they can re-join with code <b>{code}</b>.",
+  netSetup:"Setting up online game (code <b>{code}</b>)…",
+  req_new_title:"New game?", req_new_verb:"wants to start a new game on this board", req_new_wait:"Asking {opp} to start a new game…",
+  req_undo_title:"Take back?", req_undo_verb:"asks to take back their last move", req_undo_wait:"Asking {opp} to allow the takeback…",
+  req_confirm_title:"End the game?", req_confirm_verb:"proposes to end the game with this score", req_confirm_wait:"Asking {opp} to accept the score…",
+  accept:"Accept", allow:"Allow", decline:"Decline",
+  shareCode:"Share this code", joiningGame:"Joining game", tryAgain:"Try again",
+  connectingSignal:"Connecting to the signaling service…",
+  waitingOpponent:"Waiting for your opponent — they can scan the QR with their phone camera, or type the code into Join online.",
+  lookingHost:"Looking for the host…",
+  foundService:"Found the service — opening a direct connection…",
+  noGameFound:"No game found with code <b>{code}</b>. Double-check it (the host must be on the waiting screen), then hit Try again.",
+  failP2P:"Reached the signaling service, but couldn't open a direct connection between your two browsers. Strict firewalls or some mobile networks block peer-to-peer — try putting both computers on the same Wi-Fi, then hit Try again.",
+  failArtifact:"<b>Can't connect from inside the Claude preview</b> — its sandbox blocks the signaling connection. Download this file and open it directly in your browser (both players do this), then try again there.",
+  failSignal:"Can't reach the signaling service. It may be blocked by a firewall or briefly down — check your internet connection and hit Try again.",
+  startGame:"Start game", createGame:"Create game", joinGameBtn:"Join game",
+  noteLocal:"The game saves itself after every move — close the tab and pick up where you left off.",
+  installHint:" <br>Tip: add this page to your home screen (Share → Add to Home Screen) and it plays full-screen like an app.",
+  noteHost:"You'll get a 5-letter code (and QR) to share. You play Black. Moves travel directly between your two browsers over an encrypted WebRTC channel; a small free service (PeerJS) is used only for the introduction handshake.",
+  noteJoin:"Enter the code your opponent shares. You play White. If you got disconnected earlier, re-joining with the same code resumes the game.",
+  artifactWarn:" <br><b>Heads up:</b> you’re viewing this inside Claude, and the preview blocks online connections — download this file and open it directly in your browser to play online."
+},
+sk: {
+  black:"Čierny", white:"Biely", youWord:"Ty", yourOpp:"Tvoj súper",
+  yes:"Áno", cancel:"Zrušiť", areYouSure:"Naozaj?",
+  newGame:"Nová hra", newShort:"Nová", menu:"Menu", playAgain:"Hrať znova", leaveOnline:"Odísť z online",
+  loading:"Načítavam…", welcomeBack:"Vitaj späť! Posledná hra je na doske — ťukni na Hrať znova.",
+  occupied:"To miesto je už obsadené.",
+  suicide:"Tam sa hrať nedá — kameň by nemal žiadnu slobodu.",
+  ko:"Pravidlo ko: najprv zahraj inde, potom sa môžeš vrátiť.",
+  passed:"{name} pasuje.",
+  bothPassed:"Obaja pasovali — ideme počítať! Ťukni na mŕtve kamene a odstráň ich.",
+  turnOf:"Na ťahu je {name}.",
+  notConnected:"Momentálne nie ste spojení.",
+  statusMove:"Ťah {n} — na ťahu: {who}", onePass:" (ešte jeden pas ukončí hru)",
+  statusCounting:"Počítanie: ťukni na mŕtve kamene a potom potvrď skóre.",
+  statusOver:"Koniec hry.",
+  winResign:"🏆 {name} vyhráva — súper sa vzdal",
+  winBy:"🏆 {name} vyhráva o {pts}!", tie:"Remíza!",
+  resignAsk:"{loser}, vzdáš sa a prenecháš výhru hráčovi {winner}?",
+  gameOverTitle:"Koniec hry", resignedDlg:"<b>{loser}</b> sa vzdal — vyhráva {winner}! 🏆",
+  abandonAsk:"Zahodiť rozohranú hru a začať novú?",
+  leaveAsk:"Odísť z online hry?",
+  enterCode:"Zadaj 5-znakový kód hry.",
+  needNet:"Online hra potrebuje internet — sieťová knižnica sa nenačítala. Hra na jednom zariadení funguje ďalej.",
+  newLuck:"Nová hra — veľa šťastia!",
+  movedBack:"Ťah vrátený.", tookBack:"{name} vrátil svoj posledný ťah.",
+  onlyOwn:"Vrátiť môžeš len svoj posledný ťah.",
+  tooLate:"Neskoro — pozícia sa už zmenila.",
+  declinedT:"{name} odmieta.", busyT:"{name} práve rieši inú požiadavku.",
+  noAnswer:"{name} neodpovedá — skús to o chvíľu znova.",
+  withdrew:"{name} stiahol požiadavku.",
+  resumedT:"{name} pokračuje — hra ide ďalej.",
+  connectedWhite:"Pripojené — hráš bielymi.",
+  joinedT:"{name} sa pripojil — hráme!",
+  connLostGuest:"Spojenie sa prerušilo. Odíď a pripoj sa znova s rovnakým kódom.",
+  connLostHost:"Spojenie sa prerušilo. Ak sa súper vráti s rovnakým kódom, hra pokračuje.",
+  netYou:"Online — hráš <b>{me}</b> proti {opp}",
+  netDiscGuest:"Odpojené. Odíď a pripoj sa znova s kódom <b>{code}</b>.",
+  netDiscHost:"Odpojené — súper sa môže vrátiť s kódom <b>{code}</b>.",
+  netSetup:"Zakladám online hru (kód <b>{code}</b>)…",
+  req_new_title:"Nová hra?", req_new_verb:"chce začať novú hru na tejto doske", req_new_wait:"Čakám, či {opp} prijme novú hru…",
+  req_undo_title:"Vrátiť ťah?", req_undo_verb:"žiada o vrátenie svojho posledného ťahu", req_undo_wait:"Čakám, či {opp} povolí vrátenie ťahu…",
+  req_confirm_title:"Ukončiť hru?", req_confirm_verb:"navrhuje ukončiť hru s týmto skóre", req_confirm_wait:"Čakám, či {opp} prijme skóre…",
+  accept:"Prijať", allow:"Povoliť", decline:"Odmietnuť",
+  shareCode:"Zdieľaj tento kód", joiningGame:"Pripájanie", tryAgain:"Skúsiť znova",
+  connectingSignal:"Pripájam sa k sprostredkovacej službe…",
+  waitingOpponent:"Čakáme na súpera — môže naskenovať QR kód fotoaparátom alebo zadať kód cez „Pripojiť sa“.",
+  lookingHost:"Hľadám hostiteľa…",
+  foundService:"Služba nájdená — otváram priame spojenie…",
+  noGameFound:"Hra s kódom <b>{code}</b> sa nenašla. Skontroluj ho (hostiteľ musí byť na čakacej obrazovke) a ťukni Skúsiť znova.",
+  failP2P:"So službou sa podarilo spojiť, ale priame spojenie medzi prehliadačmi sa nepodarilo otvoriť. Prísne firewally a niektoré mobilné siete blokujú P2P — skúste obe zariadenia na rovnakej Wi-Fi a ťukni Skúsiť znova.",
+  failArtifact:"<b>Z náhľadu v Claude sa nedá pripojiť</b> — sandbox blokuje spojenie. Stiahni si tento súbor a otvor ho priamo v prehliadači (obaja hráči), potom to skús znova.",
+  failSignal:"Nedá sa spojiť so sprostredkovacou službou. Môže ju blokovať firewall alebo je dočasne nedostupná — skontroluj internet a ťukni Skúsiť znova.",
+  startGame:"Začať hru", createGame:"Vytvoriť hru", joinGameBtn:"Pripojiť sa",
+  noteLocal:"Hra sa po každom ťahu sama uloží — môžeš zavrieť kartu a pokračovať neskôr.",
+  installHint:" <br>Tip: pridaj si stránku na plochu (Zdieľať → Pridať na plochu) a hra pobeží na celú obrazovku ako aplikácia.",
+  noteHost:"Dostaneš 5-znakový kód (a QR) na zdieľanie. Hráš čiernymi. Ťahy putujú priamo medzi vašimi prehliadačmi cez šifrovaný WebRTC kanál; malá bezplatná služba (PeerJS) sa použije len na úvodné spojenie.",
+  noteJoin:"Zadaj kód od súpera. Hráš bielymi. Ak ťa odpojilo, opätovné pripojenie s rovnakým kódom hru obnoví.",
+  artifactWarn:" <br><b>Pozor:</b> pozeráš si hru vnútri Claude a náhľad blokuje online spojenia — stiahni si súbor a otvor ho priamo v prehliadači.",
+  /* static UI swapped in by applyStaticLang() */
+  sub:"dvaja hráči · jedno zariadenie alebo online · biely má +6,5 komi",
+  blackPh:"Čierny hráč", whitePh:"Biely hráč", toPlay:"Na ťahu",
+  captured:"Zajaté: ", wins:"Výhry: ", you:"← ty", leave:"Odísť",
+  pass:"Pas", undo:"Späť", redo:"Znova", resign:"Vzdať sa",
+  confirmScore:"Potvrdiť skóre", resumePlay:"Hrať ďalej",
+  score:"Skóre", stonesOnBoard:"Kamene na doske", territory:"Územie", total:"Spolu",
+  setupTitle:"Nová hra", setupTag:"Priprav dosku a zaujmite miesta.",
+  howPlaying:"Ako hráte?", sameDevice:"Jedno zariadenie", hostOnline:"Založiť online", joinOnline:"Pripojiť sa",
+  blackFirst:"Čierny (začína)", whiteKomi:"Biely (+6,5 komi)",
+  yourName:"Tvoje meno", gameCode:"Kód hry", boardSize:"Veľkosť dosky",
+  size9:"9×9 · rýchla", size19:"19×19 · celá",
+  phUncle:"napr. Ujo", phNephew:"napr. Synovec",
+  rulesSummary:"Rýchle pravidlá",
+  rulesHtml:"<li>Striedajte sa v ukladaní kameňov na priesečníky čiar. Čierny začína.</li>"+
+    "<li>Obkľúč súperovu skupinu zo všetkých strán (žiadne voľné susedné body) a zajmeš ju.</li>"+
+    "<li>Kameň nemôžeš položiť tam, kde by okamžite nemal žiadnu slobodu, a nemôžeš hneď vrátiť zajatie jedného kameňa (ko).</li>"+
+    "<li>Keď už nikto nechce ťahať, obaja pasujte. Potom ťuknite na beznádejné „mŕtve“ kamene a potvrďte skóre.</li>"+
+    "<li>Skóre = tvoje kamene na doske + prázdne body, ktoré obkľučuješ len ty. Biely dostáva 6,5 bodu navyše za to, že ťahá druhý.</li>"
+}
+};
+
+function t(key, vars){
+  let s = I18N[LANG] && I18N[LANG][key];
+  if (s == null) s = I18N.en[key];
+  if (s == null) s = key;
+  if (vars) for (const k in vars) s = s.split("{"+k+"}").join(vars[k]);
+  return s;
+}
+/* decimal comma + Slovak point-count declension */
+function fmtNum(n){ return LANG === "sk" ? String(n).replace(".", ",") : String(n); }
+function ptsPhrase(n){
+  if (LANG !== "sk") return fmtNum(n) + (n === 1 ? " point" : " points");
+  let w = "bodov";
+  if (n === 1) w = "bod";
+  else if (!Number.isInteger(n)) w = "boda";
+  else if (n >= 2 && n <= 4) w = "body";
+  return fmtNum(n) + " " + w;
+}
+
+/* Swap the static English markup for the device language. */
+function applyStaticLang(){
+  document.documentElement.lang = LANG;
+  if (LANG === "en") return;
+  document.querySelector("header .sub").textContent = t("sub");
+  $("nameB").placeholder = t("blackPh");
+  $("nameW").placeholder = t("whitePh");
+  document.querySelectorAll(".turn-pill").forEach(function(el){ el.textContent = t("toPlay"); });
+  [["capB","captured"],["winB","wins"],["capW","captured"],["winW","wins"]].forEach(function(p){
+    $(p[0]).parentNode.firstChild.nodeValue = t(p[1]);
+  });
+  $("youB").textContent = t("you"); $("youW").textContent = t("you");
+  $("btnLeave").textContent = t("leave");
+  $("btnPass").textContent = t("pass");
+  $("btnUndo").textContent = t("undo");
+  $("btnRedo").textContent = t("redo");
+  $("btnResign").textContent = t("resign");
+  $("btnConfirm").textContent = t("confirmScore");
+  $("btnResume").textContent = t("resumePlay");
+  document.querySelector(".scorecard h3").textContent = t("score");
+  const ths = document.querySelectorAll("#scorecard tbody th");
+  if (ths[0]) ths[0].textContent = t("stonesOnBoard");
+  if (ths[1]) ths[1].textContent = t("territory");
+  const komiRow = ths[2] && ths[2].parentNode;
+  if (komiRow) komiRow.lastElementChild.textContent = "6,5";
+  const tfth = document.querySelector("#scorecard tfoot th");
+  if (tfth) tfth.textContent = t("total");
+  const rules = document.querySelector("details.rules");
+  rules.querySelector("summary").textContent = t("rulesSummary");
+  rules.querySelector("ul").innerHTML = t("rulesHtml");
+  document.querySelector("#setup h2").textContent = t("setupTitle");
+  document.querySelector("#setup .tag").textContent = t("setupTag");
+  const labelKeys = ["howPlaying","blackFirst","whiteKomi","yourName","gameCode","boardSize"];
+  document.querySelectorAll("#setup .field label").forEach(function(el, i){
+    if (labelKeys[i]) el.textContent = t(labelKeys[i]);
+  });
+  document.querySelectorAll("#modeSeg button").forEach(function(b){
+    b.textContent = t({ local:"sameDevice", host:"hostOnline", join:"joinOnline" }[b.dataset.mode]);
+  });
+  document.querySelectorAll("#sizeSeg button").forEach(function(b){
+    if (b.dataset.size === "9") b.textContent = t("size9");
+    if (b.dataset.size === "19") b.textContent = t("size19");
+  });
+  $("setupNameB").placeholder = t("phUncle");
+  $("setupNameW").placeholder = t("phNephew");
+  $("setupMyName").placeholder = t("phUncle");
+  $("waitRetry").textContent = t("tryAgain");
+  $("waitCancel").textContent = t("cancel");
+}
+
 /* True when running inside the Claude artifact preview (its sandbox blocks
    outbound WebSocket connections, so online signaling can't work there). */
 const ENV_ARTIFACT = !!(typeof window.storage === "object" && window.storage && window.storage.get);
@@ -543,11 +763,11 @@ function clearWaitWatchdog(){ clearTimeout(waitTimer); }
 function signalFailure(stage){
   clearWaitWatchdog();
   if (stage === "p2p"){
-    setWaitMsg("Reached the signaling service, but couldn't open a direct connection between your two browsers. Strict firewalls or some mobile networks block peer-to-peer — try putting both computers on the same Wi-Fi, then hit Try again.");
+    setWaitMsg(t("failP2P"));
   } else if (ENV_ARTIFACT){
-    setWaitMsg("<b>Can't connect from inside the Claude preview</b> — its sandbox blocks the signaling connection. Download this file and open it directly in your browser (both players do this), then try again there.");
+    setWaitMsg(t("failArtifact"));
   } else {
-    setWaitMsg("Can't reach the signaling service. It may be blocked by a firewall or briefly down — check your internet connection and hit Try again.");
+    setWaitMsg(t("failSignal"));
   }
   $("waitRetry").style.display = "";
 }
@@ -568,7 +788,7 @@ function createHostPeer(){
   p.on("open", function(){
     if (net.mode !== "host") return;
     clearWaitWatchdog();
-    setWaitMsg('<span class="waitspin"></span>Waiting for your opponent \u2014 they can scan the QR with their phone camera, or type the code into Join online.');
+    setWaitMsg('<span class="waitspin"></span>' + t("waitingOpponent"));
   });
   p.on("connection", function(c){
     if (net.mode !== "host") return;
@@ -605,7 +825,7 @@ function joinGame(myName, code){
   p.on("open", function(){
     if (net.mode !== "guest") return;
     armWaitWatchdog(15000, "p2p"); // broker reached; now the direct channel must open
-    setWaitMsg('<span class="waitspin"></span>Found the service — opening a direct connection\u2026');
+    setWaitMsg('<span class="waitspin"></span>' + t("foundService"));
     const c = p.connect(PEER_PREFIX + code, { reliable: true });
     net.conn = c;
     wireConn(c);
@@ -614,7 +834,7 @@ function joinGame(myName, code){
     if (net.mode !== "guest") return;
     if (err && err.type === "peer-unavailable"){
       clearWaitWatchdog();
-      setWaitMsg("No game found with code <b>" + code + "</b>. Double-check it (the host must be on the waiting screen), then hit Try again.");
+      setWaitMsg(t("noGameFound", { code: code }));
       $("waitRetry").style.display = "";
     } else if (err && (err.type === "network" || err.type === "server-error" || err.type === "socket-error" || err.type === "socket-closed" || err.type === "browser-incompatible")){
       signalFailure("broker");
@@ -640,7 +860,7 @@ function wireConn(c){
     clearNegotiation(); // any open request/answer dialog is void now
     updateNetBar();
     renderPanel();
-    if (isOnline()) toast("Connection lost. " + (net.mode === "guest" ? "You can Leave and re-join with the same code." : "If they re-join with the same code, the game resumes."));
+    if (isOnline()) toast(t(net.mode === "guest" ? "connLostGuest" : "connLostHost"));
   });
   c.on("error", function(){ /* close handler covers UX */ });
 }
@@ -668,16 +888,20 @@ let reqSeq = 0;
 let pendingOut = null;   // { id, action, moveNum, timer } — our outstanding request
 let pendingIn = null;    // { id, action } — opponent's request we're answering
 
-const REQ_TEXT = {
-  "new":     { title:"New game?",     verb:"wants to start a new game on this board", yes:"Accept", waiting:"Asking {opp} to start a new game…" },
-  "undo":    { title:"Take back?",    verb:"asks to take back their last move",       yes:"Allow",  waiting:"Asking {opp} to allow the takeback…" },
-  "confirm": { title:"End the game?", verb:"proposes to end the game with this score", yes:"Accept", waiting:"Asking {opp} to accept the score…" }
-};
+const REQ_ACTIONS = ["new", "undo", "confirm"];
+function reqText(action){
+  return {
+    title: t("req_" + action + "_title"),
+    verb: t("req_" + action + "_verb"),
+    yes: action === "undo" ? t("allow") : t("accept"),
+    waiting: t("req_" + action + "_wait")
+  };
+}
 
 function oppName(){ return pname(3 - net.myColor); }
 
 function sendRequest(action){
-  if (!isLive()){ toast("Not connected right now."); return; }
+  if (!isLive()){ toast(t("notConnected")); return; }
   if (pendingOut || pendingIn) return;
   pendingOut = { id: net.myColor + "-" + (++reqSeq), action: action, moveNum: S.moveNum };
   sendMsg({ t:"req", action: action, id: pendingOut.id, moveNum: S.moveNum });
@@ -686,14 +910,14 @@ function sendRequest(action){
     sendMsg({ t:"reqCancel", id: pendingOut.id });
     pendingOut = null;
     hideDialog();
-    toast("No answer from " + oppName() + " — try again in a moment.");
+    toast(t("noAnswer", { name: oppName() }));
   }, REQ_TIMEOUT);
-  const rt = REQ_TEXT[action];
+  const rt = reqText(action);
   showDialog({
     title: rt.title,
     msg: '<span class="waitspin"></span>' + escapeHtml(rt.waiting.replace("{opp}", oppName())),
     hideYes: true,
-    no: "Cancel",
+    no: t("cancel"),
     onNo: function(){
       if (!pendingOut) return;
       clearTimeout(pendingOut.timer);
@@ -716,7 +940,7 @@ function applyAgreed(action){
   if (action === "new"){
     S = freshState(S.size);
     persist(); renderAll();
-    toast("New game — good luck!");
+    toast(t("newLuck"));
   } else if (action === "confirm"){
     doConfirm();
   }
@@ -725,7 +949,7 @@ function applyAgreed(action){
 
 function handleIncomingReq(m){
   const action = m.action;
-  if (!REQ_TEXT[action] || typeof m.id !== "string") return;
+  if (REQ_ACTIONS.indexOf(action) < 0 || typeof m.id !== "string") return;
   if (pendingOut && pendingOut.action === action && action !== "undo"){
     // we asked for the same thing — that's an agreement, not a conflict
     // (takeback is turn-gated, so simultaneous undo requests can't happen)
@@ -745,17 +969,17 @@ function handleIncomingReq(m){
     return;
   }
   pendingIn = { id: m.id, action: action };
-  const rt = REQ_TEXT[action];
+  const rt = reqText(action);
   let extra = "";
   if (action === "confirm"){
     const sc = computeScore();
-    extra = "<br>" + escapeHtml(pname(1)) + " " + sc.black + " — " + escapeHtml(pname(2)) + " " + sc.white + ".";
+    extra = "<br>" + escapeHtml(pname(1)) + " " + fmtNum(sc.black) + " — " + escapeHtml(pname(2)) + " " + fmtNum(sc.white) + ".";
   }
   showDialog({
     title: rt.title,
     msg: "<b>" + escapeHtml(oppName()) + "</b> " + rt.verb + "." + extra,
     yes: rt.yes,
-    no: "Decline",
+    no: t("decline"),
     onYes: function(){
       if (!pendingIn) return;
       const id = pendingIn.id; pendingIn = null;
@@ -778,17 +1002,17 @@ function handleIncomingRes(m){
   pendingOut = null;
   hideDialog();
   if (!m.accept){
-    toast(m.reason === "stale" ? "Too late — the position already changed." :
-          m.reason === "busy"  ? oppName() + " is busy with another request." :
-          oppName() + " declined.");
+    toast(m.reason === "stale" ? t("tooLate") :
+          m.reason === "busy"  ? t("busyT", { name: oppName() }) :
+          t("declinedT", { name: oppName() }));
     return;
   }
   if (action === "undo"){
     if (S.phase === "play" && S.moveNum === atMove && S.turn !== net.myColor && S.history.length){
       undo(); // rewinds locally and broadcasts the state to the opponent
-      toast("Move taken back.");
+      toast(t("movedBack"));
     } else {
-      toast("Too late — the position already changed.");
+      toast(t("tooLate"));
     }
     return;
   }
@@ -799,7 +1023,7 @@ function handleReqCancel(m){
   if (pendingIn && pendingIn.id === m.id){
     pendingIn = null;
     hideDialog();
-    toast(oppName() + " withdrew the request.");
+    toast(t("withdrew", { name: oppName() }));
   }
 }
 
@@ -816,7 +1040,7 @@ function handleMsg(m){
       if (m.name) names[2] = String(m.name).slice(0,18);
       sendMsg({ t:"sync", core: serializeCore(), names: names, size: S.size });
       persist(); renderAll();
-      toast((names[2] || "Your opponent") + " joined — game on!");
+      toast(t("joinedT", { name: names[2] || t("yourOpp") }));
       break;
     case "sync":
       if (net.mode !== "guest") return;
@@ -828,7 +1052,7 @@ function handleMsg(m){
         if (m.names[2]) names[2] = String(m.names[2]).slice(0,18);
       }
       persist(); renderAll();
-      toast("Connected — you play White.");
+      toast(t("connectedWhite"));
       break;
     case "name":
       if (m.color === 1 || m.color === 2){
@@ -844,8 +1068,8 @@ function handleMsg(m){
         clearNegotiation();
         applyResign(m.loser);
         showDialog({
-          title: "Game over",
-          msg: "<b>" + escapeHtml(pname(m.loser)) + "</b> resigned — " + escapeHtml(pname(3 - m.loser)) + " wins! 🏆",
+          title: t("gameOverTitle"),
+          msg: t("resignedDlg", { loser: escapeHtml(pname(m.loser)), winner: escapeHtml(pname(3 - m.loser)) }),
           yes: "OK",
           hideNo: true
         });
@@ -854,14 +1078,14 @@ function handleMsg(m){
     case "resume":
       if (S.phase === "score"){
         doResume(true);
-        toast(oppName() + " resumed play — the game continues.");
+        toast(t("resumedT", { name: oppName() }));
       }
       break;
     case "state":
       snapshot();
       try{ restoreCore(m.core); }catch(e){}
       persist(); renderAll();
-      if (m.reason === "undo") toast(oppName() + " took back their move.");
+      if (m.reason === "undo") toast(t("tookBack", { name: oppName() }));
       break;
     case "req":       handleIncomingReq(m); break;
     case "res":       handleIncomingRes(m); break;
@@ -982,8 +1206,8 @@ function canTakeback(){
 }
 function undoPressed(){
   if (!isOnline()){ undo(); return; }
-  if (!net.connected){ toast("Not connected right now."); return; }
-  if (!canTakeback()){ toast("You can only take back your own last move."); return; }
+  if (!net.connected){ toast(t("notConnected")); return; }
+  if (!canTakeback()){ toast(t("onlyOwn")); return; }
   sendRequest("undo");
 }
 
@@ -1028,21 +1252,21 @@ function computeScore(){
 function playAt(i, remote){
   if (S.phase === "play"){
     if (!remote && isOnline()){
-      if (!net.connected){ toast("Not connected right now."); return; }
-      if (S.turn !== net.myColor){ toast("It's " + pname(S.turn) + "'s turn."); return; }
+      if (!net.connected){ toast(t("notConnected")); return; }
+      if (S.turn !== net.myColor){ toast(t("turnOf", { name: pname(S.turn) })); return; }
     }
-    const t = tryMove(i);
-    if (!t.ok){
+    const mv = tryMove(i);
+    if (!mv.ok){
       if (remote) return;
-      if (t.reason === "occupied") toast("That spot is already taken.");
-      else if (t.reason === "suicide") toast("Can't play there — that stone would have no breathing room.");
-      else toast("Ko rule: play somewhere else first, then you can come back.");
+      if (mv.reason === "occupied") toast(t("occupied"));
+      else if (mv.reason === "suicide") toast(t("suicide"));
+      else toast(t("ko"));
       return;
     }
     snapshot();
-    S.board = t.board;
-    S.caps[S.turn] += t.captured.length;
-    S.positions.push(t.str);
+    S.board = mv.board;
+    S.caps[S.turn] += mv.captured.length;
+    S.positions.push(mv.str);
     if (S.positions.length > 500) S.positions.shift();
     S.lastMove = i;
     S.moveNum++;
@@ -1050,9 +1274,9 @@ function playAt(i, remote){
     const mover = S.turn;
     S.turn = 3 - S.turn;
     persist();
-    renderAll({ placed:i, placedColor:mover, captured:t.captured, capturedColor:3-mover });
-    sound(t.captured.length ? "capture" : "place");
-    if (!remote) buzz(t.captured.length ? 20 : 8);
+    renderAll({ placed:i, placedColor:mover, captured:mv.captured, capturedColor:3-mover });
+    sound(mv.captured.length ? "capture" : "place");
+    if (!remote) buzz(mv.captured.length ? 20 : 8);
     if (!remote && isLive()) sendMsg({ t:"move", i:i });
   } else if (S.phase === "score"){
     if (S.board[i] === EMPTY) return;
@@ -1071,8 +1295,8 @@ function playAt(i, remote){
 function doPass(remote){
   if (S.phase !== "play") return;
   if (!remote && isOnline()){
-    if (!net.connected){ toast("Not connected right now."); return; }
-    if (S.turn !== net.myColor){ toast("It's " + pname(S.turn) + "'s turn."); return; }
+    if (!net.connected){ toast(t("notConnected")); return; }
+    if (S.turn !== net.myColor){ toast(t("turnOf", { name: pname(S.turn) })); return; }
   }
   snapshot();
   S.passes++;
@@ -1084,9 +1308,9 @@ function doPass(remote){
   if (S.passes >= 2){
     S.phase = "score";
     S.dead = [];
-    toast("Both passed — time to count! Tap dead stones to remove them.");
+    toast(t("bothPassed"));
   } else {
-    toast(pname(passer) + " passed.");
+    toast(t("passed", { name: pname(passer) }));
   }
   persist(); renderAll();
   if (!remote && isLive()) sendMsg({ t:"pass" });
@@ -1102,7 +1326,7 @@ function doResign(){
   if (S.phase !== "play") return;
   const loser = isOnline() ? net.myColor : S.turn;
   const winner = 3 - loser;
-  askConfirm(pname(loser) + ", resign and give " + pname(winner) + " the win?", "Resign", function(){
+  askConfirm(t("resignAsk", { loser: pname(loser), winner: pname(winner) }), t("resign"), function(){
     if (S.phase !== "play") return;
     applyResign(loser);
     if (isLive()) sendMsg({ t:"resign", loser:loser });
@@ -1122,7 +1346,7 @@ function doConfirm(){
 function confirmPressed(){
   if (S.phase !== "score") return;
   if (isOnline()){
-    if (!net.connected){ toast("Not connected right now."); return; }
+    if (!net.connected){ toast(t("notConnected")); return; }
     sendRequest("confirm"); // both players must agree on the final score
     return;
   }
@@ -1143,7 +1367,14 @@ function newGame(){
     else leaveOnline();
     return;
   }
-  openSetup();
+  // local: back-to-back games — fresh board right away, same size and names
+  if (S.moveNum > 0 || S.phase !== "play"){
+    S = freshState(S.size);
+    persist(); renderAll();
+    toast(t("newLuck"));
+  } else {
+    openSetup(); // empty board: nothing to restart — open the menu instead
+  }
 }
 function openSetup(){
   $("setupNameB").value = names[1] || "";
@@ -1162,7 +1393,7 @@ function startPressed(){
     return;
   }
   if (!hasPeerLib()){
-    toast("Online play needs an internet connection — the networking library didn't load. Same-device play still works.");
+    toast(t("needNet"));
     return;
   }
   const myName = $("setupMyName").value.trim();
@@ -1174,7 +1405,7 @@ function startPressed(){
     renderAll();
   } else {
     const code = $("setupCode").value.trim().toUpperCase();
-    if (code.length !== 5){ toast("Enter the 5-character game code."); return; }
+    if (code.length !== 5){ toast(t("enterCode")); return; }
     teardownNet();
     $("setup").classList.add("hidden");
     joinGame(myName, code);
@@ -1193,10 +1424,10 @@ function showWait(kind){
   qr.innerHTML = "";
   $("waitRetry").style.display = "none";
   if (kind === "host"){
-    $("waitTitle").textContent = "Share this code";
+    $("waitTitle").textContent = t("shareCode");
     $("waitCode").textContent = net.code;
     $("waitCode").style.display = "";
-    setWaitMsg('<span class="waitspin"></span>Connecting to the signaling service\u2026');
+    setWaitMsg('<span class="waitspin"></span>' + t("connectingSignal"));
     if (typeof QRCode !== "undefined"){
       try{
         new QRCode(qr, { text: joinLink(net.code), width: 148, height: 148,
@@ -1204,10 +1435,10 @@ function showWait(kind){
       }catch(e){}
     }
   } else {
-    $("waitTitle").textContent = "Joining game";
+    $("waitTitle").textContent = t("joiningGame");
     $("waitCode").textContent = net.code;
     $("waitCode").style.display = "";
-    setWaitMsg('<span class="waitspin"></span>Looking for the host\u2026');
+    setWaitMsg('<span class="waitspin"></span>' + t("lookingHost"));
   }
   box.classList.remove("hidden");
 }
@@ -1274,23 +1505,41 @@ window.addEventListener("orientationchange", function(){ setTimeout(fitBoard, 60
 function registerSW(){
   if (ENV_ARTIFACT || !("serviceWorker" in navigator)) return;
   if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") return;
-  try{ navigator.serviceWorker.register("sw.js"); }catch(e){}
+  try{
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(function(reg){
+      // look for a fresh version on launch and whenever the app is foregrounded
+      function check(){ try{ reg.update(); }catch(e){} }
+      document.addEventListener("visibilitychange", function(){
+        if (document.visibilityState === "visible") check();
+      });
+      setInterval(check, 60 * 60 * 1000);
+    }).catch(function(){});
+    // when a new version takes over, reload once so it runs right away —
+    // but never yank the page out from under a live online game
+    let hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function(){
+      if (!hadController){ hadController = true; return; } // first install: page is already fresh
+      if (reloaded || isLive()) return;
+      reloaded = true;
+      location.reload();
+    });
+  }catch(e){}
 }
 
 function pname(c){
-  const fallback = c === BLACK ? "Black" : "White";
-  return names[c] || fallback;
+  return names[c] || (c === BLACK ? t("black") : t("white"));
 }
 /* Generic modal dialog. opts: {title, msg (html), yes, no, onYes, onNo, hideYes, hideNo} */
 let dlgYesCb = null, dlgNoCb = null;
 function showDialog(o){
-  $("dlgTitle").textContent = o.title || "Are you sure?";
+  $("dlgTitle").textContent = o.title || t("areYouSure");
   $("confirmMsg").innerHTML = o.msg || "";
   const y = $("confirmYes"), n = $("confirmNo");
   y.style.display = o.hideYes ? "none" : "";
   n.style.display = o.hideNo ? "none" : "";
-  y.textContent = o.yes || "Yes";
-  n.textContent = o.no || "Cancel";
+  y.textContent = o.yes || t("yes");
+  n.textContent = o.no || t("cancel");
   dlgYesCb = o.onYes || null;
   dlgNoCb = o.onNo || null;
   $("confirmBox").classList.remove("hidden");
@@ -1431,15 +1680,14 @@ function updateNetBar(){
   if (!isOnline()){ bar.style.display = "none"; return; }
   bar.style.display = "flex";
   bar.classList.toggle("down", !net.connected);
-  const me = net.myColor === BLACK ? "Black" : "White";
+  const me = net.myColor === BLACK ? t("black") : t("white");
   let txt;
   if (net.connected){
-    const opp = pname(3 - net.myColor);
-    txt = "Online — you play <b>" + me + "</b> vs " + escapeHtml(opp);
+    txt = t("netYou", { me: me, opp: escapeHtml(pname(3 - net.myColor)) });
   } else if (net.everConnected){
-    txt = "Disconnected. " + (net.mode === "guest" ? "Leave, then re-join with code <b>" + net.code + "</b> to resume." : "Waiting — they can re-join with code <b>" + net.code + "</b>.");
+    txt = t(net.mode === "guest" ? "netDiscGuest" : "netDiscHost", { code: net.code });
   } else {
-    txt = "Setting up online game (code <b>" + net.code + "</b>)\u2026";
+    txt = t("netSetup", { code: net.code });
   }
   $("netText").innerHTML = txt;
 }
@@ -1472,20 +1720,20 @@ function renderPanel(){
   $("btnRedo").style.display = isOnline() ? "none" : "";
   $("btnRedo").disabled = !(S.redo && S.redo.length);
   const phone = window.matchMedia && window.matchMedia("(max-width:820px)").matches;
-  $("btnNew").textContent = (isOnline() && !net.connected) ? "Menu" : (phone ? "New" : "New game");
+  $("btnNew").textContent = (isOnline() && !net.connected) ? t("menu") : (phone ? t("newShort") : t("newGame"));
 
   updateNetBar();
 
   const st = $("status");
   if (S.phase === "play"){
     let who = pname(S.turn);
-    if (isOnline() && S.turn === net.myColor) who = "You";
-    st.textContent = "Move " + (S.moveNum + 1) + " — " + who + " to play" +
-      (S.passes === 1 ? " (one more pass ends the game)" : "");
+    if (isOnline() && S.turn === net.myColor) who = t("youWord");
+    st.textContent = t("statusMove", { n: S.moveNum + 1, who: who }) +
+      (S.passes === 1 ? t("onePass") : "");
   } else if (S.phase === "score"){
-    st.textContent = "Counting: tap any dead stones to remove them, then confirm.";
+    st.textContent = t("statusCounting");
   } else if (S.result){
-    st.textContent = "Game over.";
+    st.textContent = t("statusOver");
   }
 
   const scCard = $("scorecard");
@@ -1499,21 +1747,21 @@ function renderPanel(){
       $("scTeB").textContent = "—"; $("scTeW").textContent = "—";
       $("scToB").textContent = "—"; $("scToW").textContent = "—";
       wl.style.display = "block";
-      wl.textContent = "🏆 " + pname(S.result.winner) + " wins by resignation";
+      wl.textContent = t("winResign", { name: pname(S.result.winner) });
     } else {
       const sc = computeScore();
       $("scStB").textContent = sc.stones[1];
       $("scStW").textContent = sc.stones[2];
       $("scTeB").textContent = sc.terr[1];
       $("scTeW").textContent = sc.terr[2];
-      $("scToB").textContent = sc.black;
-      $("scToW").textContent = sc.white;
+      $("scToB").textContent = fmtNum(sc.black);
+      $("scToW").textContent = fmtNum(sc.white);
       if (S.phase === "over"){
         wl.style.display = "block";
         if (S.result.winner){
           const m = Math.abs(sc.black - sc.white);
-          wl.textContent = "🏆 " + pname(S.result.winner) + " wins by " + m + " point" + (m === 1 ? "" : "s") + "!";
-        } else wl.textContent = "It's a tie!";
+          wl.textContent = t("winBy", { name: pname(S.result.winner), pts: ptsPhrase(m) });
+        } else wl.textContent = t("tie");
       } else wl.style.display = "none";
     }
     if (S.phase === "over"){
@@ -1523,26 +1771,30 @@ function renderPanel(){
       $("btnResume").style.display = "none";
       if (!$("btnRematch")){
         const b = document.createElement("button");
-        b.id = "btnRematch"; b.className = "btn-primary grow"; b.textContent = "Play again";
+        b.id = "btnRematch"; b.className = "btn-primary grow"; b.textContent = t("playAgain");
         b.addEventListener("click", newGame);
         sb.appendChild(b);
       }
       if (isOnline() && !$("btnLeave2")){
         const b2 = document.createElement("button");
-        b2.id = "btnLeave2"; b2.className = "btn-ghost"; b2.textContent = "Leave online";
+        b2.id = "btnLeave2"; b2.className = "btn-ghost"; b2.textContent = t("leaveOnline");
         b2.addEventListener("click", leaveOnline);
         sb.appendChild(b2);
       }
+      if (!isOnline() && !$("btnMenu2")){
+        const b3 = document.createElement("button");
+        b3.id = "btnMenu2"; b3.className = "btn-ghost"; b3.textContent = t("menu");
+        b3.addEventListener("click", openSetup);
+        sb.appendChild(b3);
+      }
     } else {
-      const br = $("btnRematch"); if (br) br.remove();
-      const bl = $("btnLeave2"); if (bl) bl.remove();
+      ["btnRematch","btnLeave2","btnMenu2"].forEach(function(id){ const b = $(id); if (b) b.remove(); });
       $("btnConfirm").style.display = "";
       $("btnResume").style.display = "";
     }
   } else {
     scCard.style.display = "none";
-    const br = $("btnRematch"); if (br) br.remove();
-    const bl = $("btnLeave2"); if (bl) bl.remove();
+    ["btnRematch","btnLeave2","btnMenu2"].forEach(function(id){ const b = $(id); if (b) b.remove(); });
   }
 }
 
@@ -1560,22 +1812,18 @@ function applySetupMode(){
   $("fieldSize").style.display = setupMode === "join" ? "none" : "";
   const btn = $("btnStart");
   const note = $("setupNote");
-  const artifactWarn = ENV_ARTIFACT
-    ? ' <br><b>Heads up:</b> you\u2019re viewing this inside Claude, and the preview blocks online connections \u2014 download this file and open it directly in your browser to play online.'
-    : '';
+  const artifactWarn = ENV_ARTIFACT ? t("artifactWarn") : "";
   if (setupMode === "local"){
-    btn.textContent = "Start game";
+    btn.textContent = t("startGame");
     const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone;
-    const installHint = (!standalone && !ENV_ARTIFACT && location.protocol === "https:")
-      ? " <br>Tip: add this page to your home screen (Share → Add to Home Screen) and it plays full-screen like an app."
-      : "";
-    note.innerHTML = "The game saves itself after every move — close the tab and pick up where you left off." + installHint;
+    const installHint = (!standalone && !ENV_ARTIFACT && location.protocol === "https:") ? t("installHint") : "";
+    note.innerHTML = t("noteLocal") + installHint;
   } else if (setupMode === "host"){
-    btn.textContent = "Create game";
-    note.innerHTML = "You'll get a 5-letter code (and QR) to share. You play Black. Moves travel directly between your two browsers over an encrypted WebRTC channel; a small free service (PeerJS) is used only for the introduction handshake." + artifactWarn;
+    btn.textContent = t("createGame");
+    note.innerHTML = t("noteHost") + artifactWarn;
   } else {
-    btn.textContent = "Join game";
-    note.innerHTML = "Enter the code your opponent shares. You play White. If you got disconnected earlier, re-joining with the same code resumes the game." + artifactWarn;
+    btn.textContent = t("joinGameBtn");
+    note.innerHTML = t("noteJoin") + artifactWarn;
   }
 }
 
@@ -1616,7 +1864,7 @@ function wire(){
   $("btnResign").addEventListener("click", doResign);
   $("btnNew").addEventListener("click", function(){
     if (!isOnline() && S.moveNum > 0 && S.phase === "play"){
-      askConfirm("Abandon the current game and start fresh?", "New game", newGame);
+      askConfirm(t("abandonAsk"), t("newGame"), newGame);
       return;
     }
     newGame();
@@ -1625,7 +1873,7 @@ function wire(){
   $("btnResume").addEventListener("click", function(){ doResume(false); });
   $("btnStart").addEventListener("click", startPressed);
   $("btnLeave").addEventListener("click", function(){
-    askConfirm("Leave the online game?", "Leave", leaveOnline);
+    askConfirm(t("leaveAsk"), t("leave"), leaveOnline);
   });
   $("waitRetry").addEventListener("click", function(){
     if (net.mode === "host"){
@@ -1683,7 +1931,8 @@ function wire(){
 
 /* ---------- boot ---------- */
 (async function boot(){
-  $("status").textContent = "Loading…";
+  applyStaticLang();
+  $("status").textContent = t("loading");
   const had = await restoreSave();
   wire();
   fitBoard();
@@ -1702,7 +1951,7 @@ function wire(){
     $("setupCode").value = qJoin;
     openSetup();
   } else if (had){
-    if (S.phase === "over") toast("Welcome back! Last game is shown — hit Play again for a rematch.");
+    if (S.phase === "over") toast(t("welcomeBack"));
   } else {
     openSetup();
   }
