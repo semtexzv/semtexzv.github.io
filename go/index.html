@@ -83,7 +83,9 @@
 
   .boardwrap{ display:flex; justify-content:center; }
   svg#board{
-    width:min(100%, 640px, calc(100dvh - 230px));
+    /* --boardcap: measured viewport space (set by fitBoard()), so the board
+       fills the height exactly — no guessed offsets, no page overflow */
+    width:min(100%, 640px, var(--boardcap, calc(100dvh - 140px)));
     height:auto; display:block;
     touch-action:manipulation;
     border-radius:10px;
@@ -1215,6 +1217,20 @@ function buzz(ms){
   try{ if (navigator.vibrate) navigator.vibrate(ms); }catch(e){}
 }
 
+/* Size the board to the space that's actually left after the header and
+   paddings, so it fills the viewport without making the page scroll. */
+function fitBoard(){
+  try{
+    const hdr = document.querySelector("header").offsetHeight;
+    const cs = getComputedStyle(document.querySelector(".table"));
+    const pads = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    const cap = Math.max(320, window.innerHeight - hdr - pads);
+    document.documentElement.style.setProperty("--boardcap", cap + "px");
+  }catch(e){}
+}
+window.addEventListener("resize", fitBoard);
+window.addEventListener("orientationchange", function(){ setTimeout(fitBoard, 60); });
+
 function registerSW(){
   if (ENV_ARTIFACT || !("serviceWorker" in navigator)) return;
   if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") return;
@@ -1628,6 +1644,7 @@ function wire(){
   $("status").textContent = "Loading…";
   const had = await restoreSave();
   wire();
+  fitBoard();
   if (!had || !S) S = freshState(9);
   pendingSize = S.size;
   applySetupMode();
