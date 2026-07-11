@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>Goban — Two-Player Go</title>
 <meta name="theme-color" content="#2b3750">
+<meta name="color-scheme" content="dark">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -33,7 +34,13 @@
   }
   *{ box-sizing:border-box; }
   html,body{ margin:0; padding:0; }
-  html{ overscroll-behavior:none; }
+  html{
+    overscroll-behavior:none;
+    /* solid dark base so browser-painted areas (overscroll rubber-band,
+       Safari's toolbars, pre-paint flash) match the page instead of white */
+    background:var(--indigo-deep);
+    color-scheme:dark;
+  }
   body{
     min-height:100vh;
     min-height:100dvh;
