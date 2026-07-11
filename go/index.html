@@ -76,17 +76,6 @@
     gap:22px; align-items:start;
     padding:12px calc(26px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));
   }
-  @media (max-width:820px){
-    .table{
-      grid-template-columns:1fr;
-      gap:14px;
-      padding:6px calc(10px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
-    }
-    /* Phone order: board, then connection + status + actions, then player cards */
-    .panel #netbar{ order:-3; }
-    .panel .status{ order:-2; }
-    .panel #playButtons, .panel #scoreButtons{ order:-1; }
-  }
 
   .boardwrap{ display:flex; justify-content:center; }
   svg#board{
@@ -247,6 +236,44 @@
   @keyframes capfade{ to{ opacity:0; transform:scale(1.35); } }
   .drop-in{ animation:dropin .18s ease-out; transform-origin:center; transform-box:fill-box; }
   @keyframes dropin{ from{ opacity:.4; transform:scale(1.25); } to{ opacity:1; transform:scale(1); } }
+
+  @media (max-width:820px){
+    /* Single-screen phone layout: everything visible without scrolling. */
+    header{
+      padding-top:calc(8px + env(safe-area-inset-top));
+      padding-bottom:2px;
+      gap:10px;
+    }
+    header h1{ font-size:21px; }
+    header .sub{
+      font-size:11.5px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+    }
+    .table{
+      grid-template-columns:1fr;
+      gap:10px;
+      padding:4px calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
+    }
+    /* Phone order: board, then connection + status + actions, then player cards */
+    .panel{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .panel > *{ grid-column:1 / -1; min-width:0; }
+    .panel #netbar{ order:-3; }
+    .panel .status{ order:-2; min-height:17px; font-size:12.5px; }
+    .panel #playButtons, .panel #scoreButtons{ order:-1; }
+    /* all actions on one line */
+    #playButtons, #scoreButtons{ flex-wrap:nowrap; gap:6px; }
+    #playButtons button, #scoreButtons button{
+      flex:1 1 0; min-width:0; padding:10px 2px; font-size:13px; white-space:nowrap;
+    }
+    /* player cards side by side, compact */
+    #cardB{ grid-column:1; }
+    #cardW{ grid-column:2; }
+    .player{ grid-template-columns:22px 1fr; gap:3px 8px; padding:8px 10px; }
+    .stone-icon{ width:22px; height:22px; }
+    .turn-pill{ display:none; } /* the seal border already marks whose turn it is */
+    .player .meta{ grid-column:1 / -1; gap:9px; font-size:11px; white-space:nowrap; }
+    details.rules{ font-size:12px; }
+  }
 
   @media (prefers-reduced-motion: reduce){
     *{ animation:none !important; transition:none !important; }
@@ -1224,14 +1251,20 @@ function buzz(ms){
   try{ if (navigator.vibrate) navigator.vibrate(ms); }catch(e){}
 }
 
-/* Size the board to the space that's actually left after the header and
-   paddings, so it fills the viewport without making the page scroll. */
+/* Size the board to the space that's actually left after the header,
+   paddings and (on phones) the panel below it, so the whole game fits the
+   viewport without scrolling. */
 function fitBoard(){
   try{
     const hdr = document.querySelector("header").offsetHeight;
     const cs = getComputedStyle(document.querySelector(".table"));
     const pads = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-    const cap = Math.max(320, window.innerHeight - hdr - pads);
+    let extra = 0;
+    if (window.matchMedia && window.matchMedia("(max-width:820px)").matches){
+      // single column: status, actions and player cards stack under the board
+      extra = document.querySelector(".panel").offsetHeight + (parseFloat(cs.rowGap) || 0);
+    }
+    const cap = Math.max(240, window.innerHeight - hdr - pads - extra);
     document.documentElement.style.setProperty("--boardcap", cap + "px");
   }catch(e){}
 }
@@ -1438,7 +1471,8 @@ function renderPanel(){
   $("btnUndo").disabled = isOnline() ? !(net.connected && canTakeback()) : !S.history.length;
   $("btnRedo").style.display = isOnline() ? "none" : "";
   $("btnRedo").disabled = !(S.redo && S.redo.length);
-  $("btnNew").textContent = (isOnline() && !net.connected) ? "Menu" : "New game";
+  const phone = window.matchMedia && window.matchMedia("(max-width:820px)").matches;
+  $("btnNew").textContent = (isOnline() && !net.connected) ? "Menu" : (phone ? "New" : "New game");
 
   updateNetBar();
 
@@ -1515,6 +1549,7 @@ function renderPanel(){
 function renderAll(fx){
   renderBoard(fx);
   renderPanel();
+  fitBoard(); // panel height can change (scorecard, buttons) — re-fit the board
 }
 
 /* ---------- setup UI ---------- */
