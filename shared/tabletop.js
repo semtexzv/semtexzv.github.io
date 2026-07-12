@@ -213,8 +213,11 @@ window.Tabletop = function(cfg){
 
   /* ---------- persistence ---------- */
   let saveTimer = null;
+  let savedOnline = null; // { role, code, lobby } from the last save, for resume
   function writeSave(){
-    store.set(cfg.key, JSON.stringify({ S: hooks.getS(), names: names, tally: tally, u: allowUndo }));
+    let online = null;
+    if (isOnline() && net.code) online = { role: net.mode, code: net.code, lobby: lobbyCode() };
+    store.set(cfg.key, JSON.stringify({ S: hooks.getS(), names: names, tally: tally, u: allowUndo, online: online }));
   }
   function persist(){
     clearTimeout(saveTimer);
@@ -232,6 +235,7 @@ window.Tabletop = function(cfg){
       if (d && d.names){ names[1] = d.names[1] || ""; names[2] = d.names[2] || ""; }
       if (d && d.tally){ tally[1] = d.tally[1] || 0; tally[2] = d.tally[2] || 0; }
       allowUndo = d.u !== false;
+      savedOnline = d.online || null;
       if (d && d.S) return hooks.setS(d.S);
     }catch(e){}
     return false;
@@ -246,6 +250,24 @@ window.Tabletop = function(cfg){
   function isLive(){ return isOnline() && net.connected; }
   function hasPeerLib(){ return typeof Peer !== "undefined"; }
 
+  /* Encode the whole live session in the URL so any reload (SW update,
+     bfcache, crash) re-establishes the same online game instead of falling
+     back to the local save. */
+  function sessionUrl(){
+    if (!isOnline() || !net.code) return location.pathname;
+    let p = (net.mode === "host" ? "host=" : "join=") + net.code;
+    if (net.mode === "host"){
+      const sz = hooks.curSize ? hooks.curSize() : 0;
+      if (sz) p += "&size=" + sz;
+      p += "&u=" + (allowUndo ? 1 : 0);
+    }
+    const lby = lobbyCode();
+    if (lby) p += "&lobby=" + lby;
+    return location.pathname + "?" + p;
+  }
+  function syncSessionUrl(){ try{ history.replaceState(null, "", sessionUrl()); }catch(e){} }
+  function clearSessionUrl(){ try{ history.replaceState(null, "", location.pathname); }catch(e){} }
+
   function makeCode(){
     const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let s = "";
@@ -256,11 +278,13 @@ window.Tabletop = function(cfg){
     if (net.conn && net.conn.open){ try{ net.conn.send(m); }catch(e){} }
   }
   function teardownNet(){
+    net.leaving = true;
     clearNegotiation();
     try{ if (net.conn) net.conn.close(); }catch(e){}
     try{ if (net.peer) net.peer.destroy(); }catch(e){}
     net.mode = "local"; net.myColor = 0; net.peer = null; net.conn = null;
     net.connected = false; net.code = ""; net.everConnected = false;
+    clearSessionUrl();
     updateNetBar();
   }
 
@@ -282,13 +306,15 @@ window.Tabletop = function(cfg){
     else setWaitMsg(t("failSignal"));
     $("waitRetry").style.display = "";
   }
-  function hostGame(myName, presetCode){
-    names[1] = myName; names[2] = "";
-    net.mode = "host"; net.myColor = 1;
+  function hostGame(myName, presetCode, opts){
+    opts = opts || {};
+    names[1] = myName; if (!opts.keep) names[2] = "";
+    net.mode = "host"; net.myColor = 1; net.leaving = false;
     net.code = presetCode || makeCode();
     net.preset = !!presetCode;
-    hooks.freshForHost();
+    if (!opts.keep) hooks.freshForHost(); // resume keeps the restored board
     persist();
+    syncSessionUrl();
     showWait("host");
     createHostPeer();
   }
@@ -331,8 +357,9 @@ window.Tabletop = function(cfg){
   }
   function joinGame(myName, code, attempt){
     names[2] = myName;
-    net.mode = "guest"; net.myColor = 2;
+    net.mode = "guest"; net.myColor = 2; net.leaving = false;
     net.code = code;
+    syncSessionUrl();
     showWait("join");
     armWaitWatchdog(9000, "broker");
     const p = new Peer({ debug: 0 });
@@ -387,6 +414,16 @@ window.Tabletop = function(cfg){
       updateNetBar();
       hooks.renderAll();
       if (isOnline()) toast(t(net.mode === "guest" ? "connLostGuest" : "connLostHost"));
+      // guest auto-reconnect: if the host reloaded (its peer re-appears), the
+      // guest silently rejoins the same code so the game recovers by itself
+      if (net.mode === "guest" && !net.leaving){
+        setTimeout(function(){
+          if (net.mode !== "guest" || net.connected || net.leaving) return;
+          try{ if (net.peer) net.peer.destroy(); }catch(e){}
+          net.peer = null; net.conn = null;
+          joinGame(names[2], net.code);
+        }, 1500);
+      }
     });
     c.on("error", function(){});
   }
@@ -739,17 +776,19 @@ window.Tabletop = function(cfg){
     }
     return code;
   }
+  /* Note: params are NOT stripped — the URL stays the session's source of
+     truth for the whole online game (see sessionUrl). */
   function readUrlParams(){
-    const out = { join:"", host:"", size:0 };
+    const out = { join:"", host:"", size:0, u:-1 };
     try{
       const q = new URLSearchParams(location.search);
       const clean = function(v){ return String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5); };
       out.join = clean(q.get("join"));
       out.host = clean(q.get("host"));
       out.size = parseInt(q.get("size"), 10) || 0;
+      out.u = q.get("u") === "0" ? 0 : (q.get("u") === "1" ? 1 : -1);
       const lby = clean(q.get("lobby"));
       if (lby){ try{ sessionStorage.setItem("tabletop:lobby", lby); }catch(e){} }
-      if (q.toString()) history.replaceState(null, "", location.pathname);
     }catch(e){}
     return out;
   }
@@ -842,6 +881,12 @@ window.Tabletop = function(cfg){
   window.addEventListener("orientationchange", function(){ setTimeout(fitBoard, 60); });
 
   /* ---------- service worker with auto-update ---------- */
+  function urlHasSession(){
+    try{
+      const q = new URLSearchParams(location.search);
+      return !!(q.get("host") || q.get("join"));
+    }catch(e){ return false; }
+  }
   function registerSW(){
     if (cfg.artifactEnv || !("serviceWorker" in navigator)) return;
     if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") return;
@@ -867,7 +912,7 @@ window.Tabletop = function(cfg){
       let reloaded = false;
       navigator.serviceWorker.addEventListener("controllerchange", function(){
         if (!hadController){ hadController = true; return; }
-        if (reloaded || isLive()) return;
+        if (reloaded || isLive() || urlHasSession()) return;
         reloaded = true;
         location.reload();
       });
@@ -1051,16 +1096,22 @@ window.Tabletop = function(cfg){
     applySetupMode();
     hooks.renderAll();
 
-    const q = readUrlParams(); // scanned QR / shared join link / lobby challenge
+    const q = readUrlParams(); // scanned QR / shared link / lobby challenge / reload
     if (q.host.length === 5 && hasPeerLib() && !cfg.artifactEnv){
-      // lobby challenge accepted: host the agreed code right away
-      if (q.size && hooks.setUrlSize) hooks.setUrlSize(q.size);
+      // host the agreed code. If our save is already this exact session,
+      // resume the board in place; otherwise start fresh (respecting size).
+      const resume = had && savedOnline && savedOnline.role === "host" && savedOnline.code === q.host;
+      if (q.u !== -1) allowUndo = q.u === 1;
+      if (!resume){
+        if (q.size && hooks.setUrlSize) hooks.setUrlSize(q.size);
+        hooks.resetGame();
+      }
       teardownNet();
       hostAttempts = 0;
-      hostGame(names[1] || sharedName(), q.host);
+      hostGame((resume ? names[1] : "") || sharedName(), q.host, { keep: resume });
     } else if (q.join.length === 5 && hasPeerLib() && !cfg.artifactEnv){
-      // scanned the host's QR: skip the form and join straight away —
-      // the name can be typed into the player card at any point
+      // join the code (scanned QR, lobby challenge, or a reload mid-game);
+      // the host re-syncs the full board on connect
       teardownNet();
       joinGame(names[2] || sharedName(), q.join);
     } else if (q.join.length === 5){

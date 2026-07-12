@@ -749,6 +749,7 @@ const shell = Tabletop({
     setUrlSize: function(sz){
       if (sz === 9 || sz === 13 || sz === 19) pendingSize = sz;
     },
+    curSize: function(){ return S ? S.size : pendingSize; },
     wireExtra: function(){
       $("btnPass").addEventListener("click", function(){ doPass(false); });
       $("btnConfirm").addEventListener("click", confirmPressed);

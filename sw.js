@@ -1,7 +1,7 @@
 /* Tabletop — one service worker for the whole app (/games lobby, /go, /dama).
    Root scope so navigation between the pages stays inside the installed PWA.
    Only app paths are handled; the rest of the site passes through. */
-const CACHE = "tabletop-v3";
+const CACHE = "tabletop-v4";
 const APP_PATHS = ["/go/", "/dama/", "/games/", "/shared/"];
 const SHELL = [
   "/manifest.webmanifest",
