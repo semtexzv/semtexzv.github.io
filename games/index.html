@@ -319,19 +319,52 @@ function startLobby(code, preferHost, autoRevive){
   L.code = code;
   L.leaving = false;
   L.autoRevive = !!autoRevive; // returning from a game: re-open a dead lobby silently
+  joinRounds = 0;
   lsSet("tabletop:lastlobby", code);
   setState("connecting");
-  if (preferHost) becomeHost(0); else connectAsMember(0);
+  if (preferHost) becomeHost(); else connectAsMember();
+}
+
+/* The hub ID is a rendezvous: whoever needs the lobby and finds it dead
+   re-creates it on the spot. Member-join and host-claim alternate, each
+   guarded by a watchdog — a stale registration on the signaling server
+   (a hub tab that navigated away) answers with neither a connection nor
+   an error, so timeouts are the only reliable signal. The stale claim
+   expires within moments and one of the rounds wins. */
+let joinRounds = 0;
+function nextRound(viaHost){
+  if (L.code === "" || L.state === "off") return;
+  joinRounds++;
+  if (joinRounds > 8){ joinFailed(); return; }
+  setTimeout(function(){
+    if (L.code === "" || L.state === "off" || L.role === "host") return;
+    if (viaHost) becomeHost(); else connectAsMember();
+  }, 500 + Math.random() * 1200);
+}
+function joinFailed(){
+  const code = L.code;
+  teardown();
+  showDialog({
+    title: t("inLobby"),
+    msg: t("lobbyGone", { code: code }),
+    onYes: function(){ startLobby(code, true); }
+  });
 }
 
 /* ----- hub side ----- */
-function becomeHost(attempt){
+function becomeHost(){
   if (L.code === "" || L.state === "off") return;
   try{ if (L.peer) L.peer.destroy(); }catch(e){}
   const p = new Peer(LOBBY_PREFIX + L.code, { debug: 0 });
   L.peer = p;
+  const guard = setTimeout(function(){
+    if (L.peer !== p || L.role === "host") return;
+    nextRound(true); // broker never answered
+  }, 9000);
   p.on("open", function(){
     if (L.peer !== p) return;
+    clearTimeout(guard);
+    joinRounds = 0;
     L.role = "host";
     L.conns = {};
     rebuildRoster();
@@ -354,12 +387,13 @@ function becomeHost(attempt){
   });
   p.on("error", function(err){
     if (L.peer !== p) return;
+    clearTimeout(guard);
     if (err && err.type === "unavailable-id"){
-      // someone else runs the hub — join them instead
-      connectAsMember(0);
+      // someone holds the ID — a live hub or a stale claim; try joining it
+      // (the member-side watchdog covers the stale case)
+      connectAsMember();
     } else if (err && err.type !== "peer-unavailable"){
-      if (attempt < 3) setTimeout(function(){ becomeHost(attempt + 1); }, 1200);
-      else setState("off");
+      nextRound(true);
     }
   });
   p.on("disconnected", function(){
@@ -403,16 +437,26 @@ function broadcastRoster(){
 }
 
 /* ----- member side ----- */
-function connectAsMember(attempt){
+function connectAsMember(){
   if (L.code === "" || L.state === "off") return;
   try{ if (L.peer) L.peer.destroy(); }catch(e){}
   const p = new Peer({ debug: 0 });
   L.peer = p;
+  let opened = false;
+  const guard = setTimeout(function(){
+    if (L.peer !== p || opened) return;
+    // the hub answers with neither a connection nor an error — a stale
+    // registration; try to take the ID over (it frees once it expires)
+    nextRound(true);
+  }, 7000);
   p.on("open", function(){
     if (L.peer !== p) return;
     const c = p.connect(LOBBY_PREFIX + L.code, { reliable: true });
     L.hubConn = c;
     c.on("open", function(){
+      opened = true;
+      clearTimeout(guard);
+      joinRounds = 0;
       L.role = "member";
       setState("on");
       c.send({ t:"hello", cid: CID, name: myName() });
@@ -427,19 +471,13 @@ function connectAsMember(attempt){
   p.on("error", function(err){
     if (L.peer !== p) return;
     if (err && err.type === "peer-unavailable"){
-      if (attempt < 2){
-        setTimeout(function(){ connectAsMember(attempt + 1); }, 1200);
-      } else if (L.state === "reconnecting" || L.autoRevive){
-        // hub gone and nobody claimed it — re-open the lobby ourselves
-        becomeHost(0);
+      clearTimeout(guard);
+      if (L.autoRevive || L.state === "reconnecting"){
+        becomeHost(); // nobody hosts it — re-create the lobby dynamically
+      } else if (joinRounds < 2){
+        nextRound(false); // manual join: the host may still be setting up
       } else {
-        const code = L.code;
-        teardown();
-        showDialog({
-          title: t("inLobby"),
-          msg: t("lobbyGone", { code: code }),
-          onYes: function(){ startLobby(code, true); }
-        });
+        joinFailed(); // manual join to a lobby that really isn't there
       }
     }
   });
@@ -457,10 +495,12 @@ function hubLost(){
   // the hub vanished: everyone races (random backoff) to become the new hub
   L.hubConn = null;
   clearChallenge();
+  joinRounds = 0;
+  L.autoRevive = true; // once in, always find the way back
   setState("reconnecting");
   setTimeout(function(){
     if (L.state !== "reconnecting") return;
-    becomeHost(0);
+    becomeHost();
   }, 300 + Math.random() * 1700);
 }
 
@@ -583,7 +623,10 @@ function goToGame(game, code, size, asHost){
   const q = asHost
     ? "?host=" + code + (game === "go" && size ? "&size=" + size : "") + "&lobby=" + L.code
     : "?join=" + code + "&lobby=" + L.code;
-  // replace, not push: swiping back must not resurrect a dead lobby page
+  // deregister cleanly so the hub ID frees for the post-game revive,
+  // and replace, not push: swiping back must not resurrect a dead page
+  L.leaving = true;
+  try{ if (L.peer) L.peer.destroy(); }catch(e){}
   location.replace("/" + game + "/" + q);
 }
 
@@ -732,6 +775,10 @@ function registerSW(){
 
 window.addEventListener("pageshow", function(ev){
   if (ev.persisted) location.reload(); // bfcache restore: connections are dead
+});
+window.addEventListener("pagehide", function(ev){
+  // real unload: deregister so the hub ID doesn't linger as a zombie
+  if (!ev.persisted){ try{ if (L.peer) L.peer.destroy(); }catch(e){} }
 });
 
 (function boot(){

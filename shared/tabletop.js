@@ -1033,6 +1033,10 @@ window.Tabletop = function(cfg){
   window.addEventListener("pageshow", function(ev){
     if (ev.persisted) location.reload(); // bfcache restore: connections are dead
   });
+  window.addEventListener("pagehide", function(ev){
+    // real unload: deregister so game-code IDs don't linger on the broker
+    if (!ev.persisted){ try{ if (net.peer) net.peer.destroy(); }catch(e){} }
+  });
 
   async function boot(){
     applyStaticLang();
