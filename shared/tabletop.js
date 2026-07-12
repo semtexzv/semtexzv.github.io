@@ -88,6 +88,7 @@ window.Tabletop = function(cfg){
     startGame:"Start game", createGame:"Create game", joinGameBtn:"Join game",
     howPlaying:"How are you playing?", sameDevice:"Same device", hostOnline:"Host online", joinOnline:"Join online",
     undoOption:"Undo", undoAllowed:"Allowed", undoOff:"Not allowed",
+    backToLobby:"Back to lobby",
     yourName:"Your name", gameCode:"Game code",
     noteLocal:"The game saves itself after every move — close the tab and pick up where you left off.",
     installHint:" <br>Tip: add this page to your home screen (Share → Add to Home Screen) and it plays full-screen like an app."
@@ -138,6 +139,7 @@ window.Tabletop = function(cfg){
     startGame:"Začať hru", createGame:"Vytvoriť hru", joinGameBtn:"Pripojiť sa",
     howPlaying:"Ako hráte?", sameDevice:"Jedno zariadenie", hostOnline:"Založiť online", joinOnline:"Pripojiť sa",
     undoOption:"Vrátenie ťahu", undoAllowed:"Povolené", undoOff:"Vypnuté",
+    backToLobby:"Späť do lobby",
     yourName:"Tvoje meno", gameCode:"Kód hry",
     noteLocal:"Hra sa po každom ťahu sama uloží — môžeš zavrieť kartu a pokračovať neskôr.",
     installHint:" <br>Tip: pridaj si stránku na plochu (Zdieľať → Pridať na plochu) a hra pobeží na celú obrazovku ako aplikácia."
@@ -197,6 +199,13 @@ window.Tabletop = function(cfg){
   const tally = { 1:0, 2:0 };
   let setupMode = "local";
   let allowUndo = true;           // per-game setting from the setup screen
+  /* display name shared with the lobby page; lobby code to return to */
+  function sharedName(){
+    try{
+      return sessionStorage.getItem("tabletop:name") || localStorage.getItem("tabletop:name") || "";
+    }catch(e){ return ""; }
+  }
+  function lobbyCode(){ try{ return sessionStorage.getItem("tabletop:lobby") || ""; }catch(e){ return ""; } }
 
   function pname(c){
     return names[c] || t(cfg.colorKeys[c]);
@@ -204,12 +213,17 @@ window.Tabletop = function(cfg){
 
   /* ---------- persistence ---------- */
   let saveTimer = null;
+  function writeSave(){
+    store.set(cfg.key, JSON.stringify({ S: hooks.getS(), names: names, tally: tally, u: allowUndo }));
+  }
   function persist(){
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(function(){
-      store.set(cfg.key, JSON.stringify({ S: hooks.getS(), names: names, tally: tally, u: allowUndo }));
-    }, 120);
+    saveTimer = setTimeout(writeSave, 120);
   }
+  // the debounce must not lose the last action when the tab closes or reloads
+  window.addEventListener("pagehide", function(){
+    if (saveTimer != null){ clearTimeout(saveTimer); saveTimer = null; writeSave(); }
+  });
   async function restoreSave(){
     const raw = await store.get(cfg.key);
     if (!raw) return false;
@@ -268,10 +282,11 @@ window.Tabletop = function(cfg){
     else setWaitMsg(t("failSignal"));
     $("waitRetry").style.display = "";
   }
-  function hostGame(myName){
+  function hostGame(myName, presetCode){
     names[1] = myName; names[2] = "";
     net.mode = "host"; net.myColor = 1;
-    net.code = makeCode();
+    net.code = presetCode || makeCode();
+    net.preset = !!presetCode;
     hooks.freshForHost();
     persist();
     showWait("host");
@@ -297,9 +312,13 @@ window.Tabletop = function(cfg){
       if (net.mode !== "host") return;
       if (err && err.type === "unavailable-id" && hostAttempts < 3){
         hostAttempts++;
-        net.code = makeCode();
-        showWait("host");
-        createHostPeer();
+        // a preset code is a rendezvous with the other player — retry the
+        // same code (stale claim expiring) instead of minting a new one
+        if (!net.preset){
+          net.code = makeCode();
+          showWait("host");
+        }
+        setTimeout(createHostPeer, net.preset ? 1200 : 0);
         return;
       }
       if (err && (err.type === "network" || err.type === "server-error" || err.type === "socket-error" || err.type === "socket-closed" || err.type === "browser-incompatible")){
@@ -310,7 +329,7 @@ window.Tabletop = function(cfg){
       try{ if (net.peer && !net.peer.destroyed) net.peer.reconnect(); }catch(e){}
     });
   }
-  function joinGame(myName, code){
+  function joinGame(myName, code, attempt){
     names[2] = myName;
     net.mode = "guest"; net.myColor = 2;
     net.code = code;
@@ -330,6 +349,17 @@ window.Tabletop = function(cfg){
       if (net.mode !== "guest") return;
       if (err && err.type === "peer-unavailable"){
         clearWaitWatchdog();
+        if ((attempt || 0) < 2){
+          // the host may still be setting up (e.g. both sides arriving from a
+          // lobby challenge) — retry quietly before declaring it missing
+          setTimeout(function(){
+            if (net.mode !== "guest" || net.connected) return;
+            try{ if (net.peer) net.peer.destroy(); }catch(e2){}
+            net.peer = null; net.conn = null;
+            joinGame(myName, code, (attempt || 0) + 1);
+          }, 1600);
+          return;
+        }
         setWaitMsg(t("noGameFound", { code: code }));
         $("waitRetry").style.display = "";
       } else if (err && (err.type === "network" || err.type === "server-error" || err.type === "socket-error" || err.type === "socket-closed" || err.type === "browser-incompatible")){
@@ -594,6 +624,12 @@ window.Tabletop = function(cfg){
     sendRequest("undo");
   }
   function leaveOnline(){
+    const lby = lobbyCode();
+    if (lby){
+      try{ sessionStorage.removeItem("tabletop:lobby"); }catch(e){}
+      location.href = "/games/?join=" + lby;
+      return;
+    }
     teardownNet();
     openSetup();
     hooks.renderAll();
@@ -699,13 +735,19 @@ window.Tabletop = function(cfg){
     }
     return code;
   }
-  function readJoinParam(){
+  function readUrlParams(){
+    const out = { join:"", host:"", size:0 };
     try{
-      const c = new URLSearchParams(location.search).get("join");
-      if (!c) return "";
-      history.replaceState(null, "", location.pathname);
-      return c.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
-    }catch(e){ return ""; }
+      const q = new URLSearchParams(location.search);
+      const clean = function(v){ return String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5); };
+      out.join = clean(q.get("join"));
+      out.host = clean(q.get("host"));
+      out.size = parseInt(q.get("size"), 10) || 0;
+      const lby = clean(q.get("lobby"));
+      if (lby){ try{ sessionStorage.setItem("tabletop:lobby", lby); }catch(e){} }
+      if (q.toString()) history.replaceState(null, "", location.pathname);
+    }catch(e){}
+    return out;
   }
 
   /* ---------- dialogs / toast ---------- */
@@ -878,7 +920,8 @@ window.Tabletop = function(cfg){
       ob.appendChild(b);
       if (isOnline()){
         const b2 = document.createElement("button");
-        b2.id = "btnLeave2"; b2.className = "btn-ghost"; b2.textContent = t("leaveOnline");
+        b2.id = "btnLeave2"; b2.className = "btn-ghost";
+        b2.textContent = t(lobbyCode() ? "backToLobby" : "leaveOnline");
         b2.addEventListener("click", leaveOnline);
         ob.appendChild(b2);
       } else {
@@ -972,19 +1015,25 @@ window.Tabletop = function(cfg){
     applySetupMode();
     hooks.renderAll();
 
-    const qJoin = readJoinParam(); // arrived via a scanned QR / shared join link
-    if (qJoin.length === 5 && hasPeerLib() && !cfg.artifactEnv){
+    const q = readUrlParams(); // scanned QR / shared join link / lobby challenge
+    if (q.host.length === 5 && hasPeerLib() && !cfg.artifactEnv){
+      // lobby challenge accepted: host the agreed code right away
+      if (q.size && hooks.setUrlSize) hooks.setUrlSize(q.size);
+      teardownNet();
+      hostAttempts = 0;
+      hostGame(names[1] || sharedName(), q.host);
+    } else if (q.join.length === 5 && hasPeerLib() && !cfg.artifactEnv){
       // scanned the host's QR: skip the form and join straight away —
       // the name can be typed into the player card at any point
       teardownNet();
-      joinGame(names[2] || "", qJoin);
-    } else if (qJoin.length === 5){
+      joinGame(names[2] || sharedName(), q.join);
+    } else if (q.join.length === 5){
       setupMode = "join";
       document.querySelectorAll("#modeSeg button").forEach(function(b){
         b.classList.toggle("sel", b.dataset.mode === "join");
       });
       applySetupMode();
-      $("setupCode").value = qJoin;
+      $("setupCode").value = q.join;
       openSetup();
     } else if (had){
       if (hooks.phase() === "over") toast(t("welcomeBack"));

@@ -1,0 +1,16 @@
+{
+  "name": "Games — Lobby",
+  "short_name": "Games",
+  "description": "A friends lobby for two-player board games: meet with a code or QR, challenge each other to Go or checkers, play peer-to-peer.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#222b40",
+  "theme_color": "#2b3750",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

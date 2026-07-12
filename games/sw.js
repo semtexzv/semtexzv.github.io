@@ -1,13 +1,11 @@
-/* Goban service worker: precache the app shell so the game loads (and
-   pass-and-play works) with no connection. Online play still needs network. */
-const CACHE = "goban-v8";
+/* Lobby service worker: precache the shell; the lobby itself is online-only. */
+const CACHE = "lobby-v1";
 const SHELL = [
   "./",
   "./index.html",
-  "./peerjs.min.js",
-  "./qrcode.min.js",
   "./manifest.webmanifest",
-  "/shared/tabletop.js",
+  "/shared/peerjs.min.js",
+  "/shared/qrcode.min.js",
   "/shared/tabletop.css",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -31,10 +29,9 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.origin !== location.origin) return; // PeerJS signaling etc. go straight out
+  if (url.origin !== location.origin) return;
 
   if (req.mode === "navigate") {
-    // Network first so updates land; cached shell keeps it working offline.
     e.respondWith(
       fetch(req)
         .then((res) => {
