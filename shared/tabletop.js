@@ -623,11 +623,15 @@ window.Tabletop = function(cfg){
     if (!hooks.canTakeback()){ toast(t("onlyOwn")); return; }
     sendRequest("undo");
   }
-  function leaveOnline(){
+  function goLobbyPage(){
     const lby = lobbyCode();
-    if (lby){
-      try{ sessionStorage.removeItem("tabletop:lobby"); }catch(e){}
-      location.href = "/games/?join=" + lby;
+    try{ sessionStorage.removeItem("tabletop:lobby"); }catch(e){}
+    // replace, not push: swiping back must not walk through dead game pages
+    location.replace("/games/" + (lby ? "?join=" + lby : ""));
+  }
+  function leaveOnline(){
+    if (lobbyCode()){
+      goLobbyPage();
       return;
     }
     teardownNet();
@@ -943,6 +947,14 @@ window.Tabletop = function(cfg){
 
   /* ---------- shared wiring + boot ---------- */
   function wire(){
+    const titleLink = document.querySelector("header h1 a");
+    if (titleLink){
+      titleLink.addEventListener("click", function(ev){
+        ev.preventDefault();
+        if (isLive()) askConfirm(t("leaveAsk"), t("leave"), goLobbyPage);
+        else goLobbyPage();
+      });
+    }
     const svg = $("board");
     svg.addEventListener("contextmenu", function(ev){ ev.preventDefault(); }); // no long-press menu mid-game
     svg.addEventListener("click", function(ev){
@@ -1004,11 +1016,23 @@ window.Tabletop = function(cfg){
         names[c] = this.value;
         hooks.renderAll();
         persist();
-        if (isLive() && net.myColor === c) sendMsg({ t:"name", color: c, name: names[c] });
+        if (isOnline() && net.myColor === c){
+          // online, this card is *me* — keep the lobby/shared identity in sync
+          const nm = names[c].trim();
+          if (nm){
+            try{ sessionStorage.setItem("tabletop:name", nm); }catch(e){}
+            try{ localStorage.setItem("tabletop:name", nm); }catch(e){}
+          }
+          if (isLive()) sendMsg({ t:"name", color: c, name: names[c] });
+        }
       });
     });
     if ($("setupCode")) $("setupCode").addEventListener("input", function(){ this.value = this.value.toUpperCase(); });
   }
+
+  window.addEventListener("pageshow", function(ev){
+    if (ev.persisted) location.reload(); // bfcache restore: connections are dead
+  });
 
   async function boot(){
     applyStaticLang();

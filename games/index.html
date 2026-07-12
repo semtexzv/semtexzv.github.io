@@ -583,7 +583,8 @@ function goToGame(game, code, size, asHost){
   const q = asHost
     ? "?host=" + code + (game === "go" && size ? "&size=" + size : "") + "&lobby=" + L.code
     : "?join=" + code + "&lobby=" + L.code;
-  location.href = "/" + game + "/" + q;
+  // replace, not push: swiping back must not resurrect a dead lobby page
+  location.replace("/" + game + "/" + q);
 }
 
 /* ---------- render ---------- */
@@ -660,7 +661,12 @@ function tabName(){
   try{ return sessionStorage.getItem("tabletop:name") || ""; }catch(e){ return ""; }
 }
 function wire(){
-  $("myName").value = tabName() || lsGet("tabletop:name");
+  const initial = tabName() || lsGet("tabletop:name");
+  $("myName").value = initial;
+  if (initial){
+    try{ sessionStorage.setItem("tabletop:name", initial); }catch(e){}
+    lsSet("tabletop:name", initial);
+  }
   $("myName").addEventListener("input", function(){
     try{ sessionStorage.setItem("tabletop:name", myName()); }catch(e){}
     lsSet("tabletop:name", myName());
@@ -724,6 +730,10 @@ function registerSW(){
   }catch(e){}
 }
 
+window.addEventListener("pageshow", function(ev){
+  if (ev.persisted) location.reload(); // bfcache restore: connections are dead
+});
+
 (function boot(){
   applyLang();
   wire();
@@ -738,6 +748,10 @@ function registerSW(){
   if (joinCode.length === 5 && typeof Peer !== "undefined"){
     // scanned a lobby QR or came back from a game — go straight in
     startLobby(joinCode, false, true);
+  } else if (!joinCode && typeof Peer !== "undefined"){
+    // a bare launch (PWA icon, swipe back) returns to the last lobby
+    const last = lsGet("tabletop:lastlobby");
+    if (last.length === 5) startLobby(last, false, true);
   }
   registerSW();
 
