@@ -842,7 +842,15 @@ window.Tabletop = function(cfg){
     if (cfg.artifactEnv || !("serviceWorker" in navigator)) return;
     if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") return;
     try{
-      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(function(reg){
+      // one site-wide worker: drop any legacy per-app registrations first
+      if (navigator.serviceWorker.getRegistrations){
+        navigator.serviceWorker.getRegistrations().then(function(regs){
+          regs.forEach(function(r){
+            if (r.scope !== location.origin + "/") r.unregister();
+          });
+        }).catch(function(){});
+      }
+      navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(function(reg){
         function check(){ try{ reg.update(); }catch(e){} }
         document.addEventListener("visibilitychange", function(){
           if (document.visibilityState === "visible") check();

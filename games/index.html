@@ -6,7 +6,7 @@
 <title>Games — Lobby</title>
 <meta name="theme-color" content="#2b3750">
 <meta name="color-scheme" content="dark">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="/manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -699,7 +699,14 @@ function registerSW(){
   if (!("serviceWorker" in navigator)) return;
   if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") return;
   try{
-    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(function(reg){
+    if (navigator.serviceWorker.getRegistrations){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(r){
+          if (r.scope !== location.origin + "/") r.unregister();
+        });
+      }).catch(function(){});
+    }
+    navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(function(reg){
       function check(){ try{ reg.update(); }catch(e){} }
       document.addEventListener("visibilitychange", function(){
         if (document.visibilityState === "visible") check();
