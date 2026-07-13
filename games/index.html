@@ -59,14 +59,19 @@
   .lobbystate .st{ flex:1; color:var(--ink); line-height:1.35; }
   .lobbystate button{ padding:5px 10px; font-size:12px; }
 
+  .localcard h3{ margin:0 0 3px; font-size:13px; letter-spacing:.05em; text-transform:uppercase; color:var(--seal); }
+  .localcard .hint{ font-size:12px; color:var(--ink-soft); margin-bottom:10px; }
   .gamelinks{ display:flex; gap:8px; }
   .gamelinks a{
     flex:1; text-align:center; text-decoration:none;
-    background:rgba(245,239,226,.12); color:var(--paper);
-    border:1px solid rgba(245,239,226,.25); border-radius:8px;
-    padding:11px 8px; font-weight:600; font-size:14px;
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    background:var(--paper-dim); color:var(--ink);
+    border-radius:8px; padding:12px 8px; font-weight:700; font-size:14.5px;
   }
-  .gamelinks a:hover{ background:rgba(245,239,226,.2); }
+  .gamelinks a:hover{ background:#ded4bd; }
+  .gamelinks a .ico{ width:20px; height:20px; border-radius:50%; flex:none; box-shadow:inset -2px -3px 4px rgba(0,0,0,.25); }
+  .gamelinks a .ico.b{ background:radial-gradient(circle at 34% 30%, #6a707c 0%, #23262c 45%, #0c0e12 100%); }
+  .gamelinks a .ico.w{ background:radial-gradient(circle at 34% 30%, #fff 0%, #f1ece1 55%, #c9c2b2 100%); border:1px solid #b9b2a2; }
 
   /* game picker inside the dialog */
   #gamePick{ display:flex; flex-direction:column; gap:6px; margin-top:4px; }
@@ -111,9 +116,13 @@
     <div id="rosterList"></div>
   </div>
 
-  <div class="gamelinks" id="gameLinks">
-    <a href="/go/">Goban →</a>
-    <a href="/dama/">Dáma →</a>
+  <div class="card localcard" id="localCard">
+    <h3 id="localTitle">Play on this device</h3>
+    <div class="hint" id="localHint">One screen, two players (or set up a game yourself).</div>
+    <div class="gamelinks" id="gameLinks">
+      <a href="/go/"><span class="ico b"></span>Goban</a>
+      <a href="/dama/"><span class="ico w"></span>Dáma</a>
+    </div>
   </div>
 </div>
 
@@ -172,7 +181,8 @@ en: {
   declined:"{name} declined.", busy:"{name} is busy right now.",
   noAnswer:"No answer from {name}.", withdrew:"{name} withdrew the challenge.",
   left:"{name} left the lobby.", joined:"{name} joined the lobby.",
-  starting:"Starting the game…"
+  starting:"Starting the game…",
+  localTitle:"Play on this device", localHint:"One screen, two players (or set up a game yourself)."
 },
 sk: {
   sub:"stretnite sa v lobby · vyzvite sa · hrajte",
@@ -198,7 +208,8 @@ sk: {
   declined:"{name} odmieta.", busy:"{name} má práve inú výzvu.",
   noAnswer:"{name} neodpovedá.", withdrew:"{name} stiahol výzvu.",
   left:"{name} odišiel z lobby.", joined:"{name} prišiel do lobby.",
-  starting:"Spúšťam hru…"
+  starting:"Spúšťam hru…",
+  localTitle:"Hrať na tomto zariadení", localHint:"Jedna obrazovka, dvaja hráči (alebo si nastav hru sám)."
 }};
 function t(key, vars){
   let s = I18N[LANG][key];
@@ -219,6 +230,8 @@ function applyLang(){
   $("btnLeaveLobby").textContent = t("leave");
   $("rosterTitle").textContent = t("roster");
   $("inviteHint").textContent = t("inviteHint");
+  $("localTitle").textContent = t("localTitle");
+  $("localHint").textContent = t("localHint");
 }
 
 /* ---------- tiny ui helpers ---------- */
