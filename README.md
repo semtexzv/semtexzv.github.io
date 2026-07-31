@@ -28,11 +28,17 @@ python3 -m http.server -d . 8000   # → http://localhost:8000
 
 ## Print / PDF
 `Cmd-P` forces a clean black-on-white layout (toggle + PDF link hidden,
-page-break-safe entries). The header already links the prebuilt `resume.pdf`.
+page-break-safe entries). `resume.pdf` is generated from `index.html` itself:
+copy it and `photo.jpg` to a temp dir, splice the phone number into the
+`.contact` strip, serve the dir locally, and print with headless Chromium:
+```sh
+chromium --headless --no-pdf-header-footer --print-to-pdf=resume.pdf http://127.0.0.1:8123/
+```
+The `@page` / `@media print` rules in `index.html` produce a 3-page A4 document.
 
 ## Notes / before going public
-- **Phone number is intentionally omitted** from this public page (it's still in
-  the Typst CV). Add it to the `.contact` strip if you want it public.
+- **Phone number is intentionally omitted** from this public page; it is spliced
+  into `resume.pdf` at build time (see Print / PDF above).
 - **Bedrock has no link** yet — add one to its `.entry-head` once the repo /
   promo page is public.
 - **Confidentiality:** the first Gemini bullet was softened to "fleets of
