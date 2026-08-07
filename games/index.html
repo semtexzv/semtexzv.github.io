@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Games — Lobby</title>
+<meta name="theme-color" content="#2b3750">
+<meta name="color-scheme" content="dark">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Games">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="/shared/tabletop.css">
+<script src="/shared/peerjs.min.js"></script>
+<script src="/shared/qrcode.min.js"></script>
+<style>
+  .wrap{
+    max-width:560px; margin:0 auto;
+    padding:12px calc(16px + env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .namecard{ display:flex; align-items:center; gap:10px; }
+  .namecard label{ font-size:12px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-soft); white-space:nowrap; }
+  .namecard input{
+    font:inherit; font-weight:600; font-size:16px; color:var(--ink); flex:1; min-width:0;
+    border:none; border-bottom:1px dashed #b9ad92; background:transparent;
+    padding:2px 0; outline:none;
+  }
+  .namecard input:focus{ border-bottom-color:var(--seal); }
+
+  #joinRow{ display:flex; gap:8px; }
+  #joinRow input{ flex:1; min-width:0; border:1.5px solid #cdc2a8; border-radius:8px; padding:8px 10px; background:#fdfaf2; font:inherit; font-size:16px; color:var(--ink); outline:none; }
+  #joinRow input:focus{ border-color:var(--seal); }
+
+  .invite{ text-align:center; }
+  .invite .bigcode{ font-size:30px; padding:2px 0; }
+  .invite .hint{ font-size:12px; color:var(--ink-soft); margin-top:4px; }
+  #lobbyQR{ display:flex; justify-content:center; margin:8px 0 2px; }
+  #lobbyQR img, #lobbyQR canvas{ border:6px solid #fff; border-radius:6px; box-shadow:0 3px 10px rgba(0,0,0,.18); }
+
+  .roster h3{ margin:0 0 8px; font-size:13px; letter-spacing:.05em; text-transform:uppercase; color:var(--seal); }
+  .member{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 6px; border-bottom:1px dashed #d8cdb2;
+  }
+  .member:last-child{ border-bottom:none; }
+  .member .dot{ width:10px; height:10px; border-radius:50%; background:var(--ok); flex:none; }
+  .member .mname{ flex:1; font-weight:600; color:var(--ink); font-size:15px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .member .meflag{ font-size:12px; color:var(--ink-soft); }
+  .member button{ padding:7px 12px; font-size:13px; }
+  .roster .empty{ font-size:13px; color:var(--ink-soft); padding:6px 2px; }
+
+  .lobbystate{ display:flex; align-items:center; gap:9px; font-size:12.5px; }
+  .lobbystate .dot{ width:9px; height:9px; border-radius:50%; background:var(--ok); flex:none; }
+  .lobbystate.down .dot{ background:var(--seal); }
+  .lobbystate .st{ flex:1; color:var(--ink); line-height:1.35; }
+  .lobbystate button{ padding:5px 10px; font-size:12px; }
+
+  .localcard h3{ margin:0 0 3px; font-size:13px; letter-spacing:.05em; text-transform:uppercase; color:var(--seal); }
+  .localcard .hint{ font-size:12px; color:var(--ink-soft); margin-bottom:10px; }
+  .gamelinks{ display:flex; gap:8px; }
+  .gamelinks a{
+    flex:1; text-align:center; text-decoration:none;
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    background:var(--paper-dim); color:var(--ink);
+    border-radius:8px; padding:12px 8px; font-weight:700; font-size:14.5px;
+  }
+  .gamelinks a:hover{ background:#ded4bd; }
+  .gamelinks a .ico{ width:20px; height:20px; border-radius:50%; flex:none; box-shadow:inset -2px -3px 4px rgba(0,0,0,.25); }
+  .gamelinks a .ico.b{ background:radial-gradient(circle at 34% 30%, #6a707c 0%, #23262c 45%, #0c0e12 100%); }
+  .gamelinks a .ico.w{ background:radial-gradient(circle at 34% 30%, #fff 0%, #f1ece1 55%, #c9c2b2 100%); border:1px solid #b9b2a2; }
+
+  /* game picker inside the dialog */
+  #gamePick{ display:flex; flex-direction:column; gap:6px; margin-top:4px; }
+  #gamePick button{ width:100%; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="pageTitle">Games</h1>
+  <div class="sub" id="pageSub">meet in a lobby · challenge · play</div>
+</header>
+
+<div class="wrap">
+  <div class="card namecard">
+    <label id="nameLabel" for="myName">Name</label>
+    <input id="myName" type="text" maxlength="18" autocomplete="off" placeholder="e.g. Uncle">
+  </div>
+
+  <div class="buttons" id="entryButtons">
+    <button class="btn-primary grow" id="btnCreate">Create lobby</button>
+  </div>
+  <div id="joinRow">
+    <input id="joinCode" class="codebox" maxlength="5" placeholder="e.g. KOI42" autocomplete="off">
+    <button class="btn-paper" id="btnJoin">Join lobby</button>
+  </div>
+
+  <div class="card lobbystate" id="lobbyBar" style="display:none">
+    <span class="dot"></span>
+    <span class="st" id="lobbyState"></span>
+    <button class="btn-paper" id="btnLeaveLobby">Leave</button>
+  </div>
+
+  <div class="card invite" id="inviteCard" style="display:none">
+    <div class="bigcode" id="lobbyCode"></div>
+    <div id="lobbyQR"></div>
+    <div class="hint" id="inviteHint">Friends scan the QR or enter the code here.</div>
+  </div>
+
+  <div class="card roster" id="rosterCard" style="display:none">
+    <h3 id="rosterTitle">In the lobby</h3>
+    <div id="rosterList"></div>
+  </div>
+
+  <div class="card localcard" id="localCard">
+    <h3 id="localTitle">Play on this device</h3>
+    <div class="hint" id="localHint">One screen, two players (or set up a game yourself).</div>
+    <div class="gamelinks" id="gameLinks">
+      <a href="/go/"><span class="ico b"></span>Goban</a>
+      <a href="/dama/"><span class="ico w"></span>Dáma</a>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="confirmBox" class="hidden">
+  <div class="setup-card">
+    <h2 id="dlgTitle"></h2>
+    <div class="tag" id="confirmMsg"></div>
+    <div id="gamePick" style="display:none"></div>
+    <div class="buttons" id="dlgButtons">
+      <button class="btn-primary grow" id="confirmYes">Yes</button>
+      <button class="btn-paper grow" id="confirmNo">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const $ = function(id){ return document.getElementById(id); };
+const LOBBY_PREFIX = "tabletop-lby-";
+const REQ_TIMEOUT = 45000;
+
+/* ---------- i18n ---------- */
+const LANG = (function(){
+  try{
+    const ls = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || "en"];
+    for (let i=0;i<ls.length;i++) if (String(ls[i]).toLowerCase().indexOf("sk") === 0) return "sk";
+  }catch(e){}
+  return "en";
+})();
+const I18N = {
+en: {
+  sub:"meet in a lobby · challenge · play",
+  name:"Name", namePh:"e.g. Uncle",
+  create:"Create lobby", join:"Join lobby", codePh:"e.g. KOI42", leave:"Leave",
+  inLobby:"Lobby", roster:"In the lobby", onlyYou:"Nobody else yet — share the code or QR.",
+  inviteHint:"Friends scan the QR with a phone camera, or enter the code on this page.",
+  you:"you", challenge:"Challenge",
+  connecting:"Connecting to the lobby…",
+  connected:"Connected — lobby <b>{code}</b>",
+  hosting:"Connected — lobby <b>{code}</b> (you keep it open)",
+  reconnecting:"Lobby host left — reconnecting…",
+  lost:"Lobby connection lost.",
+  lobbyGone:"Couldn't reach lobby <b>{code}</b> — it may be empty. Create it anew?",
+  enterCode:"Enter the 5-character lobby code.",
+  enterName:"Type your name first, so friends know who you are.",
+  needNet:"The lobby needs an internet connection — the networking library didn't load.",
+  pickTitle:"Challenge {name}", pickMsg:"Pick the game.",
+  goSizes:"Goban {size}×{size}", dama:"Dáma",
+  waitTitle:"Challenge sent", waiting:"Waiting for {name} to answer…",
+  incomingTitle:"A challenge!", incoming:"<b>{name}</b> challenges you: {game}.",
+  accept:"Accept", decline:"Decline", cancel:"Cancel", yes:"Yes",
+  declined:"{name} declined.", busy:"{name} is busy right now.",
+  noAnswer:"No answer from {name}.", withdrew:"{name} withdrew the challenge.",
+  left:"{name} left the lobby.", joined:"{name} joined the lobby.",
+  starting:"Starting the game…",
+  localTitle:"Play on this device", localHint:"One screen, two players (or set up a game yourself)."
+},
+sk: {
+  sub:"stretnite sa v lobby · vyzvite sa · hrajte",
+  name:"Meno", namePh:"napr. Ujo",
+  create:"Založiť lobby", join:"Pripojiť sa", codePh:"napr. KOI42", leave:"Odísť",
+  inLobby:"Lobby", roster:"V lobby", onlyYou:"Zatiaľ nikto ďalší — zdieľaj kód alebo QR.",
+  inviteHint:"Kamaráti naskenujú QR fotoaparátom alebo zadajú kód na tejto stránke.",
+  you:"ty", challenge:"Vyzvať",
+  connecting:"Pripájam sa do lobby…",
+  connected:"Pripojené — lobby <b>{code}</b>",
+  hosting:"Pripojené — lobby <b>{code}</b> (držíš ho otvorené)",
+  reconnecting:"Hostiteľ lobby odišiel — obnovujem spojenie…",
+  lost:"Spojenie s lobby sa prerušilo.",
+  lobbyGone:"Lobby <b>{code}</b> sa nedá nájsť — asi je prázdne. Založiť ho nanovo?",
+  enterCode:"Zadaj 5-znakový kód lobby.",
+  enterName:"Najprv napíš svoje meno, nech kamaráti vedia, kto si.",
+  needNet:"Lobby potrebuje internet — sieťová knižnica sa nenačítala.",
+  pickTitle:"Vyzvať: {name}", pickMsg:"Vyber hru.",
+  goSizes:"Goban {size}×{size}", dama:"Dáma",
+  waitTitle:"Výzva odoslaná", waiting:"Čakám na odpoveď od: {name}…",
+  incomingTitle:"Výzva!", incoming:"<b>{name}</b> ťa vyzýva: {game}.",
+  accept:"Prijať", decline:"Odmietnuť", cancel:"Zrušiť", yes:"Áno",
+  declined:"{name} odmieta.", busy:"{name} má práve inú výzvu.",
+  noAnswer:"{name} neodpovedá.", withdrew:"{name} stiahol výzvu.",
+  left:"{name} odišiel z lobby.", joined:"{name} prišiel do lobby.",
+  starting:"Spúšťam hru…",
+  localTitle:"Hrať na tomto zariadení", localHint:"Jedna obrazovka, dvaja hráči (alebo si nastav hru sám)."
+}};
+function t(key, vars){
+  let s = I18N[LANG][key];
+  if (s == null) s = I18N.en[key];
+  if (s == null) s = key;
+  if (vars) for (const k in vars) s = s.split("{"+k+"}").join(vars[k]);
+  return s;
+}
+function applyLang(){
+  document.documentElement.lang = LANG;
+  if (LANG === "en") return;
+  $("pageSub").textContent = t("sub");
+  $("nameLabel").textContent = t("name");
+  $("myName").placeholder = t("namePh");
+  $("btnCreate").textContent = t("create");
+  $("btnJoin").textContent = t("join");
+  $("joinCode").placeholder = t("codePh");
+  $("btnLeaveLobby").textContent = t("leave");
+  $("rosterTitle").textContent = t("roster");
+  $("inviteHint").textContent = t("inviteHint");
+  $("localTitle").textContent = t("localTitle");
+  $("localHint").textContent = t("localHint");
+}
+
+/* ---------- tiny ui helpers ---------- */
+let toastTimer = null;
+function toast(msg){
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2800);
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+let dlgYesCb = null, dlgNoCb = null;
+function showDialog(o){
+  $("dlgTitle").textContent = o.title || "";
+  $("confirmMsg").innerHTML = o.msg || "";
+  const gp = $("gamePick");
+  gp.style.display = o.pick ? "" : "none";
+  gp.innerHTML = "";
+  if (o.pick) o.pick.forEach(function(p){
+    const b = document.createElement("button");
+    b.className = "btn-primary";
+    b.textContent = p.label;
+    b.addEventListener("click", function(){ hideDialog(); p.onPick(); });
+    gp.appendChild(b);
+  });
+  const y = $("confirmYes"), n = $("confirmNo");
+  y.style.display = o.hideYes ? "none" : "";
+  n.style.display = o.hideNo ? "none" : "";
+  y.textContent = o.yes || t("yes");
+  n.textContent = o.no || t("cancel");
+  dlgYesCb = o.onYes || null;
+  dlgNoCb = o.onNo || null;
+  $("confirmBox").classList.remove("hidden");
+}
+function hideDialog(){
+  $("confirmBox").classList.add("hidden");
+  dlgYesCb = null; dlgNoCb = null;
+}
+
+/* ---------- identity ---------- */
+function lsGet(k){ try{ return localStorage.getItem(k) || ""; }catch(e){ return ""; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+const CID = (function(){
+  // per-tab: survives hopping to a game and back, but two tabs = two members
+  try{
+    let c = sessionStorage.getItem("tabletop:cid");
+    if (!c){ c = Math.random().toString(36).slice(2, 10); sessionStorage.setItem("tabletop:cid", c); }
+    return c;
+  }catch(e){ return Math.random().toString(36).slice(2, 10); }
+})();
+function myName(){ return $("myName").value.trim(); }
+
+/* ---------- lobby star networking ----------
+   The first member claims the deterministic peer ID tabletop-lby-<CODE> and
+   becomes the hub: it keeps the member list and relays challenge messages.
+   If the hub disappears, remaining members race (random backoff) to claim
+   the ID; PeerJS guarantees a single winner and everyone else reconnects. */
+const L = {
+  code: "",           // lobby code, "" = not in a lobby
+  role: "",           // host | member
+  peer: null,
+  hubConn: null,      // member: connection to the hub
+  conns: {},          // host: connId -> { conn, cid, name }
+  roster: [],         // [{cid, name}]
+  state: "off",       // off | connecting | on | reconnecting
+  leaving: false
+};
+let connSeq = 0;
+
+function makeCode(){
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i=0;i<5;i++) s += A[Math.floor(Math.random()*A.length)];
+  return s;
+}
+function setState(st){
+  L.state = st;
+  render();
+}
+function teardown(){
+  L.leaving = true;
+  try{ if (L.hubConn) L.hubConn.close(); }catch(e){}
+  Object.keys(L.conns).forEach(function(k){ try{ L.conns[k].conn.close(); }catch(e){} });
+  try{ if (L.peer) L.peer.destroy(); }catch(e){}
+  L.code = ""; L.role = ""; L.peer = null; L.hubConn = null;
+  L.conns = {}; L.roster = [];
+  clearChallenge();
+  setState("off");
+  L.leaving = false;
+}
+
+function startLobby(code, preferHost, autoRevive){
+  L.code = code;
+  L.leaving = false;
+  L.autoRevive = !!autoRevive; // returning from a game: re-open a dead lobby silently
+  joinRounds = 0;
+  lsSet("tabletop:lastlobby", code);
+  setState("connecting");
+  if (preferHost) becomeHost(); else connectAsMember();
+}
+
+/* The hub ID is a rendezvous: whoever needs the lobby and finds it dead
+   re-creates it on the spot. Member-join and host-claim alternate, each
+   guarded by a watchdog — a stale registration on the signaling server
+   (a hub tab that navigated away) answers with neither a connection nor
+   an error, so timeouts are the only reliable signal. The stale claim
+   expires within moments and one of the rounds wins. */
+let joinRounds = 0;
+function nextRound(viaHost){
+  if (L.code === "" || L.state === "off") return;
+  joinRounds++;
+  if (joinRounds > 8){ joinFailed(); return; }
+  setTimeout(function(){
+    if (L.code === "" || L.state === "off" || L.role === "host") return;
+    if (viaHost) becomeHost(); else connectAsMember();
+  }, 500 + Math.random() * 1200);
+}
+function joinFailed(){
+  const code = L.code;
+  teardown();
+  showDialog({
+    title: t("inLobby"),
+    msg: t("lobbyGone", { code: code }),
+    onYes: function(){ startLobby(code, true); }
+  });
+}
+
+/* ----- hub side ----- */
+function becomeHost(){
+  if (L.code === "" || L.state === "off") return;
+  try{ if (L.peer) L.peer.destroy(); }catch(e){}
+  const p = new Peer(LOBBY_PREFIX + L.code, { debug: 0 });
+  L.peer = p;
+  const guard = setTimeout(function(){
+    if (L.peer !== p || L.role === "host") return;
+    nextRound(true); // broker never answered
+  }, 9000);
+  p.on("open", function(){
+    if (L.peer !== p) return;
+    clearTimeout(guard);
+    joinRounds = 0;
+    L.role = "host";
+    L.conns = {};
+    rebuildRoster();
+    setState("on");
+  });
+  p.on("connection", function(c){
+    if (L.peer !== p || L.role !== "host") return;
+    const id = "c" + (++connSeq);
+    c.on("data", function(m){ hubOnData(id, c, m); });
+    c.on("close", function(){
+      if (L.conns[id]){
+        const name = L.conns[id].name;
+        delete L.conns[id];
+        rebuildRoster();
+        broadcastRoster();
+        if (name) toast(t("left", { name: name }));
+      }
+    });
+    c.on("error", function(){});
+  });
+  p.on("error", function(err){
+    if (L.peer !== p) return;
+    clearTimeout(guard);
+    if (err && err.type === "unavailable-id"){
+      // someone holds the ID — a live hub or a stale claim; try joining it
+      // (the member-side watchdog covers the stale case)
+      connectAsMember();
+    } else if (err && err.type !== "peer-unavailable"){
+      nextRound(true);
+    }
+  });
+  p.on("disconnected", function(){
+    try{ if (L.peer && !L.peer.destroyed) L.peer.reconnect(); }catch(e){}
+  });
+}
+function hubOnData(id, c, m){
+  if (!m || typeof m !== "object") return;
+  if (m.t === "hello" || m.t === "rename"){
+    // dedupe: the same person reconnecting replaces their old entry
+    if (m.cid){
+      Object.keys(L.conns).forEach(function(k){
+        if (k !== id && L.conns[k].cid === m.cid){ try{ L.conns[k].conn.close(); }catch(e){} delete L.conns[k]; }
+      });
+    }
+    const isNew = m.t === "hello" && !L.conns[id];
+    L.conns[id] = { conn: c, cid: m.cid || id, name: String(m.name || "").slice(0, 18) };
+    rebuildRoster();
+    broadcastRoster();
+    if (isNew && L.conns[id].name) toast(t("joined", { name: L.conns[id].name }));
+  } else if (m.t === "to" && m.target){
+    if (m.target === CID){
+      onRelayed(m.source || senderCid(id), m.m);
+    } else {
+      const entry = Object.keys(L.conns).map(function(k){ return L.conns[k]; })
+        .find(function(e){ return e.cid === m.target; });
+      if (entry) try{ entry.conn.send({ t:"from", source: senderCid(id), m: m.m }); }catch(e){}
+    }
+  }
+}
+function senderCid(id){ return L.conns[id] ? L.conns[id].cid : id; }
+function rebuildRoster(){
+  const list = [{ cid: CID, name: myName() }];
+  Object.keys(L.conns).forEach(function(k){ list.push({ cid: L.conns[k].cid, name: L.conns[k].name }); });
+  L.roster = list;
+  render();
+}
+function broadcastRoster(){
+  const msg = { t:"roster", list: L.roster };
+  Object.keys(L.conns).forEach(function(k){ try{ L.conns[k].conn.send(msg); }catch(e){} });
+}
+
+/* ----- member side ----- */
+function connectAsMember(){
+  if (L.code === "" || L.state === "off") return;
+  try{ if (L.peer) L.peer.destroy(); }catch(e){}
+  const p = new Peer({ debug: 0 });
+  L.peer = p;
+  let opened = false;
+  const guard = setTimeout(function(){
+    if (L.peer !== p || opened) return;
+    // the hub answers with neither a connection nor an error — a stale
+    // registration; try to take the ID over (it frees once it expires)
+    nextRound(true);
+  }, 7000);
+  p.on("open", function(){
+    if (L.peer !== p) return;
+    const c = p.connect(LOBBY_PREFIX + L.code, { reliable: true });
+    L.hubConn = c;
+    c.on("open", function(){
+      opened = true;
+      clearTimeout(guard);
+      joinRounds = 0;
+      L.role = "member";
+      setState("on");
+      c.send({ t:"hello", cid: CID, name: myName() });
+    });
+    c.on("data", function(m){ memberOnData(m); });
+    c.on("close", function(){
+      if (L.hubConn !== c || L.leaving) return;
+      hubLost();
+    });
+    c.on("error", function(){});
+  });
+  p.on("error", function(err){
+    if (L.peer !== p) return;
+    if (err && err.type === "peer-unavailable"){
+      clearTimeout(guard);
+      if (L.autoRevive || L.state === "reconnecting"){
+        becomeHost(); // nobody hosts it — re-create the lobby dynamically
+      } else if (joinRounds < 2){
+        nextRound(false); // manual join: the host may still be setting up
+      } else {
+        joinFailed(); // manual join to a lobby that really isn't there
+      }
+    }
+  });
+}
+function memberOnData(m){
+  if (!m || typeof m !== "object") return;
+  if (m.t === "roster"){
+    L.roster = Array.isArray(m.list) ? m.list : [];
+    render();
+  } else if (m.t === "from"){
+    onRelayed(m.source, m.m);
+  }
+}
+function hubLost(){
+  // the hub vanished: everyone races (random backoff) to become the new hub
+  L.hubConn = null;
+  clearChallenge();
+  joinRounds = 0;
+  L.autoRevive = true; // once in, always find the way back
+  setState("reconnecting");
+  setTimeout(function(){
+    if (L.state !== "reconnecting") return;
+    becomeHost();
+  }, 300 + Math.random() * 1700);
+}
+
+/* ----- send to a specific member (relay via hub; hub sends directly) ----- */
+function sendTo(cid, payload){
+  if (L.role === "host"){
+    const entry = Object.keys(L.conns).map(function(k){ return L.conns[k]; })
+      .find(function(e){ return e.cid === cid; });
+    if (entry) try{ entry.conn.send({ t:"from", source: CID, m: payload }); }catch(e){}
+  } else if (L.hubConn){
+    try{ L.hubConn.send({ t:"to", target: cid, m: payload }); }catch(e){}
+  }
+}
+function nameOf(cid){
+  const e = L.roster.find(function(x){ return x.cid === cid; });
+  return (e && e.name) || "…";
+}
+
+/* ---------- challenges (same req/res shape as the games) ---------- */
+let outCh = null;   // { id, target, timer }
+let inCh = null;    // { id, from }
+let chSeq = 0;
+
+function clearChallenge(){
+  if (outCh){ clearTimeout(outCh.timer); outCh = null; hideDialog(); }
+  if (inCh){ inCh = null; hideDialog(); }
+}
+function gameLabel(game, size){
+  return game === "go" ? t("goSizes", { size: size }) : t("dama");
+}
+function pickGame(cid){
+  showDialog({
+    title: t("pickTitle", { name: nameOf(cid) }),
+    msg: t("pickMsg"),
+    hideYes: true,
+    pick: [
+      { label: gameLabel("go", 9),  onPick: function(){ sendChallenge(cid, "go", 9); } },
+      { label: gameLabel("go", 13), onPick: function(){ sendChallenge(cid, "go", 13); } },
+      { label: gameLabel("go", 19), onPick: function(){ sendChallenge(cid, "go", 19); } },
+      { label: gameLabel("dama", 0), onPick: function(){ sendChallenge(cid, "dama", 0); } }
+    ]
+  });
+}
+function sendChallenge(cid, game, size){
+  if (outCh || inCh) return;
+  const id = CID + "-" + (++chSeq);
+  const code = makeCode();
+  outCh = { id: id, target: cid, game: game, size: size, code: code };
+  sendTo(cid, { k:"challenge", id: id, game: game, size: size, code: code });
+  outCh.timer = setTimeout(function(){
+    if (!outCh) return;
+    sendTo(cid, { k:"cancel", id: outCh.id });
+    const name = nameOf(cid);
+    outCh = null;
+    hideDialog();
+    toast(t("noAnswer", { name: name }));
+  }, REQ_TIMEOUT);
+  showDialog({
+    title: t("waitTitle"),
+    msg: '<span class="waitspin"></span>' + escapeHtml(t("waiting", { name: nameOf(cid) })),
+    hideYes: true,
+    no: t("cancel"),
+    onNo: function(){
+      if (!outCh) return;
+      clearTimeout(outCh.timer);
+      sendTo(outCh.target, { k:"cancel", id: outCh.id });
+      outCh = null;
+    }
+  });
+}
+function onRelayed(source, m){
+  if (!m || typeof m !== "object") return;
+  if (m.k === "challenge"){
+    if (outCh || inCh){
+      sendTo(source, { k:"res", id: m.id, accept: false, reason: "busy" });
+      return;
+    }
+    inCh = { id: m.id, from: source, game: m.game, size: m.size, code: m.code };
+    showDialog({
+      title: t("incomingTitle"),
+      msg: t("incoming", { name: escapeHtml(nameOf(source)), game: gameLabel(m.game, m.size) }),
+      yes: t("accept"),
+      no: t("decline"),
+      onYes: function(){
+        if (!inCh) return;
+        const ch = inCh; inCh = null;
+        sendTo(ch.from, { k:"res", id: ch.id, accept: true });
+        toast(t("starting"));
+        // give the challenger a head start to claim the game host ID
+        setTimeout(function(){ goToGame(ch.game, ch.code, 0, false); }, 1200);
+      },
+      onNo: function(){
+        if (!inCh) return;
+        const ch = inCh; inCh = null;
+        sendTo(ch.from, { k:"res", id: ch.id, accept: false });
+      }
+    });
+  } else if (m.k === "res"){
+    if (!outCh || outCh.id !== m.id) return;
+    const ch = outCh;
+    clearTimeout(ch.timer);
+    outCh = null;
+    hideDialog();
+    if (!m.accept){
+      toast(m.reason === "busy" ? t("busy", { name: nameOf(ch.target) }) : t("declined", { name: nameOf(ch.target) }));
+      return;
+    }
+    toast(t("starting"));
+    goToGame(ch.game, ch.code, ch.size, true);
+  } else if (m.k === "cancel"){
+    if (inCh && inCh.id === m.id){
+      const from = inCh.from;
+      inCh = null;
+      hideDialog();
+      toast(t("withdrew", { name: nameOf(from) }));
+    }
+  }
+}
+function goToGame(game, code, size, asHost){
+  const q = asHost
+    ? "?host=" + code + (game === "go" && size ? "&size=" + size : "") + "&lobby=" + L.code
+    : "?join=" + code + "&lobby=" + L.code;
+  // deregister cleanly so the hub ID frees for the post-game revive,
+  // and replace, not push: swiping back must not resurrect a dead page
+  L.leaving = true;
+  try{ if (L.peer) L.peer.destroy(); }catch(e){}
+  location.replace("/" + game + "/" + q);
+}
+
+/* ---------- render ---------- */
+function lobbyLink(code){
+  return location.origin + location.pathname + "?join=" + code;
+}
+function render(){
+  const inLobby = L.state !== "off";
+  $("entryButtons").style.display = inLobby ? "none" : "flex";
+  $("joinRow").style.display = inLobby ? "none" : "flex";
+  $("lobbyBar").style.display = inLobby ? "flex" : "none";
+  $("inviteCard").style.display = inLobby ? "block" : "none";
+  $("rosterCard").style.display = inLobby ? "block" : "none";
+  if (!inLobby) return;
+
+  $("lobbyBar").classList.toggle("down", L.state !== "on");
+  $("lobbyState").innerHTML =
+    L.state === "connecting" ? t("connecting") :
+    L.state === "reconnecting" ? t("reconnecting") :
+    t(L.role === "host" ? "hosting" : "connected", { code: L.code });
+
+  if ($("lobbyCode").textContent !== L.code){
+    $("lobbyCode").textContent = L.code;
+    const qr = $("lobbyQR");
+    qr.innerHTML = "";
+    if (typeof QRCode !== "undefined"){
+      try{
+        new QRCode(qr, { text: lobbyLink(L.code), width: 132, height: 132,
+          colorDark: "#1c1a16", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+      }catch(e){}
+    }
+  }
+
+  const list = $("rosterList");
+  list.innerHTML = "";
+  const others = L.roster.filter(function(m){ return m.cid !== CID; });
+  const mine = L.roster.find(function(m){ return m.cid === CID; });
+  const all = (mine ? [mine] : []).concat(others);
+  if (!others.length){
+    const d = document.createElement("div");
+    d.className = "empty";
+    d.textContent = t("onlyYou");
+    list.appendChild(d);
+  }
+  all.forEach(function(m){
+    const row = document.createElement("div");
+    row.className = "member";
+    const dot = document.createElement("span"); dot.className = "dot";
+    const nm = document.createElement("span"); nm.className = "mname";
+    nm.textContent = m.name || "…";
+    row.appendChild(dot); row.appendChild(nm);
+    if (m.cid === CID){
+      const me = document.createElement("span"); me.className = "meflag"; me.textContent = "← " + t("you");
+      row.appendChild(me);
+    } else {
+      const b = document.createElement("button");
+      b.className = "btn-primary";
+      b.textContent = t("challenge");
+      b.addEventListener("click", function(){ pickGame(m.cid); });
+      row.appendChild(b);
+    }
+    list.appendChild(row);
+  });
+}
+
+/* ---------- wiring / boot ---------- */
+function requireName(){
+  if (myName()) return true;
+  toast(t("enterName"));
+  $("myName").focus();
+  return false;
+}
+function tabName(){
+  try{ return sessionStorage.getItem("tabletop:name") || ""; }catch(e){ return ""; }
+}
+function wire(){
+  const initial = tabName() || lsGet("tabletop:name");
+  $("myName").value = initial;
+  if (initial){
+    try{ sessionStorage.setItem("tabletop:name", initial); }catch(e){}
+    lsSet("tabletop:name", initial);
+  }
+  $("myName").addEventListener("input", function(){
+    try{ sessionStorage.setItem("tabletop:name", myName()); }catch(e){}
+    lsSet("tabletop:name", myName());
+    if (L.state === "on"){
+      if (L.role === "host"){ rebuildRoster(); broadcastRoster(); }
+      else if (L.hubConn){ try{ L.hubConn.send({ t:"rename", cid: CID, name: myName() }); }catch(e){} }
+    }
+  });
+  $("btnCreate").addEventListener("click", function(){
+    if (typeof Peer === "undefined"){ toast(t("needNet")); return; }
+    if (!requireName()) return;
+    startLobby(makeCode(), true);
+  });
+  $("btnJoin").addEventListener("click", function(){
+    if (typeof Peer === "undefined"){ toast(t("needNet")); return; }
+    if (!requireName()) return;
+    const code = $("joinCode").value.trim().toUpperCase();
+    if (code.length !== 5){ toast(t("enterCode")); return; }
+    startLobby(code, false);
+  });
+  $("joinCode").addEventListener("input", function(){ this.value = this.value.toUpperCase(); });
+  $("btnLeaveLobby").addEventListener("click", function(){
+    lsSet("tabletop:lastlobby", "");
+    teardown();
+  });
+  $("confirmYes").addEventListener("click", function(){
+    const cb = dlgYesCb; hideDialog();
+    if (cb) cb();
+  });
+  $("confirmNo").addEventListener("click", function(){
+    const cb = dlgNoCb; hideDialog();
+    if (cb) cb();
+  });
+}
+function registerSW(){
+  if (!("serviceWorker" in navigator)) return;
+  if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") return;
+  try{
+    if (navigator.serviceWorker.getRegistrations){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(r){
+          if (r.scope !== location.origin + "/") r.unregister();
+        });
+      }).catch(function(){});
+    }
+    navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(function(reg){
+      function check(){ try{ reg.update(); }catch(e){} }
+      document.addEventListener("visibilitychange", function(){
+        if (document.visibilityState === "visible") check();
+      });
+      setInterval(check, 60 * 60 * 1000);
+    }).catch(function(){});
+    let hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function(){
+      if (!hadController){ hadController = true; return; }
+      if (reloaded || L.state === "on") return;
+      reloaded = true;
+      location.reload();
+    });
+  }catch(e){}
+}
+
+window.addEventListener("pageshow", function(ev){
+  if (ev.persisted) location.reload(); // bfcache restore: connections are dead
+});
+window.addEventListener("pagehide", function(ev){
+  // real unload: deregister so the hub ID doesn't linger as a zombie
+  if (!ev.persisted){ try{ if (L.peer) L.peer.destroy(); }catch(e){} }
+});
+
+(function boot(){
+  applyLang();
+  wire();
+  render();
+  let joinCode = "";
+  try{
+    const q = new URLSearchParams(location.search);
+    joinCode = String(q.get("join") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+    if (q.toString()) history.replaceState(null, "", location.pathname);
+  }catch(e){}
+  try{ sessionStorage.removeItem("tabletop:lobby"); }catch(e){}
+  if (joinCode.length === 5 && typeof Peer !== "undefined"){
+    // scanned a lobby QR or came back from a game — go straight in
+    startLobby(joinCode, false, true);
+  } else if (!joinCode && typeof Peer !== "undefined"){
+    // a bare launch (PWA icon, swipe back) returns to the last lobby
+    const last = lsGet("tabletop:lastlobby");
+    if (last.length === 5) startLobby(last, false, true);
+  }
+  registerSW();
+
+  if (location.hostname === "127.0.0.1" || location.hostname === "localhost"){
+    window.__lobby = { L: L, roster: function(){ return L.roster; } };
+  }
+})();
+
+})();
+</script>
+</body>
+</html>

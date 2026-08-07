@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Dáma — Checkers</title>
+<meta name="theme-color" content="#2b3750">
+<meta name="color-scheme" content="dark">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dáma">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="/shared/tabletop.css">
+<script src="peerjs.min.js"></script>
+<script src="qrcode.min.js"></script>
+<script src="/shared/tabletop.js"></script>
+<style>
+  :root{
+    --sq-light:#e8d8b7;
+    --sq-dark:#b07c42;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><a href="/games/">Dáma</a></h1>
+  <div class="sub">two players · same device or online</div>
+</header>
+
+<div class="table">
+  <div class="boardwrap">
+    <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+
+  <aside class="panel">
+    <div class="card player" id="cardW">
+      <div class="stone-icon white"></div>
+      <input id="nameW" type="text" placeholder="White player" maxlength="18" autocomplete="off">
+      <div class="turn-pill">To play</div>
+      <div class="meta"><span>Pieces: <b id="pcsW">12</b></span><span>Wins: <b id="winW">0</b></span><span id="youW" style="display:none">← you</span></div>
+    </div>
+
+    <div class="card player" id="cardB">
+      <div class="stone-icon black"></div>
+      <input id="nameB" type="text" placeholder="Black player" maxlength="18" autocomplete="off">
+      <div class="turn-pill">To play</div>
+      <div class="meta"><span>Pieces: <b id="pcsB">12</b></span><span>Wins: <b id="winB">0</b></span><span id="youB" style="display:none">← you</span></div>
+    </div>
+
+    <div class="card netbar" id="netbar" style="display:none">
+      <span class="dot"></span>
+      <span class="nettext" id="netText"></span>
+      <button class="btn-paper" id="btnLeave">Leave</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="buttons" id="playButtons">
+      <button class="btn-ghost grow" id="btnUndo">Undo</button>
+      <button class="btn-ghost grow" id="btnRedo">Redo</button>
+      <button class="btn-ghost grow" id="btnResign">Resign</button>
+      <button class="btn-ghost grow" id="btnNew">New game</button>
+    </div>
+
+    <div class="buttons" id="overButtons" style="display:none"></div>
+
+    <div class="winner-line" id="winnerLine" style="display:none"></div>
+
+    <details class="rules">
+      <summary>Quick rules</summary>
+      <ul id="rulesList">
+        <li>White moves first. Men slide one square diagonally forward on the dark squares.</li>
+        <li>Capturing is mandatory: jump over an adjacent enemy piece into the empty square behind it. Keep jumping with the same piece as long as you can.</li>
+        <li>A man that ends its move on the far row becomes a king (dáma). Kings fly: they move and capture any distance along a diagonal.</li>
+        <li>You win by capturing or blocking all enemy pieces.</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<div id="toast"></div>
+
+<div id="setup" class="hidden">
+  <div class="setup-card">
+    <h2>New game</h2>
+    <div class="tag">Take your seats — white starts.</div>
+
+    <div class="field">
+      <label>How are you playing?</label>
+      <div class="seg" id="modeSeg">
+        <button data-mode="local" class="sel">Same device</button>
+        <button data-mode="host">Host online</button>
+        <button data-mode="join">Join online</button>
+      </div>
+    </div>
+
+    <div id="fieldsLocal">
+      <div class="field">
+        <label>White (plays first)</label>
+        <div class="namerow"><div class="stone-icon white"></div><input type="text" id="setupNameW" placeholder="e.g. Uncle" maxlength="18"></div>
+      </div>
+      <div class="field">
+        <label>Black</label>
+        <div class="namerow"><div class="stone-icon black"></div><input type="text" id="setupNameB" placeholder="e.g. Nephew" maxlength="18"></div>
+      </div>
+    </div>
+
+    <div id="fieldsOnline" style="display:none">
+      <div class="field">
+        <label>Your name</label>
+        <input type="text" id="setupMyName" placeholder="e.g. Uncle" maxlength="18">
+      </div>
+    </div>
+
+    <div class="field" id="fieldJoin" style="display:none">
+      <label>Game code</label>
+      <input type="text" id="setupCode" class="codebox" placeholder="e.g. KOI42" maxlength="5" autocomplete="off">
+    </div>
+
+    <div class="field" id="fieldUndo">
+      <label>Undo</label>
+      <div class="seg" id="undoSeg">
+        <button data-undo="1" class="sel">Allowed</button>
+        <button data-undo="0">Not allowed</button>
+      </div>
+    </div>
+
+    <div class="setup-note" id="setupNote"></div>
+    <button class="btn-primary" id="btnStart" style="width:100%">Start game</button>
+  </div>
+</div>
+
+<div id="waitBox" class="hidden">
+  <div class="setup-card">
+    <h2 id="waitTitle">Game code</h2>
+    <div class="bigcode" id="waitCode"></div>
+    <div id="waitQR"></div>
+    <div class="tag" id="waitMsg"></div>
+    <button class="btn-primary" id="waitRetry" style="width:100%; margin-bottom:8px; display:none">Try again</button>
+    <button class="btn-paper" id="waitCancel" style="width:100%">Cancel</button>
+  </div>
+</div>
+
+<div id="confirmBox" class="hidden">
+  <div class="setup-card">
+    <h2 id="dlgTitle">Are you sure?</h2>
+    <div class="tag" id="confirmMsg"></div>
+    <div class="buttons">
+      <button class="btn-primary grow" id="confirmYes">Yes</button>
+      <button class="btn-paper grow" id="confirmNo">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const $ = function(id){ return document.getElementById(id); };
+const WHITE_P = 1, BLACK_P = 2; // cells: 0 empty, 1 white man, 2 black man, 3 white king, 4 black king
+
+/* ---------- state ---------- */
+let S = null;
+let sel = null; // selected square
+
+function freshState(){
+  const b = new Array(64).fill(0);
+  for (let r=0;r<3;r++) for (let c=0;c<8;c++) if ((r+c)%2===1) b[r*8+c] = 2;
+  for (let r=5;r<8;r++) for (let c=0;c<8;c++) if ((r+c)%2===1) b[r*8+c] = 1;
+  return {
+    board:b, turn:WHITE_P, chain:null,
+    phase:"play", lastFrom:null, lastTo:null, moveNum:0,
+    result:null, history:[], redo:[]
+  };
+}
+
+/* ---------- engine (Slovak dáma: mandatory chain captures, flying kings) ---------- */
+function rcOf(i){ return [Math.floor(i/8), i%8]; }
+function at(r,c){ return r*8+c; }
+function inB(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
+function ownerOf(v){ return v===0 ? 0 : ((v===1||v===3) ? 1 : 2); }
+function isKing(v){ return v>=3; }
+const DIAG = [[-1,-1],[-1,1],[1,-1],[1,1]];
+
+function pieceCaptures(b, i){
+  const v = b[i], c = ownerOf(v), out = [];
+  const p = rcOf(i), r = p[0], cc = p[1];
+  if (!isKing(v)){
+    const fwd = c===1 ? -1 : 1;
+    for (let k=0;k<2;k++){
+      const dc = k===0 ? -1 : 1;
+      const mr = r+fwd, mc = cc+dc, lr = r+2*fwd, lc = cc+2*dc;
+      if (inB(lr,lc) && b[at(mr,mc)] !== 0 && ownerOf(b[at(mr,mc)]) === 3-c && b[at(lr,lc)] === 0){
+        out.push({ from:i, to:at(lr,lc), cap:at(mr,mc) });
+      }
+    }
+  } else {
+    for (let d=0; d<4; d++){
+      const dr = DIAG[d][0], dc = DIAG[d][1];
+      let rr = r+dr, ccc = cc+dc;
+      while (inB(rr,ccc) && b[at(rr,ccc)] === 0){ rr += dr; ccc += dc; }
+      if (!inB(rr,ccc) || ownerOf(b[at(rr,ccc)]) !== 3-c) continue;
+      const capI = at(rr,ccc);
+      let lr = rr+dr, lc = ccc+dc;
+      while (inB(lr,lc) && b[at(lr,lc)] === 0){
+        out.push({ from:i, to:at(lr,lc), cap:capI });
+        lr += dr; lc += dc;
+      }
+    }
+  }
+  return out;
+}
+function pieceSlides(b, i){
+  const v = b[i], c = ownerOf(v), out = [];
+  const p = rcOf(i), r = p[0], cc = p[1];
+  if (!isKing(v)){
+    const fwd = c===1 ? -1 : 1;
+    for (let k=0;k<2;k++){
+      const dc = k===0 ? -1 : 1;
+      const nr = r+fwd, nc = cc+dc;
+      if (inB(nr,nc) && b[at(nr,nc)] === 0) out.push({ from:i, to:at(nr,nc), cap:-1 });
+    }
+  } else {
+    for (let d=0; d<4; d++){
+      const dr = DIAG[d][0], dc = DIAG[d][1];
+      let rr = r+dr, ccc = cc+dc;
+      while (inB(rr,ccc) && b[at(rr,ccc)] === 0){
+        out.push({ from:i, to:at(rr,ccc), cap:-1 });
+        rr += dr; ccc += dc;
+      }
+    }
+  }
+  return out;
+}
+function legalMoves(st){
+  const b = st.board, c = st.turn;
+  if (st.chain != null) return pieceCaptures(b, st.chain); // mid-chain: must continue with that piece
+  let caps = [];
+  for (let i=0;i<64;i++) if (ownerOf(b[i]) === c) caps = caps.concat(pieceCaptures(b, i));
+  if (caps.length) return caps; // capturing is mandatory
+  let out = [];
+  for (let i=0;i<64;i++) if (ownerOf(b[i]) === c) out = out.concat(pieceSlides(b, i));
+  return out;
+}
+function applyMove(st, m){
+  const b = st.board, v = b[m.from], c = ownerOf(v);
+  b[m.from] = 0;
+  const tr = rcOf(m.to)[0];
+  let nv = v, promoted = false;
+  if (!isKing(v) && ((c===1 && tr===0) || (c===2 && tr===7))){ nv = c===1 ? 3 : 4; promoted = true; }
+  b[m.to] = nv;
+  if (m.cap >= 0) b[m.cap] = 0;
+  st.lastFrom = m.from; st.lastTo = m.to;
+  let chained = false;
+  if (m.cap >= 0 && !promoted && pieceCaptures(b, m.to).length){
+    st.chain = m.to;    // same player continues jumping with this piece
+    chained = true;
+  }
+  if (!chained){
+    st.chain = null;
+    st.turn = 3 - st.turn;
+    st.moveNum++;
+    if (!legalMoves(st).length){
+      st.phase = "over";
+      st.result = { winner: 3 - st.turn, reason: "blocked" }; // no pieces or no moves
+      shell.tally[3 - st.turn]++;
+    }
+  }
+  return { chained: chained };
+}
+function countPieces(b, c){
+  let n = 0;
+  for (let i=0;i<64;i++) if (ownerOf(b[i]) === c) n++;
+  return n;
+}
+
+/* ---------- undo / redo ---------- */
+function serializeCore(){
+  return JSON.stringify({
+    board:S.board, turn:S.turn, chain:S.chain, phase:S.phase,
+    lastFrom:S.lastFrom, lastTo:S.lastTo, moveNum:S.moveNum, result:S.result
+  });
+}
+function restoreCore(json){
+  const snap = JSON.parse(json);
+  S.board = snap.board; S.turn = snap.turn; S.chain = snap.chain;
+  S.phase = snap.phase; S.lastFrom = snap.lastFrom; S.lastTo = snap.lastTo;
+  S.moveNum = snap.moveNum; S.result = snap.result;
+  sel = null;
+}
+function snapshot(){
+  S.history.push(serializeCore());
+  if (S.history.length > 400) S.history.shift();
+  S.redo = [];
+}
+function localUndo(){
+  if (!S.history.length || S.phase === "over") return;
+  S.redo.push(serializeCore());
+  if (S.redo.length > 400) S.redo.shift();
+  restoreCore(S.history.pop());
+  shell.persist(); renderAll();
+}
+function localRedo(){
+  if (!S.redo || !S.redo.length || S.phase === "over") return;
+  S.history.push(serializeCore());
+  if (S.history.length > 400) S.history.shift();
+  restoreCore(S.redo.pop());
+  shell.persist(); renderAll();
+}
+/* rewind all segments of the last completed turn (for online takebacks) */
+function undoTurn(){
+  const target = S.moveNum - 1;
+  while (S.history.length){
+    restoreCore(S.history.pop());
+    if (S.moveNum === target && S.chain == null) break;
+  }
+  S.redo = [];
+  shell.persist(); renderAll();
+}
+
+/* ---------- moves ---------- */
+function doMove(m, remote){
+  snapshot();
+  const mover = ownerOf(S.board[m.from]);
+  const res = applyMove(S, m);
+  sel = res.chained ? m.to : null;
+  shell.persist();
+  renderAll({ placed:m.to, captured:(m.cap >= 0 ? [m.cap] : []), capturedOwner: 3 - mover });
+  shell.sound(m.cap >= 0 ? "capture" : "place");
+  if (!remote) shell.buzz(m.cap >= 0 ? 20 : 8);
+  if (!remote && shell.isLive()) shell.sendMsg({ t:"move", from:m.from, to:m.to });
+}
+function clickSquare(i){
+  if (S.phase !== "play") return;
+  if (shell.isOnline()){
+    if (!shell.net.connected){ shell.toast(shell.t("notConnected")); return; }
+    if (S.turn !== shell.net.myColor){ shell.toast(shell.t("turnOf", { name: shell.pname(S.turn) })); return; }
+  }
+  const moves = legalMoves(S);
+  if (sel != null){
+    const m = moves.find(function(x){ return x.from === sel && x.to === i; });
+    if (m){ doMove(m, false); return; }
+  }
+  if (S.chain != null) return; // mid-chain: only continuation squares are valid
+  if (ownerOf(S.board[i]) === S.turn){
+    if (moves.some(function(x){ return x.from === i; })){
+      sel = (sel === i) ? null : i;
+      renderAll();
+    } else if (moves.length && moves[0].cap >= 0){
+      shell.toast(shell.t("mustCapture"));
+    }
+    return;
+  }
+  if (sel != null){ sel = null; renderAll(); }
+}
+
+/* ---------- board rendering ---------- */
+const U = 60;
+/* Board is flipped for the online Black player so their pieces start at the bottom. */
+function flipped(){ return shell.isOnline() && shell.net.myColor === BLACK_P; }
+function dispRC(i){
+  const p = rcOf(i);
+  return flipped() ? [7 - p[0], 7 - p[1]] : p;
+}
+function xyOf(i){
+  const d = dispRC(i);
+  return [ d[1]*U + U/2, d[0]*U + U/2 ];
+}
+
+function renderBoard(fx){
+  const svg = $("board");
+  const W = 8 * U;
+  const moves = (S.phase === "play") ? legalMoves(S) : [];
+  const myTurn = !shell.isOnline() || (shell.net.connected && S.turn === shell.net.myColor);
+  const targets = (sel != null && myTurn) ? moves.filter(function(m){ return m.from === sel; }) : [];
+  const victims = {};
+  targets.forEach(function(m){ if (m.cap >= 0) victims[m.cap] = true; });
+  const movable = {};
+  if (S.phase === "play" && myTurn){
+    moves.forEach(function(m){ movable[m.from] = true; });
+  }
+  let parts = [];
+
+  parts.push('<defs>' +
+    '<radialGradient id="gB" cx="0.35" cy="0.3" r="0.9">' +
+      '<stop offset="0" stop-color="#6d7480"/><stop offset="0.45" stop-color="#23262c"/><stop offset="1" stop-color="#0b0d11"/></radialGradient>' +
+    '<radialGradient id="gW" cx="0.35" cy="0.3" r="0.9">' +
+      '<stop offset="0" stop-color="#ffffff"/><stop offset="0.6" stop-color="#f0ebe0"/><stop offset="1" stop-color="#c6bfae"/></radialGradient>' +
+    '<filter id="sh" x="-30%" y="-30%" width="160%" height="160%">' +
+      '<feDropShadow dx="0.8" dy="1.6" stdDeviation="1.1" flood-color="#000" flood-opacity="0.4"/></filter>' +
+  '</defs>');
+
+  for (let i=0;i<64;i++){
+    const d = dispRC(i);
+    const dark = (rcOf(i)[0] + rcOf(i)[1]) % 2 === 1;
+    parts.push('<rect x="'+(d[1]*U)+'" y="'+(d[0]*U)+'" width="'+U+'" height="'+U+'" fill="'+(dark ? "var(--sq-dark, #b07c42)" : "var(--sq-light, #e8d8b7)")+'"/>');
+  }
+  parts.push('<rect x="1.5" y="1.5" width="'+(W-3)+'" height="'+(W-3)+'" fill="none" stroke="#5d431d" stroke-width="3" rx="4"/>');
+
+  // last move markers
+  if (S.lastFrom != null && S.phase === "play"){
+    [S.lastFrom, S.lastTo].forEach(function(i){
+      if (i == null) return;
+      const d = dispRC(i);
+      parts.push('<rect x="'+(d[1]*U+2)+'" y="'+(d[0]*U+2)+'" width="'+(U-4)+'" height="'+(U-4)+'" fill="none" stroke="#f5efe2" stroke-opacity="0.5" stroke-width="2" rx="4"/>');
+    });
+  }
+
+  // destination squares of the selected piece light up
+  targets.forEach(function(m){
+    const d = dispRC(m.to);
+    parts.push('<rect x="'+(d[1]*U+2)+'" y="'+(d[0]*U+2)+'" width="'+(U-4)+'" height="'+(U-4)+'" fill="#b3402e" fill-opacity="0.30" stroke="#b3402e" stroke-opacity="0.75" stroke-width="2" rx="6"/>');
+  });
+
+  const R = U * 0.38;
+  for (let i=0;i<64;i++){
+    const v = S.board[i];
+    if (v === 0) continue;
+    const p = xyOf(i);
+    const white = ownerOf(v) === 1;
+    const justMoved = fx && fx.placed === i;
+    parts.push('<g>' +
+      '<circle class="'+(justMoved ? "drop-in" : "")+'" cx="'+p[0]+'" cy="'+p[1]+'" r="'+R+'" fill="url(#'+(white?'gW':'gB')+')" filter="url(#sh)"/>' +
+      '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(R*0.62)+'" fill="none" stroke="'+(white?'#b9b2a2':'#4a5160')+'" stroke-width="1.6" stroke-opacity="0.7"/>' +
+      (isKing(v) ? '<path d="M '+(p[0]-9)+' '+(p[1]+4)+' l 3.5 -8 l 5.5 5 l 0 -8 l 0 8 l 5.5 -5 l 3.5 8 z" transform="translate(0,-1)" fill="#e8c34a" stroke="#8a6d13" stroke-width="1" stroke-linejoin="round"/>' : '') +
+      '</g>');
+    if (victims[i]){
+      // this piece would be captured — mark it
+      parts.push('<line x1="'+(p[0]-9)+'" y1="'+(p[1]-9)+'" x2="'+(p[0]+9)+'" y2="'+(p[1]+9)+'" stroke="#b3402e" stroke-width="3.5" stroke-linecap="round"/>' +
+                 '<line x1="'+(p[0]-9)+'" y1="'+(p[1]+9)+'" x2="'+(p[0]+9)+'" y2="'+(p[1]-9)+'" stroke="#b3402e" stroke-width="3.5" stroke-linecap="round"/>');
+    }
+    if (i === sel){
+      parts.push('<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(R+3)+'" fill="none" stroke="#f5efe2" stroke-width="2.5"/>' +
+                 '<circle class="pulse-ring" cx="'+p[0]+'" cy="'+p[1]+'" r="'+(R+7)+'" fill="none" stroke="#b3402e" stroke-width="3"/>');
+    } else if (movable[i] && sel == null){
+      parts.push('<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(R+3.5)+'" fill="none" stroke="#b3402e" stroke-opacity="0.55" stroke-width="2.4" stroke-dasharray="5 5"/>');
+    }
+  }
+
+  if (fx && fx.captured && fx.captured.length){
+    fx.captured.forEach(function(i){
+      const p = xyOf(i);
+      parts.push('<circle class="cap-fade" cx="'+p[0]+'" cy="'+p[1]+'" r="'+R+'" fill="url(#'+(fx.capturedOwner === 1 ? 'gW' : 'gB')+')" style="transform-origin:'+p[0]+'px '+p[1]+'px"/>');
+    });
+  }
+
+  // landing dots on top of everything
+  targets.forEach(function(m){
+    const p = xyOf(m.to);
+    parts.push('<circle cx="'+p[0]+'" cy="'+p[1]+'" r="10" fill="#b3402e"/>' +
+               '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="10" fill="none" stroke="#f5efe2" stroke-width="2"/>');
+  });
+
+  // hit areas
+  for (let i=0;i<64;i++){
+    const d = dispRC(i);
+    parts.push('<rect data-i="'+i+'" x="'+(d[1]*U)+'" y="'+(d[0]*U)+'" width="'+U+'" height="'+U+'" fill="transparent" style="cursor:pointer"/>');
+  }
+
+  svg.setAttribute("viewBox", "0 0 " + W + " " + W);
+  svg.innerHTML = parts.join("");
+}
+
+/* ---------- panel ---------- */
+function renderPanel(){
+  shell.renderPlayersChrome();
+  $("pcsW").textContent = countPieces(S.board, 1);
+  $("pcsB").textContent = countPieces(S.board, 2);
+
+  $("playButtons").style.display = S.phase === "play" ? "flex" : "none";
+
+  const st = $("status");
+  const wl = $("winnerLine");
+  if (S.phase === "play"){
+    if (S.chain != null){
+      st.textContent = shell.t("statusChain");
+    } else {
+      let who = shell.pname(S.turn);
+      if (shell.isOnline() && S.turn === shell.net.myColor) who = shell.t("youWord");
+      st.textContent = shell.t("statusMove", { n: S.moveNum + 1, who: who });
+    }
+    wl.style.display = "none";
+  } else if (S.result){
+    st.textContent = shell.t("statusOver");
+    wl.style.display = "block";
+    wl.textContent = shell.t(S.result.reason === "resign" ? "winResign" : "winBy", { name: shell.pname(S.result.winner) });
+  }
+  shell.renderOverButtons();
+}
+function renderAll(fx){
+  renderBoard(fx);
+  renderPanel();
+  shell.fitBoard();
+}
+
+/* ---------- shell config ---------- */
+const shell = Tabletop({
+  key: "dama:save",
+  peerPrefix: "dama-k7-",
+  colorKeys: { 1:"white", 2:"black" },
+  reqActions: ["new", "undo"],
+  sounds: {
+    place:   [[1400, 0, .1]],
+    capture: [[1200, 0, .12], [800, .09, .12]]
+  },
+  ui: {
+    1: { nameInput:"nameW", youMark:"youW", card:"cardW", wins:"winW" },
+    2: { nameInput:"nameB", youMark:"youB", card:"cardB", wins:"winB" }
+  },
+  strings: {
+    en: {
+      statusChain:"Keep jumping with the same piece!",
+      mustCapture:"Capturing is mandatory — you have a jump.",
+      winBy:"🏆 {name} wins!",
+      noteHost:"You'll get a 5-letter code (and QR) to share. You play White. Moves travel directly between your two browsers over an encrypted WebRTC channel; a small free service (PeerJS) is used only for the introduction handshake.",
+      noteJoin:"Enter the code your opponent shares. You play Black. If you got disconnected earlier, re-joining with the same code resumes the game."
+    },
+    sk: {
+      statusChain:"Pokračuj v skákaní tým istým kameňom!",
+      mustCapture:"Skákanie je povinné — máš skok.",
+      winBy:"🏆 Vyhráva {name}!",
+      noteHost:"Dostaneš 5-znakový kód (a QR) na zdieľanie. Hráš bielymi. Ťahy putujú priamo medzi vašimi prehliadačmi cez šifrovaný WebRTC kanál; malá bezplatná služba (PeerJS) sa použije len na úvodné spojenie.",
+      noteJoin:"Zadaj kód od súpera. Hráš čiernymi. Ak ťa odpojilo, opätovné pripojenie s rovnakým kódom hru obnoví.",
+      sub:"dvaja hráči · jedno zariadenie alebo online",
+      whitePh:"Biely hráč", blackPh:"Čierny hráč", toPlay:"Na ťahu",
+      pieces:"Kamene: ", wins:"Výhry: ", you:"← ty",
+      setupTitle:"Nová hra", setupTag:"Zaujmite miesta — biely začína.",
+      whiteFirst:"Biely (začína)", blackLabel:"Čierny",
+      phUncle:"napr. Ujo", phNephew:"napr. Synovec",
+      rulesSummary:"Rýchle pravidlá",
+      rulesHtml:"<li>Biely začína. Kamene sa posúvajú o jedno pole šikmo dopredu po tmavých poliach.</li>"+
+        "<li>Skákanie je povinné: preskoč susedný súperov kameň na voľné pole za ním. Kým môžeš, skáč tým istým kameňom ďalej.</li>"+
+        "<li>Kameň, ktorý skončí ťah na poslednom rade, sa stáva dámou. Dáma lieta: ťahá aj berie na ľubovoľnú vzdialenosť po diagonále.</li>"+
+        "<li>Vyhráš, keď súperovi zoberieš alebo zablokuješ všetky kamene.</li>"
+    }
+  },
+  hooks: {
+    getS: function(){ return S; },
+    setS: function(saved){
+      if (!saved || !saved.board) return false;
+      S = saved;
+      if (!S.redo) S.redo = [];
+      return true;
+    },
+    resetGame: function(){ S = freshState(); sel = null; },
+    freshForHost: function(){ S = freshState(); sel = null; },
+    serializeCore: serializeCore,
+    restoreCore: restoreCore,
+    snapshot: snapshot,
+    renderAll: renderAll,
+    onBoardClick: clickSquare,
+    moveNum: function(){ return S.moveNum; },
+    phase: function(){ return S.phase; },
+    currentTurn: function(){ return S.turn; },
+    canLocalUndo: function(){ return S.history.length > 0 && S.phase !== "over"; },
+    canLocalRedo: function(){ return !!(S.redo && S.redo.length) && S.phase !== "over"; },
+    localUndo: localUndo,
+    localRedo: localRedo,
+    canTakeback: function(){
+      return S.phase === "play" && S.history.length > 0 && S.moveNum > 0 && S.turn !== shell.net.myColor && S.chain == null;
+    },
+    performTakeback: function(atMove){
+      if (S.phase !== "play" || S.moveNum !== atMove || S.turn === shell.net.myColor || !S.history.length) return false;
+      undoTurn();
+      return true;
+    },
+    reqValid: function(action, moveNum){
+      if (action === "new") return true;
+      if (action === "undo") return S.phase === "play" && S.moveNum === moveNum && S.turn === shell.net.myColor && S.chain == null;
+      return false;
+    },
+    applyAgreedExtra: function(){},
+    applyResign: function(loser){
+      if (S.phase === "over") return;
+      S.phase = "over";
+      S.result = { winner: 3 - loser, reason: "resign" };
+      shell.tally[3 - loser]++;
+      sel = null;
+      shell.persist(); renderAll();
+    },
+    onGameMsg: function(m){
+      if (m.t === "move" && S.phase === "play"){
+        const mv = legalMoves(S).find(function(x){ return x.from === m.from && x.to === m.to; });
+        if (mv) doMove(mv, true);
+      }
+    },
+    syncExtra: function(){ return null; },
+    onSync: function(m){
+      S = freshState();
+      try{ restoreCore(m.core); }catch(e){}
+      sel = null;
+    },
+    startLocal: function(){
+      shell.names[1] = $("setupNameW").value.trim();
+      shell.names[2] = $("setupNameB").value.trim();
+      S = freshState();
+      sel = null;
+    },
+    fillSetupFields: function(){
+      $("setupNameW").value = shell.names[1] || "";
+      $("setupNameB").value = shell.names[2] || "";
+    },
+    afterRestore: function(){},
+    wireExtra: function(){},
+    applyStaticLang: function(){
+      if (shell.LANG === "en") return;
+      const t = shell.t;
+      document.querySelector("header .sub").textContent = t("sub");
+      $("nameW").placeholder = t("whitePh");
+      $("nameB").placeholder = t("blackPh");
+      document.querySelectorAll(".turn-pill").forEach(function(el){ el.textContent = t("toPlay"); });
+      [["pcsW","pieces"],["winW","wins"],["pcsB","pieces"],["winB","wins"]].forEach(function(p){
+        $(p[0]).parentNode.firstChild.nodeValue = t(p[1]);
+      });
+      $("youW").textContent = t("you"); $("youB").textContent = t("you");
+      const rules = document.querySelector("details.rules");
+      rules.querySelector("summary").textContent = t("rulesSummary");
+      rules.querySelector("ul").innerHTML = t("rulesHtml");
+      document.querySelector("#setup h2").textContent = t("setupTitle");
+      document.querySelector("#setup .tag").textContent = t("setupTag");
+      const labelKeys = ["howPlaying","whiteFirst","blackLabel","yourName","gameCode"];
+      document.querySelectorAll("#setup .field label").forEach(function(el, i){
+        if (labelKeys[i]) el.textContent = t(labelKeys[i]);
+      });
+      $("setupNameW").placeholder = t("phUncle");
+      $("setupNameB").placeholder = t("phNephew");
+      $("setupMyName").placeholder = t("phUncle");
+    }
+  }
+});
+
+shell.boot();
+
+/* dev-only hook for automated tests */
+if (location.hostname === "127.0.0.1" || location.hostname === "localhost"){
+  window.__dama = {
+    state: function(){ return S; },
+    set: function(core){ restoreCore(JSON.stringify(core)); renderAll(); },
+    legal: function(){ return legalMoves(S); }
+  };
+}
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>editor · notes</title>
+<link rel="icon" type="image/svg+xml" href="/icons/blog.svg">
+<link rel="icon" type="image/png" sizes="128x128" href="/icons/blog.png">
+<meta name="robots" content="noindex" />
+<link rel="stylesheet" href="/site.css" />
+<link rel="stylesheet" href="/blog/blog.css" />
+<link rel="stylesheet" href="/blog/editor.css" />
+</head>
+<body>
+  <div class="ed">
+    <header class="ed-top">
+      <span class="brand"><b>/</b> editor</span>
+      <span class="status" id="status">draft</span>
+      <span class="spacer"></span>
+      <button class="btn" id="btnNew" type="button">New</button>
+      <button class="btn" id="btnSample" type="button">Sample</button>
+      <button class="btn" id="btnOpen" type="button">Open</button>
+      <button class="btn" id="btnSettings" type="button">Settings</button>
+      <button class="btn" id="btnDownload" type="button">Download</button>
+      <button class="btn primary" id="btnPublish" type="button">Publish</button>
+      <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>
+    </header>
+
+    <div class="ed-scroll">
+      <div class="ed-meta">
+        <div class="row2">
+          <div class="field"><label>title</label><input id="f-title" placeholder="Post title" /></div>
+          <div class="field"><label>slug</label><input id="f-slug" placeholder="post-slug" /></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>kicker</label><input id="f-kicker" placeholder="section · topic" /></div>
+          <div class="field"><label>date / status</label><input id="f-date" placeholder="2026 · draft" /></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>tags (comma)</label><input id="f-tags" placeholder="agents, architecture" /></div>
+          <div class="field"><label>read time</label><input id="f-read" placeholder="~4 min" /></div>
+        </div>
+        <div class="field"><label>excerpt (used on the index)</label><textarea id="f-excerpt" rows="2" placeholder="One or two sentences…"></textarea></div>
+        <div class="divider"></div>
+      </div>
+
+      <article class="content">
+        <div class="post-body" id="blocks"></div>
+      </article>
+    </div>
+  </div>
+
+  <dialog id="dlgSettings">
+    <h3 style="margin:.1rem 0 .9rem">Publish settings</h3>
+    <div class="field"><label>GitHub fine-grained token (Contents: read/write on this repo)</label>
+      <input id="s-token" type="password" placeholder="github_pat_…" /></div>
+    <div class="row2">
+      <div class="field"><label>repo</label><input id="s-repo" value="semtexzv/semtexzv.github.io" /></div>
+      <div class="field"><label>branch</label><input id="s-branch" value="main" /></div>
+    </div>
+    <p class="hint" style="font-size:.78rem;color:var(--muted)">Stored only in this browser, sent only to api.github.com over HTTPS.</p>
+    <div class="dlg-actions" style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.9rem">
+      <button class="btn" id="s-cancel" type="button">Close</button><button class="btn primary" id="s-save" type="button">Save</button></div>
+  </dialog>
+  <dialog id="dlgOpen"><h3 style="margin:.1rem 0 .9rem">Open a post</h3>
+    <div id="openList" style="font-size:.85rem;color:var(--muted)">Loading…</div>
+    <div class="dlg-actions" style="display:flex;justify-content:flex-end;margin-top:.9rem"><button class="btn" id="o-cancel" type="button">Cancel</button></div></dialog>
+  <dialog id="dlgResult"><h3 id="r-title" style="margin:.1rem 0 .9rem">Publishing…</h3><div id="r-body" style="font-size:.82rem;color:var(--muted);line-height:1.5"></div>
+    <div class="dlg-actions" style="display:flex;justify-content:flex-end;margin-top:.9rem"><button class="btn" id="r-close" type="button">Close</button></div></dialog>
+
+  <script src="/site.js"></script>
+  <script src="/blog/d3.v7.min.js"></script>
+  <script src="/blog/diagram.js"></script>
+  <script src="/blog/diagram-edit.js"></script>
+  <script src="/blog/editor.js"></script>
+  <script>
+  (function () {
+    var $ = function (s) { return document.querySelector(s); };
+    var KEY = 'blog-editor-draft', CFG = 'blog-editor-cfg';
+    var fields = { title: '#f-title', slug: '#f-slug', kicker: '#f-kicker', date: '#f-date', tags: '#f-tags', read: '#f-read', excerpt: '#f-excerpt' };
+    var slugTouched = false;
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function slugify(s) { return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+    function b64(s) { return btoa(unescape(encodeURIComponent(s))); }
+    function unb64(b) { return decodeURIComponent(escape(atob(b))); }
+
+    var editor = window.BlogEditor.create($('#blocks'), function () { saveDraft(); });
+    window.__ed = editor;
+
+    function meta() { var m = {}; for (var k in fields) m[k] = $(fields[k]).value; return m; }
+    var saveT;
+    function saveDraft() { clearTimeout(saveT); saveT = setTimeout(function () {
+      try { localStorage.setItem(KEY, JSON.stringify({ meta: meta(), body: editor.serialize() })); } catch (e) {}
+      $('#status').textContent = 'saved ' + new Date().toLocaleTimeString();
+    }, 400); }
+    function setMeta(m) { for (var k in fields) $(fields[k]).value = (m && m[k] != null) ? m[k] : ''; }
+    function bodyToDoc(html) { var d = document.createElement('div'); d.className = 'post-body'; d.innerHTML = html || ''; return editor.parse(d); }
+
+    /* ---- post template (single source; baked diagrams, no runtime d3) ---- */
+    function postHTML(m, body) {
+      var tags = (m.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+      var mt = [m.date, m.read].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
+      return '<!doctype html>\n<html lang="en" data-theme="dark">\n<head>\n' +
+        '<meta charset="utf-8" />\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />\n' +
+        '<title>' + esc(m.title) + ' · notes</title>\n<meta name="description" content="' + esc(m.excerpt || '') + '" />\n' +
+        (tags.length ? '<meta name="keywords" content="' + esc(tags.join(', ')) + '" />\n' : '') +
+        '<link rel="stylesheet" href="/site.css" />\n<link rel="stylesheet" href="/blog/blog.css" />\n</head>\n<body>\n' +
+        '  <header class="topbar">\n    <nav class="crumbs" aria-label="Breadcrumb">\n      <a class="home" href="/blog/"><b>/</b> notes</a>\n' +
+        '      <span class="sep">/</span>\n      <span aria-current="page">' + esc(m.title) + '</span>\n    </nav>\n' +
+        '    <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>\n  </header>\n\n' +
+        '  <article class="content">\n' + (m.kicker ? '    <div class="post-kicker">' + esc(m.kicker) + '</div>\n' : '') +
+        '    <h1 class="post-title">' + esc(m.title) + '</h1>\n' + (mt ? '    <div class="post-meta">' + mt + '</div>\n' : '') +
+        '    <div class="post-body">\n' + body + '\n    </div>\n  </article>\n\n  <script src="/site.js"><\/script>\n</body>\n</html>\n';
+    }
+
+    /* ---- deserialize a published post into meta + blocks ---- */
+    function loadPost(html, slug) {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var t = function (s) { var e = doc.querySelector(s); return e ? e.textContent.trim() : ''; };
+      var at = function (s, a) { var e = doc.querySelector(s); return e ? (e.getAttribute(a) || '') : ''; };
+      var sp = doc.querySelectorAll('.post-meta span');
+      setMeta({ title: t('.post-title'), slug: slug, kicker: t('.post-kicker'), date: sp[0] ? sp[0].textContent.trim() : '', read: sp[1] ? sp[1].textContent.trim() : '', tags: at('meta[name="keywords"]', 'content'), excerpt: at('meta[name="description"]', 'content') });
+      slugTouched = true; editor.setDoc(editor.parse(doc.querySelector('.post-body'))); saveDraft();
+    }
+
+    /* ---- New / Sample ---- */
+    $('#btnNew').addEventListener('click', function () { if (!confirm('Start a new post? Clears the current draft.')) return; setMeta({}); slugTouched = false; editor.setDoc(window.BlogEditor.blankDoc()); $('#status').textContent = 'new'; saveDraft(); });
+    $('#btnSample').addEventListener('click', function () { setMeta({ title: 'Kitchen sink', slug: 'kitchen-sink', kicker: 'demo', date: '2026 · draft', tags: 'demo', read: '~2 min', excerpt: 'A sample document exercising every block.' }); slugTouched = true; editor.setDoc(window.BlogEditor.sampleDoc()); $('#status').textContent = 'sample'; saveDraft(); });
+
+    /* ---- settings ---- */
+    function cfg() { try { return JSON.parse(localStorage.getItem(CFG) || '{}'); } catch (e) { return {}; } }
+    $('#btnSettings').addEventListener('click', function () { var c = cfg(); $('#s-token').value = c.token || ''; $('#s-repo').value = c.repo || 'semtexzv/semtexzv.github.io'; $('#s-branch').value = c.branch || 'main'; $('#dlgSettings').showModal(); });
+    $('#s-cancel').addEventListener('click', function () { $('#dlgSettings').close(); });
+    $('#s-save').addEventListener('click', function () { localStorage.setItem(CFG, JSON.stringify({ token: $('#s-token').value.trim(), repo: $('#s-repo').value.trim(), branch: $('#s-branch').value.trim() })); $('#dlgSettings').close(); });
+
+    /* ---- open ---- */
+    var dlgO = $('#dlgOpen');
+    function parseCards(home) { var d = new DOMParser().parseFromString(home, 'text/html'); return Array.prototype.map.call(d.querySelectorAll('.post-list .post-card'), function (c) { var t = function (s) { var e = c.querySelector(s); return e ? e.textContent.trim() : ''; }; return { slug: (c.getAttribute('href') || '').replace(/^\/blog\//, '').replace(/\/$/, ''), title: t('.pc-title'), date: t('.pc-date'), excerpt: t('.pc-excerpt'), tags: Array.prototype.map.call(c.querySelectorAll('.tag-chip'), function (x) { return x.textContent.trim(); }).join(', ') }; }); }
+    $('#btnOpen').addEventListener('click', function () { dlgO.showModal(); var list = $('#openList'); list.textContent = 'Loading…';
+      fetch('/blog/', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (h) { var cs = parseCards(h); if (!cs.length) { list.textContent = 'No posts yet.'; return; } list.innerHTML = '';
+        cs.forEach(function (p) { var btn = document.createElement('button'); btn.className = 'btn'; btn.style.cssText = 'display:block;width:100%;text-align:left;margin:.35rem 0'; btn.innerHTML = esc(p.title) + ' <span style="color:var(--faint)">/' + esc(p.slug) + '/</span>'; btn.onclick = function () { openPost(p.slug); }; list.appendChild(btn); }); }).catch(function () { list.textContent = 'Could not load the index.'; }); });
+    function openPost(slug) { $('#openList').textContent = 'Loading ' + slug + '…'; fetch('/blog/' + slug + '/', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.text(); }).then(function (h) { loadPost(h, slug); $('#status').textContent = 'opened ' + slug; dlgO.close(); }).catch(function () { $('#openList').innerHTML = '<span style="color:#e5484d">Could not open ' + esc(slug) + '.</span>'; }); }
+    $('#o-cancel').addEventListener('click', function () { dlgO.close(); });
+
+    /* ---- home index card upsert ---- */
+    function cardHTML(m, slug) { var tags = (m.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean).map(function (t) { return '<span class="tag-chip">' + esc(t) + '</span>'; }).join('');
+      return '          <a class="post-card" href="/blog/' + esc(slug) + '/">\n            <div class="pc-date">' + esc(m.date || '') + '</div>\n            <div class="pc-title">' + esc(m.title || '') + '</div>\n            <div class="pc-excerpt">' + esc(m.excerpt || '') + '</div>\n            <div class="pc-tags">' + tags + '</div>\n          </a>'; }
+    function upsertCard(home, m, slug) { var M = /(<!--posts:start-->)([\s\S]*?)(<!--posts:end-->)/; if (!M.test(home)) return home;
+      var ex = parseCards('<div class="post-list">' + home.match(M)[2] + '</div>');
+      var card = { slug: slug, title: m.title, date: m.date || '', excerpt: m.excerpt || '', tags: m.tags || '' };
+      var idx = -1; ex.forEach(function (p, i) { if (p.slug === slug) idx = i; });
+      if (idx >= 0) ex[idx] = card; else ex.unshift(card);   // updates keep their place; only new posts go on top
+      var cards = ex.map(function (p) { return cardHTML(p, p.slug); }).join('\n');
+      return home.replace(M, function (_, a, mid, c) { return a + '\n' + cards + '\n          ' + c; }); }
+    window.__upsertCard = upsertCard;
+
+    /* ---- download ---- */
+    $('#btnDownload').addEventListener('click', function () { var m = meta(); var blob = new Blob([postHTML(m, editor.serialize())], { type: 'text/html' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (slugify(m.title) || 'post') + '.html'; a.click(); });
+
+    /* ---- publish ---- */
+    var dlgR = $('#dlgResult');
+    function showR(t, h) { $('#r-title').innerHTML = t; $('#r-body').innerHTML = h; if (!dlgR.open) dlgR.showModal(); }
+    $('#r-close').addEventListener('click', function () { dlgR.close(); });
+    function gh(token) { return { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }; }
+    async function getSha(repo, path, token) { var r = await fetch('https://api.github.com/repos/' + repo + '/contents/' + path, { headers: gh(token) }); if (r.status === 404) return { sha: null }; if (!r.ok) throw new Error('GET ' + path + ' → ' + r.status); var j = await r.json(); return { sha: j.sha, content: j.content }; }
+    async function putFile(repo, path, content, msg, sha, branch, token) { var b = { message: msg, content: b64(content), branch: branch }; if (sha) b.sha = sha; var r = await fetch('https://api.github.com/repos/' + repo + '/contents/' + path, { method: 'PUT', headers: gh(token), body: JSON.stringify(b) }); if (!r.ok) throw new Error('PUT ' + path + ' → ' + r.status + ' ' + (await r.text())); return r.json(); }
+    $('#btnPublish').addEventListener('click', async function () {
+      var m = meta(), c = cfg();
+      if (!c.token) { showR('No token', 'Add a GitHub token in <b>Settings</b> first.'); return; }
+      if (!m.title || !m.slug) { showR('Missing', 'A <b>title</b> and <b>slug</b> are required.'); return; }
+      var repo = c.repo || 'semtexzv/semtexzv.github.io', branch = c.branch || 'main', token = c.token, slug = m.slug;
+      var html = postHTML(m, editor.serialize()), postPath = 'blog/' + slug + '/index.html';
+      showR('Publishing…', 'Committing <code>' + esc(postPath) + '</code>');
+      try {
+        var ps = await getSha(repo, postPath, token); await putFile(repo, postPath, html, 'post: ' + m.title, ps.sha, branch, token);
+        var hp = await getSha(repo, 'blog/index.html', token); if (!hp.content) throw new Error('blog/index.html not found');
+        await putFile(repo, 'blog/index.html', upsertCard(unb64(hp.content.replace(/\n/g, '')), m, slug), 'index: ' + m.title, hp.sha, branch, token);
+        showR('<span style="color:var(--accent)">Published ✓</span>', 'Live shortly at <a href="/blog/' + esc(slug) + '/" target="_blank" rel="noopener" style="color:var(--accent)">/blog/' + esc(slug) + '/</a> — Pages rebuilds in ~30–60s.');
+      } catch (err) { showR('<span style="color:#e5484d">Failed</span>', esc(err.message)); }
+    });
+
+    /* ---- meta wiring + load ---- */
+    for (var k in fields) $(fields[k]).addEventListener('input', saveDraft);
+    $('#f-title').addEventListener('input', function () { if (!slugTouched) $('#f-slug').value = slugify($('#f-title').value); });
+    $('#f-slug').addEventListener('input', function () { slugTouched = true; });
+    (function load() {
+      var raw; try { raw = localStorage.getItem(KEY); } catch (e) {}
+      if (raw) { try { var s = JSON.parse(raw); setMeta(s.meta); if (s.meta && s.meta.slug) slugTouched = true; editor.setDoc(bodyToDoc(s.body)); return; } catch (e) {} }
+      editor.setDoc(window.BlogEditor.blankDoc());
+    })();
+  })();
+  </script>
+</body>
+</html>

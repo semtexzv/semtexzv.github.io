@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>arch-editor · dataflow</title>
+<link rel="icon" type="image/svg+xml" href="/icons/arch.svg">
+<link rel="icon" type="image/png" sizes="128x128" href="/icons/arch.png">
+<meta name="robots" content="noindex" />
+<link rel="stylesheet" href="vendor/site.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
+    <div class="bar-right">
+      <span class="model-name" id="modelName"></span>
+      <button class="btn primary" id="btnExport" type="button">Export JSON</button>
+      <button class="btn" id="btnLoad" type="button">Load JSON</button>
+      <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>
+    </div>
+  </header>
+
+  <main class="editor">
+    <aside class="palette" id="palette" aria-label="Operation palette"></aside>
+    <section class="canvas-wrap" id="canvasWrap">
+      <svg id="canvas" role="img" aria-label="dataflow editor"></svg>
+      <button class="cam-fit" id="btnFit" type="button" title="center / fit (or double-tap empty space)">⤢ fit</button>
+      <button class="cam-fit cam-tidy" id="btnTidy" type="button" title="auto-arrange this level (clears manual positions)">✷ tidy</button>
+      <div class="inspector" id="inspector" hidden></div>
+      <div class="hint-bar" id="hintBar">drag ops from the palette — nodes stay where you put them · ✷ tidy auto-arranges · double-click opens · drag empty space to pan · slot → slot wires · ⌫ deletes · Esc ascends</div>
+    </section>
+  </main>
+
+  <input type="file" id="fileInput" accept="application/json,.json" hidden />
+  <div class="drag-ghost" id="dragGhost" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

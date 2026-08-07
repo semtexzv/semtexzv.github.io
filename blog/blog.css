@@ -1,0 +1,81 @@
+/* ============================================================
+   blog.css — breadcrumb top bar + a centred reading column.
+   Loads after site.css; uses the shared tokens. No sidebar, no SPA.
+   ============================================================ */
+
+/* ---- breadcrumb top bar ---- */
+.topbar{ position:sticky; top:0; z-index:30; display:flex; align-items:center; justify-content:space-between; gap:1rem;
+  padding:.8rem clamp(1.25rem,4vw,3rem); background:var(--bg); border-bottom:1px solid var(--hair); }
+.topbar .toggle{ position:static; }
+.crumbs{ display:flex; align-items:baseline; gap:.55rem; min-width:0; font-size:.95rem; }
+.crumbs .home{ display:inline-flex; align-items:baseline; gap:.4em; font-weight:800; letter-spacing:-.01em;
+  color:var(--fg-strong); flex:none; transition:color .14s; }
+.crumbs .home b{ color:var(--accent); }
+.crumbs .home:hover{ color:var(--accent); }
+.crumbs .sep{ color:var(--faint); flex:none; }
+.crumbs [aria-current="page"]{ color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+
+/* ---- content column ---- */
+.content{ max-width:780px; margin:0 auto; padding:clamp(2.2rem,5vw,4.5rem) clamp(1.25rem,4vw,3rem) 6rem; }
+
+/* index list */
+.blog-intro{ font-size:clamp(1.05rem,1.7vw,1.3rem); line-height:1.55; color:var(--fg); max-width:60ch; }
+.blog-intro b{ color:var(--fg-strong); font-weight:700; }
+.post-list{ margin-top:2.6rem; }
+.post-card{ display:block; padding:1.6rem 0; border-top:1px solid var(--hair); }
+.post-card:hover .pc-title{ color:var(--accent); }
+.pc-date{ font-family:ui-monospace,Menlo,monospace; font-size:.72rem; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--muted); }
+.pc-title{ font-size:clamp(1.3rem,2.6vw,1.7rem); font-weight:800; letter-spacing:-.02em;
+  margin:.35rem 0 .4rem; color:var(--fg-strong); transition:color .15s; }
+.pc-excerpt{ color:var(--muted); max-width:64ch; line-height:1.6; }
+.pc-tags{ margin-top:.7rem; display:flex; gap:.5rem; flex-wrap:wrap; }
+.tag-chip{ font-family:ui-monospace,Menlo,monospace; font-size:.66rem; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--muted); border:1px solid var(--hair); border-radius:999px; padding:.18em .6em; }
+
+/* ---- article ---- */
+.post-kicker{ font-family:ui-monospace,Menlo,monospace; font-size:.72rem; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--accent); }
+.post-title{ font-size:clamp(1.9rem,5vw,3rem); font-weight:800; letter-spacing:-.03em; line-height:1.04;
+  margin:.7rem 0 0; color:var(--fg-strong); }
+.post-meta{ font-family:ui-monospace,Menlo,monospace; font-size:.74rem; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--muted); margin-top:1rem; display:flex; gap:1.2em; flex-wrap:wrap; }
+
+.post-body{ margin-top:2.4rem; counter-reset:secnum; }
+.post-body p{ font-size:1.04rem; line-height:1.72; margin:1.25rem 0; color:var(--fg); max-width:70ch; }
+.post-body .lede{ font-size:clamp(1.12rem,1.8vw,1.32rem); line-height:1.55; color:var(--fg-strong); max-width:64ch; }
+.post-body h2{ font-size:1.45rem; font-weight:800; letter-spacing:-.015em; margin:2.8rem 0 .4rem; color:var(--fg-strong); }
+.post-body h2 .h2num{ color:var(--accent); font-family:ui-monospace,Menlo,monospace; font-size:.8rem; margin-right:.6em; }
+.post-body h2.num::before{ counter-increment:secnum; content:counter(secnum,decimal-leading-zero);
+  color:var(--accent); font-family:ui-monospace,Menlo,monospace; font-size:.8rem; font-weight:600; margin-right:.7em; }
+.post-body h3{ font-size:1.12rem; font-weight:800; letter-spacing:-.01em; margin:2rem 0 .3rem; color:var(--fg-strong); }
+.post-body b, .post-body strong{ color:var(--fg-strong); font-weight:700; }
+.post-body em, .post-body i{ font-style:normal; color:var(--accent); }
+.post-body mark{ background:color-mix(in srgb, var(--accent) 22%, transparent); color:var(--fg-strong); border-radius:3px; padding:0 .15em; }
+.post-body code{ font-family:ui-monospace,Menlo,monospace; font-size:.88em; background:var(--bg-elev);
+  border:1px solid var(--hair); border-radius:4px; padding:.08em .36em; }
+.post-body pre{ margin:1.6rem 0; padding:1rem 1.1rem; background:var(--bg-elev); border:1px solid var(--hair);
+  border-radius:8px; overflow:auto; font-family:ui-monospace,Menlo,monospace; font-size:.85rem; line-height:1.55; color:var(--fg); }
+.post-body pre code{ background:none; border:0; padding:0; font-size:1em; }
+.post-body ul{ margin:1.1rem 0; padding:0; list-style:none; max-width:70ch; }
+.post-body ul li{ position:relative; padding-left:1.3rem; margin:.5rem 0; color:var(--fg); line-height:1.6; }
+.post-body ul li::before{ content:"—"; position:absolute; left:0; color:var(--accent); }
+.post-body ol{ margin:1.1rem 0; padding-left:1.5rem; max-width:70ch; }
+.post-body ol li{ margin:.5rem 0; padding-left:.3rem; color:var(--fg); line-height:1.6; }
+.post-body ol li::marker{ color:var(--accent); font-family:ui-monospace,Menlo,monospace; font-size:.85em; }
+.post-body blockquote{ margin:1.6rem 0; padding:.2rem 0 .2rem 1.1rem; border-left:2px solid var(--accent);
+  color:var(--muted); font-size:1.05rem; line-height:1.6; }
+.post-body hr{ border:0; border-top:1px solid var(--hair); margin:2.4rem 0; }
+.post-body img{ max-width:100%; height:auto; display:block; border:1px solid var(--hair); border-radius:8px; margin:1.6rem 0; }
+.draft-note{ margin-top:3rem; padding:1.1rem 1.2rem; border:1px dashed var(--hair-strong); border-radius:8px;
+  font-family:ui-monospace,Menlo,monospace; font-size:.8rem; color:var(--muted); }
+.draft-note b{ color:var(--accent); }
+
+/* figure + caption */
+figure.fig{ margin:2.4rem 0; }
+figure.fig figcaption{ font-family:ui-monospace,Menlo,monospace; font-size:.68rem; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--muted); margin-top:.7rem; text-align:center; }
+
+/* ---- diagram (rendered by /blog/diagram.js into a baked, theme-aware SVG;
+   all colours are set inline via the --dg-* tokens) ---- */
+svg.diagram{ width:100%; height:auto; display:block; overflow:visible; }

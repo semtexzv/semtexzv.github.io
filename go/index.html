@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Goban — Two-Player Go</title>
+<meta name="theme-color" content="#2b3750">
+<meta name="color-scheme" content="dark">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goban">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="/shared/tabletop.css">
+<script src="peerjs.min.js"></script>
+<script src="qrcode.min.js"></script>
+<script src="/shared/tabletop.js"></script>
+</head>
+<body>
+
+<header>
+  <h1><a href="/games/">Goban</a></h1>
+  <div class="sub">two players · same device or online · white gets +6.5 komi</div>
+</header>
+
+<div class="table">
+  <div class="boardwrap">
+    <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+
+  <aside class="panel">
+    <div class="card player" id="cardB">
+      <div class="stone-icon black"></div>
+      <input id="nameB" type="text" placeholder="Black player" maxlength="18" autocomplete="off">
+      <div class="turn-pill">To play</div>
+      <div class="meta"><span>Captured: <b id="capB">0</b></span><span>Wins: <b id="winB">0</b></span><span id="youB" style="display:none">← you</span></div>
+    </div>
+
+    <div class="card player" id="cardW">
+      <div class="stone-icon white"></div>
+      <input id="nameW" type="text" placeholder="White player" maxlength="18" autocomplete="off">
+      <div class="turn-pill">To play</div>
+      <div class="meta"><span>Captured: <b id="capW">0</b></span><span>Wins: <b id="winW">0</b></span><span id="youW" style="display:none">← you</span></div>
+    </div>
+
+    <div class="card netbar" id="netbar" style="display:none">
+      <span class="dot"></span>
+      <span class="nettext" id="netText"></span>
+      <button class="btn-paper" id="btnLeave">Leave</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="buttons" id="playButtons">
+      <button class="btn-primary grow" id="btnPass">Pass</button>
+      <button class="btn-ghost" id="btnUndo">Undo</button>
+      <button class="btn-ghost" id="btnRedo">Redo</button>
+      <button class="btn-ghost" id="btnResign">Resign</button>
+      <button class="btn-ghost" id="btnNew">New game</button>
+    </div>
+
+    <div class="buttons" id="scoreButtons" style="display:none">
+      <button class="btn-primary grow" id="btnConfirm">Confirm score</button>
+      <button class="btn-ghost" id="btnResume">Resume play</button>
+    </div>
+
+    <div class="buttons" id="overButtons" style="display:none"></div>
+
+    <div class="card scorecard" id="scorecard" style="display:none">
+      <h3>Score</h3>
+      <table>
+        <thead><tr><th></th><td id="shNameB">Black</td><td id="shNameW">White</td></tr></thead>
+        <tbody>
+          <tr><th>Stones on board</th><td id="scStB">0</td><td id="scStW">0</td></tr>
+          <tr><th>Territory</th><td id="scTeB">0</td><td id="scTeW">0</td></tr>
+          <tr><th>Komi</th><td>—</td><td>6.5</td></tr>
+        </tbody>
+        <tfoot><tr><th>Total</th><td id="scToB">0</td><td id="scToW">0</td></tr></tfoot>
+      </table>
+      <div class="winner-line" id="winnerLine" style="display:none"></div>
+    </div>
+
+    <details class="rules">
+      <summary>Quick rules</summary>
+      <ul>
+        <li>Take turns placing stones on the line crossings. Black goes first.</li>
+        <li>Surround an enemy group on all sides (no empty neighbors left) and you capture it.</li>
+        <li>You can't place a stone where it would instantly have no breathing room, and you can't immediately retake a single-stone capture (ko).</li>
+        <li>When neither of you wants to move, both pass. Then tap any hopeless "dead" stones to remove them, and confirm the score.</li>
+        <li>Score = your stones on the board + empty points only you surround. White gets 6.5 bonus points for going second.</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<div id="toast"></div>
+
+<div id="setup" class="hidden">
+  <div class="setup-card">
+    <h2>New game</h2>
+    <div class="tag">Set the board and take your seats.</div>
+
+    <div class="field">
+      <label>How are you playing?</label>
+      <div class="seg" id="modeSeg">
+        <button data-mode="local" class="sel">Same device</button>
+        <button data-mode="host">Host online</button>
+        <button data-mode="join">Join online</button>
+      </div>
+    </div>
+
+    <div id="fieldsLocal">
+      <div class="field">
+        <label>Black (plays first)</label>
+        <div class="namerow"><div class="stone-icon black"></div><input type="text" id="setupNameB" placeholder="e.g. Uncle" maxlength="18"></div>
+      </div>
+      <div class="field">
+        <label>White (+6.5 komi)</label>
+        <div class="namerow"><div class="stone-icon white"></div><input type="text" id="setupNameW" placeholder="e.g. Nephew" maxlength="18"></div>
+      </div>
+    </div>
+
+    <div id="fieldsOnline" style="display:none">
+      <div class="field">
+        <label>Your name</label>
+        <input type="text" id="setupMyName" placeholder="e.g. Uncle" maxlength="18">
+      </div>
+    </div>
+
+    <div class="field" id="fieldJoin" style="display:none">
+      <label>Game code</label>
+      <input type="text" id="setupCode" class="codebox" placeholder="e.g. KOI42" maxlength="5" autocomplete="off">
+    </div>
+
+    <div class="field" id="fieldSize">
+      <label>Board size</label>
+      <div class="seg" id="sizeSeg">
+        <button data-size="9" class="sel">9×9 · quick</button>
+        <button data-size="13">13×13</button>
+        <button data-size="19">19×19 · full</button>
+      </div>
+    </div>
+
+    <div class="field" id="fieldUndo">
+      <label>Undo</label>
+      <div class="seg" id="undoSeg">
+        <button data-undo="1" class="sel">Allowed</button>
+        <button data-undo="0">Not allowed</button>
+      </div>
+    </div>
+
+    <div class="setup-note" id="setupNote"></div>
+    <button class="btn-primary" id="btnStart" style="width:100%">Start game</button>
+  </div>
+</div>
+
+<div id="waitBox" class="hidden">
+  <div class="setup-card">
+    <h2 id="waitTitle">Game code</h2>
+    <div class="bigcode" id="waitCode"></div>
+    <div id="waitQR"></div>
+    <div class="tag" id="waitMsg"></div>
+    <button class="btn-primary" id="waitRetry" style="width:100%; margin-bottom:8px; display:none">Try again</button>
+    <button class="btn-paper" id="waitCancel" style="width:100%">Cancel</button>
+  </div>
+</div>
+
+<div id="confirmBox" class="hidden">
+  <div class="setup-card">
+    <h2 id="dlgTitle">Are you sure?</h2>
+    <div class="tag" id="confirmMsg"></div>
+    <div class="buttons">
+      <button class="btn-primary grow" id="confirmYes">Yes</button>
+      <button class="btn-paper grow" id="confirmNo">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const $ = function(id){ return document.getElementById(id); };
+const KOMI = 6.5;
+const EMPTY = 0, BLACK = 1, WHITE = 2;
+
+/* True when running inside the Claude artifact preview (its sandbox blocks
+   outbound WebSocket connections, so online signaling can't work there). */
+const ENV_ARTIFACT = !!(typeof window.storage === "object" && window.storage && window.storage.get);
+
+/* ---------- state ---------- */
+let S = null;
+let pendingSize = 9;
+
+function freshState(size){
+  const n = size*size;
+  return {
+    size: size,
+    board: new Array(n).fill(EMPTY),
+    turn: BLACK,
+    caps: {1:0, 2:0},
+    passes: 0,
+    phase: "play",                  // play | score | over
+    lastMove: null,
+    positions: [ new Array(n).fill(EMPTY).join("") ],
+    moveNum: 0,
+    dead: [],
+    result: null,
+    history: [],
+    redo: []
+  };
+}
+
+/* ---------- go engine ---------- */
+function neighbors(i, size){
+  const r = Math.floor(i/size), c = i % size, out = [];
+  if (r > 0) out.push(i - size);
+  if (r < size-1) out.push(i + size);
+  if (c > 0) out.push(i - 1);
+  if (c < size-1) out.push(i + 1);
+  return out;
+}
+function groupAndLibs(board, i, size){
+  const color = board[i];
+  const seen = new Set([i]);
+  const stack = [i];
+  const libs = new Set();
+  while (stack.length){
+    const p = stack.pop();
+    const nb = neighbors(p, size);
+    for (let k=0;k<nb.length;k++){
+      const n = nb[k];
+      if (board[n] === EMPTY) libs.add(n);
+      else if (board[n] === color && !seen.has(n)){ seen.add(n); stack.push(n); }
+    }
+  }
+  return { stones: Array.from(seen), libs: libs.size };
+}
+function tryMove(i){
+  if (S.board[i] !== EMPTY) return { ok:false, reason:"occupied" };
+  const size = S.size, opp = 3 - S.turn;
+  const b = S.board.slice();
+  b[i] = S.turn;
+  let captured = new Set();
+  const nb = neighbors(i, size);
+  for (let k=0;k<nb.length;k++){
+    const n = nb[k];
+    if (b[n] === opp && !captured.has(n)){
+      const g = groupAndLibs(b, n, size);
+      if (g.libs === 0) g.stones.forEach(function(s){ captured.add(s); });
+    }
+  }
+  captured = Array.from(captured);
+  for (let k=0;k<captured.length;k++) b[captured[k]] = EMPTY;
+  const own = groupAndLibs(b, i, size);
+  if (own.libs === 0) return { ok:false, reason:"suicide" };
+  const str = b.join("");
+  if (S.positions.length >= 2 && str === S.positions[S.positions.length - 2]){
+    return { ok:false, reason:"ko" };
+  }
+  return { ok:true, board:b, captured:captured, str:str };
+}
+
+/* ---------- undo / redo ---------- */
+function serializeCore(){
+  return JSON.stringify({
+    board:S.board, turn:S.turn, caps:S.caps, passes:S.passes, phase:S.phase,
+    lastMove:S.lastMove, positions:S.positions, moveNum:S.moveNum,
+    dead:S.dead, result:S.result
+  });
+}
+function restoreCore(json){
+  const snap = JSON.parse(json);
+  S.board = snap.board; S.turn = snap.turn; S.caps = snap.caps;
+  S.passes = snap.passes; S.phase = snap.phase; S.lastMove = snap.lastMove;
+  S.positions = snap.positions; S.moveNum = snap.moveNum;
+  S.dead = snap.dead; S.result = snap.result;
+}
+function snapshot(){
+  S.history.push(serializeCore());
+  if (S.history.length > 400) S.history.shift();
+  S.redo = [];
+}
+function localUndo(){
+  if (!S.history.length || S.phase === "over") return;
+  S.redo.push(serializeCore());
+  if (S.redo.length > 400) S.redo.shift();
+  restoreCore(S.history.pop());
+  shell.persist(); renderAll();
+}
+function localRedo(){
+  if (!S.redo || !S.redo.length || S.phase === "over") return;
+  S.history.push(serializeCore());
+  if (S.history.length > 400) S.history.shift();
+  restoreCore(S.redo.pop());
+  shell.persist(); renderAll();
+}
+
+/* ---------- scoring (area / Chinese counting) ---------- */
+function computeScore(){
+  const size = S.size, n = size*size;
+  const b = S.board.slice();
+  for (let k=0;k<S.dead.length;k++) b[S.dead[k]] = EMPTY;
+  const stones = {1:0, 2:0};
+  for (let i=0;i<n;i++) if (b[i] !== EMPTY) stones[b[i]]++;
+  const terr = {1:0, 2:0};
+  const owner = new Array(n).fill(0);
+  const seen = new Set();
+  for (let i=0;i<n;i++){
+    if (b[i] !== EMPTY || seen.has(i)) continue;
+    const region = [i], stack = [i], borders = new Set();
+    seen.add(i);
+    while (stack.length){
+      const p = stack.pop();
+      const nb = neighbors(p, size);
+      for (let k=0;k<nb.length;k++){
+        const q = nb[k];
+        if (b[q] === EMPTY){
+          if (!seen.has(q)){ seen.add(q); stack.push(q); region.push(q); }
+        } else borders.add(b[q]);
+      }
+    }
+    if (borders.size === 1){
+      const c = borders.values().next().value;
+      terr[c] += region.length;
+      for (let k=0;k<region.length;k++) owner[region[k]] = c;
+    }
+  }
+  return {
+    stones: stones, terr: terr, owner: owner,
+    black: stones[1] + terr[1],
+    white: stones[2] + terr[2] + KOMI
+  };
+}
+/* decimal comma + Slovak point-count declension */
+function fmtNum(n){ return shell.LANG === "sk" ? String(n).replace(".", ",") : String(n); }
+function ptsPhrase(n){
+  if (shell.LANG !== "sk") return fmtNum(n) + (n === 1 ? " point" : " points");
+  let w = "bodov";
+  if (n === 1) w = "bod";
+  else if (!Number.isInteger(n)) w = "boda";
+  else if (n >= 2 && n <= 4) w = "body";
+  return fmtNum(n) + " " + w;
+}
+
+/* ---------- actions ---------- */
+function playAt(i, remote){
+  if (S.phase === "play"){
+    if (!remote && shell.isOnline()){
+      if (!shell.net.connected){ shell.toast(shell.t("notConnected")); return; }
+      if (S.turn !== shell.net.myColor){ shell.toast(shell.t("turnOf", { name: shell.pname(S.turn) })); return; }
+    }
+    const mv = tryMove(i);
+    if (!mv.ok){
+      if (remote) return;
+      if (mv.reason === "occupied") shell.toast(shell.t("occupied"));
+      else if (mv.reason === "suicide") shell.toast(shell.t("suicide"));
+      else shell.toast(shell.t("ko"));
+      return;
+    }
+    snapshot();
+    S.board = mv.board;
+    S.caps[S.turn] += mv.captured.length;
+    S.positions.push(mv.str);
+    if (S.positions.length > 500) S.positions.shift();
+    S.lastMove = i;
+    S.moveNum++;
+    S.passes = 0;
+    const mover = S.turn;
+    S.turn = 3 - S.turn;
+    shell.persist();
+    renderAll({ placed:i, placedColor:mover, captured:mv.captured, capturedColor:3-mover });
+    shell.sound(mv.captured.length ? "capture" : "place");
+    if (!remote) shell.buzz(mv.captured.length ? 20 : 8);
+    if (!remote && shell.isLive()) shell.sendMsg({ t:"move", i:i });
+  } else if (S.phase === "score"){
+    if (S.board[i] === EMPTY) return;
+    snapshot();
+    const g = groupAndLibs(S.board, i, S.size);
+    const deadSet = new Set(S.dead);
+    const isDead = deadSet.has(i);
+    for (let k=0;k<g.stones.length;k++){
+      if (isDead) deadSet.delete(g.stones[k]); else deadSet.add(g.stones[k]);
+    }
+    S.dead = Array.from(deadSet);
+    shell.persist(); renderAll();
+    if (!remote && shell.isLive()) shell.sendMsg({ t:"dead", i:i });
+  }
+}
+function doPass(remote){
+  if (S.phase !== "play") return;
+  if (!remote && shell.isOnline()){
+    if (!shell.net.connected){ shell.toast(shell.t("notConnected")); return; }
+    if (S.turn !== shell.net.myColor){ shell.toast(shell.t("turnOf", { name: shell.pname(S.turn) })); return; }
+  }
+  snapshot();
+  S.passes++;
+  S.lastMove = null;
+  S.moveNum++;
+  S.positions.push(S.board.join(""));
+  const passer = S.turn;
+  S.turn = 3 - S.turn;
+  if (S.passes >= 2){
+    S.phase = "score";
+    S.dead = [];
+    shell.toast(shell.t("bothPassed"));
+  } else {
+    shell.toast(shell.t("passed", { name: shell.pname(passer) }));
+  }
+  shell.persist(); renderAll();
+  if (!remote && shell.isLive()) shell.sendMsg({ t:"pass" });
+}
+function doConfirm(){
+  if (S.phase !== "score") return;
+  const sc = computeScore();
+  let winner = 0;
+  if (sc.black > sc.white) winner = BLACK;
+  else if (sc.white > sc.black) winner = WHITE;
+  S.phase = "over";
+  S.result = { winner:winner, reason:"score", black:sc.black, white:sc.white };
+  if (winner) shell.tally[winner]++;
+  shell.persist(); renderAll();
+}
+function confirmPressed(){
+  if (S.phase !== "score") return;
+  if (shell.isOnline()){
+    if (!shell.net.connected){ shell.toast(shell.t("notConnected")); return; }
+    shell.sendRequest("confirm"); // both players must agree on the final score
+    return;
+  }
+  doConfirm();
+}
+function doResume(remote){
+  if (S.phase !== "score") return;
+  snapshot();
+  S.phase = "play";
+  S.passes = 0;
+  S.dead = [];
+  shell.persist(); renderAll();
+  if (!remote && shell.isLive()) shell.sendMsg({ t:"resume" });
+}
+
+/* ---------- board rendering ---------- */
+const U = 40;
+function hoshiPoints(n){
+  if (n === 9)  return [[2,2],[6,2],[2,6],[6,6],[4,4]];
+  if (n === 13) return [[3,3],[9,3],[3,9],[9,9],[6,6]];
+  const a = [3,9,15], r = [];
+  for (let x=0;x<3;x++) for (let y=0;y<3;y++) r.push([a[x],a[y]]);
+  return r;
+}
+function xy(i){
+  const size = S.size;
+  return [ ((i % size) + 1) * U, (Math.floor(i / size) + 1) * U ];
+}
+function stoneFill(color){ return color === BLACK ? "url(#gB)" : "url(#gW)"; }
+
+function renderBoard(fx){
+  const svg = $("board");
+  const size = S.size, W = (size + 1) * U;
+  const deadSet = new Set(S.dead);
+  const scoring = (S.phase === "score" || (S.phase === "over" && S.result && S.result.reason === "score"));
+  const sc = scoring ? computeScore() : null;
+  let parts = [];
+
+  parts.push('<defs>' +
+    '<linearGradient id="gWood" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0" stop-color="#e9c078"/><stop offset="1" stop-color="#cd9848"/></linearGradient>' +
+    '<radialGradient id="gB" cx="0.35" cy="0.3" r="0.9">' +
+      '<stop offset="0" stop-color="#6d7480"/><stop offset="0.45" stop-color="#23262c"/><stop offset="1" stop-color="#0b0d11"/></radialGradient>' +
+    '<radialGradient id="gW" cx="0.35" cy="0.3" r="0.9">' +
+      '<stop offset="0" stop-color="#ffffff"/><stop offset="0.6" stop-color="#f0ebe0"/><stop offset="1" stop-color="#c6bfae"/></radialGradient>' +
+    '<filter id="sh" x="-30%" y="-30%" width="160%" height="160%">' +
+      '<feDropShadow dx="0.8" dy="1.6" stdDeviation="1.1" flood-color="#000" flood-opacity="0.4"/></filter>' +
+  '</defs>');
+
+  parts.push('<rect x="0" y="0" width="'+W+'" height="'+W+'" rx="10" fill="url(#gWood)"/>');
+  for (let g=1; g<=6; g++){
+    const y = (W/7)*g + (g%3)*3;
+    parts.push('<path d="M0 '+y+' Q '+(W/2)+' '+(y + (g%2 ? 6 : -6))+' '+W+' '+y+'" stroke="#a97c33" stroke-opacity="0.16" fill="none" stroke-width="2"/>');
+  }
+
+  for (let k=0;k<size;k++){
+    const p = (k+1)*U;
+    const edge = (k===0 || k===size-1) ? 2 : 1.1;
+    parts.push('<line x1="'+U+'" y1="'+p+'" x2="'+(size*U)+'" y2="'+p+'" stroke="#5d431d" stroke-width="'+edge+'"/>');
+    parts.push('<line x1="'+p+'" y1="'+U+'" x2="'+p+'" y2="'+(size*U)+'" stroke="#5d431d" stroke-width="'+edge+'"/>');
+  }
+  hoshiPoints(size).forEach(function(h){
+    parts.push('<circle cx="'+((h[0]+1)*U)+'" cy="'+((h[1]+1)*U)+'" r="4.5" fill="#5d431d"/>');
+  });
+
+  if (sc){
+    for (let i=0;i<sc.owner.length;i++){
+      if (!sc.owner[i]) continue;
+      const p = xy(i);
+      const f = sc.owner[i] === BLACK ? "#15181d" : "#f7f3ea";
+      parts.push('<rect x="'+(p[0]-5)+'" y="'+(p[1]-5)+'" width="10" height="10" rx="2" fill="'+f+'" stroke="#5d431d" stroke-width="0.8" opacity="0.85"/>');
+    }
+  }
+
+  const R = U * 0.47;
+  for (let i=0;i<S.board.length;i++){
+    const c = S.board[i];
+    if (c === EMPTY) continue;
+    const p = xy(i);
+    const isDead = deadSet.has(i);
+    const justPlaced = fx && fx.placed === i;
+    parts.push('<g '+(isDead ? 'opacity="0.38"' : '')+'>' +
+      '<circle class="'+(justPlaced ? "drop-in" : "")+'" cx="'+p[0]+'" cy="'+p[1]+'" r="'+R+'" fill="'+stoneFill(c)+'" filter="url(#sh)"/>' +
+      (isDead ? '<line x1="'+(p[0]-8)+'" y1="'+(p[1]-8)+'" x2="'+(p[0]+8)+'" y2="'+(p[1]+8)+'" stroke="#b3402e" stroke-width="3" stroke-linecap="round"/>' +
+                '<line x1="'+(p[0]-8)+'" y1="'+(p[1]+8)+'" x2="'+(p[0]+8)+'" y2="'+(p[1]-8)+'" stroke="#b3402e" stroke-width="3" stroke-linecap="round"/>' : '') +
+      '</g>');
+    if (i === S.lastMove && S.phase === "play"){
+      parts.push('<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+(R*0.45)+'" fill="none" stroke="'+(c===BLACK ? "#f5efe2" : "#1c1a16")+'" stroke-width="2.4"/>');
+    }
+  }
+
+  if (fx && fx.captured && fx.captured.length){
+    fx.captured.forEach(function(i){
+      const p = xy(i);
+      parts.push('<circle class="cap-fade" cx="'+p[0]+'" cy="'+p[1]+'" r="'+R+'" fill="'+stoneFill(fx.capturedColor)+'" style="transform-origin:'+p[0]+'px '+p[1]+'px"/>');
+    });
+  }
+
+  parts.push('<circle id="ghost" r="'+R+'" fill="'+stoneFill(S.turn)+'" opacity="0" pointer-events="none"/>');
+
+  for (let i=0;i<S.board.length;i++){
+    const p = xy(i);
+    parts.push('<rect data-i="'+i+'" x="'+(p[0]-U/2)+'" y="'+(p[1]-U/2)+'" width="'+U+'" height="'+U+'" fill="transparent" style="cursor:pointer"/>');
+  }
+
+  svg.setAttribute("viewBox", "0 0 " + W + " " + W);
+  svg.innerHTML = parts.join("");
+}
+
+/* ---------- panel ---------- */
+function renderPanel(){
+  shell.renderPlayersChrome();
+  $("capB").textContent = S.caps[1];
+  $("capW").textContent = S.caps[2];
+
+  const playing = S.phase === "play";
+  $("playButtons").style.display = playing ? "flex" : "none";
+  $("scoreButtons").style.display = S.phase === "score" ? "flex" : "none";
+
+  const st = $("status");
+  if (playing){
+    let who = shell.pname(S.turn);
+    if (shell.isOnline() && S.turn === shell.net.myColor) who = shell.t("youWord");
+    st.textContent = shell.t("statusMove", { n: S.moveNum + 1, who: who }) +
+      (S.passes === 1 ? shell.t("onePass") : "");
+  } else if (S.phase === "score"){
+    st.textContent = shell.t("statusCounting");
+  } else if (S.result){
+    st.textContent = shell.t("statusOver");
+  }
+
+  const scCard = $("scorecard");
+  if (S.phase === "score" || (S.phase === "over" && S.result)){
+    scCard.style.display = "block";
+    $("shNameB").textContent = shell.pname(1);
+    $("shNameW").textContent = shell.pname(2);
+    const wl = $("winnerLine");
+    if (S.result && S.result.reason === "resign"){
+      ["scStB","scStW","scTeB","scTeW","scToB","scToW"].forEach(function(id){ $(id).textContent = "—"; });
+      wl.style.display = "block";
+      wl.textContent = shell.t("winResign", { name: shell.pname(S.result.winner) });
+    } else {
+      const sc = computeScore();
+      $("scStB").textContent = sc.stones[1];
+      $("scStW").textContent = sc.stones[2];
+      $("scTeB").textContent = sc.terr[1];
+      $("scTeW").textContent = sc.terr[2];
+      $("scToB").textContent = fmtNum(sc.black);
+      $("scToW").textContent = fmtNum(sc.white);
+      if (S.phase === "over"){
+        wl.style.display = "block";
+        if (S.result.winner){
+          const m = Math.abs(sc.black - sc.white);
+          wl.textContent = shell.t("winBy", { name: shell.pname(S.result.winner), pts: ptsPhrase(m) });
+        } else wl.textContent = shell.t("tie");
+      } else wl.style.display = "none";
+    }
+  } else {
+    scCard.style.display = "none";
+  }
+  shell.renderOverButtons();
+}
+function renderAll(fx){
+  renderBoard(fx);
+  renderPanel();
+  shell.fitBoard();
+}
+
+/* ---------- shell config ---------- */
+const shell = Tabletop({
+  key: "go:save",
+  peerPrefix: "goban-k7-",
+  colorKeys: { 1:"black", 2:"white" },
+  reqActions: ["new", "undo", "confirm"],
+  artifactEnv: ENV_ARTIFACT,
+  store: ENV_ARTIFACT ? {
+    async get(k){ try{ const r = await window.storage.get(k); return r ? r.value : null; }catch(e){ return null; } },
+    async set(k,v){ try{ await window.storage.set(k,v); }catch(e){} }
+  } : null,
+  sounds: {
+    place:   [[1750, 0, .12]],
+    capture: [[1500, 0, .12], [950, .09, .12]]
+  },
+  ui: {
+    1: { nameInput:"nameB", youMark:"youB", card:"cardB", wins:"winB" },
+    2: { nameInput:"nameW", youMark:"youW", card:"cardW", wins:"winW" }
+  },
+  strings: {
+    en: {
+      occupied:"That spot is already taken.",
+      suicide:"Can't play there — that stone would have no breathing room.",
+      ko:"Ko rule: play somewhere else first, then you can come back.",
+      passed:"{name} passed.",
+      bothPassed:"Both passed — time to count! Tap dead stones to remove them.",
+      onePass:" (one more pass ends the game)",
+      statusCounting:"Counting: tap any dead stones to remove them, then confirm.",
+      winBy:"🏆 {name} wins by {pts}!", tie:"It's a tie!",
+      req_confirm_title:"End the game?", req_confirm_verb:"proposes to end the game with this score", req_confirm_wait:"Asking {opp} to accept the score…",
+      failArtifact:"<b>Can't connect from inside the Claude preview</b> — its sandbox blocks the signaling connection. Download this file and open it directly in your browser (both players do this), then try again there.",
+      artifactWarn:" <br><b>Heads up:</b> you’re viewing this inside Claude, and the preview blocks online connections — download this file and open it directly in your browser to play online.",
+      noteHost:"You'll get a 5-letter code (and QR) to share. You play Black. Moves travel directly between your two browsers over an encrypted WebRTC channel; a small free service (PeerJS) is used only for the introduction handshake.",
+      noteJoin:"Enter the code your opponent shares. You play White. If you got disconnected earlier, re-joining with the same code resumes the game."
+    },
+    sk: {
+      occupied:"To miesto je už obsadené.",
+      suicide:"Tam sa hrať nedá — kameň by nemal žiadnu slobodu.",
+      ko:"Pravidlo ko: najprv zahraj inde, potom sa môžeš vrátiť.",
+      passed:"{name} pasuje.",
+      bothPassed:"Obaja pasovali — ideme počítať! Ťukni na mŕtve kamene a odstráň ich.",
+      onePass:" (ešte jeden pas ukončí hru)",
+      statusCounting:"Počítanie: ťukni na mŕtve kamene a potom potvrď skóre.",
+      winBy:"🏆 {name} vyhráva o {pts}!", tie:"Remíza!",
+      req_confirm_title:"Ukončiť hru?", req_confirm_verb:"navrhuje ukončiť hru s týmto skóre", req_confirm_wait:"Čakám, či {opp} prijme skóre…",
+      failArtifact:"<b>Z náhľadu v Claude sa nedá pripojiť</b> — sandbox blokuje spojenie. Stiahni si tento súbor a otvor ho priamo v prehliadači (obaja hráči), potom to skús znova.",
+      artifactWarn:" <br><b>Pozor:</b> pozeráš si hru vnútri Claude a náhľad blokuje online spojenia — stiahni si súbor a otvor ho priamo v prehliadači.",
+      noteHost:"Dostaneš 5-znakový kód (a QR) na zdieľanie. Hráš čiernymi. Ťahy putujú priamo medzi vašimi prehliadačmi cez šifrovaný WebRTC kanál; malá bezplatná služba (PeerJS) sa použije len na úvodné spojenie.",
+      noteJoin:"Zadaj kód od súpera. Hráš bielymi. Ak ťa odpojilo, opätovné pripojenie s rovnakým kódom hru obnoví.",
+      sub:"dvaja hráči · jedno zariadenie alebo online · biely má +6,5 komi",
+      blackPh:"Čierny hráč", whitePh:"Biely hráč", toPlay:"Na ťahu",
+      captured:"Zajaté: ", wins:"Výhry: ", you:"← ty",
+      pass:"Pas",
+      confirmScore:"Potvrdiť skóre", resumePlay:"Hrať ďalej",
+      score:"Skóre", stonesOnBoard:"Kamene na doske", territory:"Územie", total:"Spolu",
+      setupTitle:"Nová hra", setupTag:"Priprav dosku a zaujmite miesta.",
+      blackFirst:"Čierny (začína)", whiteKomi:"Biely (+6,5 komi)",
+      boardSize:"Veľkosť dosky", size9:"9×9 · rýchla", size19:"19×19 · celá",
+      phUncle:"napr. Ujo", phNephew:"napr. Synovec",
+      rulesSummary:"Rýchle pravidlá",
+      rulesHtml:"<li>Striedajte sa v ukladaní kameňov na priesečníky čiar. Čierny začína.</li>"+
+        "<li>Obkľúč súperovu skupinu zo všetkých strán (žiadne voľné susedné body) a zajmeš ju.</li>"+
+        "<li>Kameň nemôžeš položiť tam, kde by okamžite nemal žiadnu slobodu, a nemôžeš hneď vrátiť zajatie jedného kameňa (ko).</li>"+
+        "<li>Keď už nikto nechce ťahať, obaja pasujte. Potom ťuknite na beznádejné „mŕtve“ kamene a potvrďte skóre.</li>"+
+        "<li>Skóre = tvoje kamene na doske + prázdne body, ktoré obkľučuješ len ty. Biely dostáva 6,5 bodu navyše za to, že ťahá druhý.</li>"
+    }
+  },
+  hooks: {
+    getS: function(){ return S; },
+    setS: function(saved){
+      if (!saved || !saved.board || !saved.size) return false;
+      S = saved;
+      if (!S.redo) S.redo = [];
+      return true;
+    },
+    resetGame: function(){ S = freshState(S ? S.size : pendingSize); },
+    freshForHost: function(){ S = freshState(pendingSize); },
+    serializeCore: serializeCore,
+    restoreCore: restoreCore,
+    snapshot: snapshot,
+    renderAll: renderAll,
+    onBoardClick: function(i){ playAt(i, false); },
+    moveNum: function(){ return S.moveNum; },
+    phase: function(){ return S.phase; },
+    currentTurn: function(){ return S.turn; },
+    canLocalUndo: function(){ return S.history.length > 0 && S.phase !== "over"; },
+    canLocalRedo: function(){ return !!(S.redo && S.redo.length) && S.phase !== "over"; },
+    localUndo: localUndo,
+    localRedo: localRedo,
+    canTakeback: function(){
+      return S.phase === "play" && S.history.length > 0 && S.moveNum > 0 && S.turn !== shell.net.myColor;
+    },
+    performTakeback: function(atMove){
+      if (S.phase !== "play" || S.moveNum !== atMove || S.turn === shell.net.myColor || !S.history.length) return false;
+      localUndo();
+      return true;
+    },
+    reqValid: function(action, moveNum){
+      if (action === "new") return true;
+      if (action === "undo") return S.phase === "play" && S.moveNum === moveNum && S.turn === shell.net.myColor;
+      if (action === "confirm") return S.phase === "score";
+      return false;
+    },
+    reqExtraHtml: function(action){
+      if (action !== "confirm") return "";
+      const sc = computeScore();
+      return "<br>" + shell.escapeHtml(shell.pname(1)) + " " + fmtNum(sc.black) + " — " + shell.escapeHtml(shell.pname(2)) + " " + fmtNum(sc.white) + ".";
+    },
+    applyAgreedExtra: function(action){
+      if (action === "confirm") doConfirm();
+    },
+    applyResign: function(loser){
+      if (S.phase === "over") return;
+      S.phase = "over";
+      S.result = { winner: 3 - loser, reason: "resign" };
+      shell.tally[3 - loser]++;
+      shell.persist(); renderAll();
+    },
+    onGameMsg: function(m){
+      switch (m.t){
+        case "move": playAt(m.i, true); break;
+        case "dead": playAt(m.i, true); break;
+        case "pass": doPass(true); break;
+        case "resume":
+          if (S.phase === "score"){
+            doResume(true);
+            shell.toast(shell.t("resumedT", { name: shell.oppName() }));
+          }
+          break;
+      }
+    },
+    syncExtra: function(){ return { size: S.size }; },
+    onSync: function(m){
+      S = freshState((m.x && m.x.size) || (m.size || 9));
+      try{ restoreCore(m.core); }catch(e){}
+    },
+    startLocal: function(){
+      shell.names[1] = $("setupNameB").value.trim();
+      shell.names[2] = $("setupNameW").value.trim();
+      S = freshState(pendingSize);
+    },
+    fillSetupFields: function(){
+      $("setupNameB").value = shell.names[1] || "";
+      $("setupNameW").value = shell.names[2] || "";
+    },
+    setupNoteExtra: function(mode){
+      return (mode !== "local" && ENV_ARTIFACT) ? shell.t("artifactWarn") : "";
+    },
+    afterRestore: function(had){
+      if (had && S) pendingSize = S.size;
+    },
+    setUrlSize: function(sz){
+      if (sz === 9 || sz === 13 || sz === 19) pendingSize = sz;
+    },
+    curSize: function(){ return S ? S.size : pendingSize; },
+    wireExtra: function(){
+      $("btnPass").addEventListener("click", function(){ doPass(false); });
+      $("btnConfirm").addEventListener("click", confirmPressed);
+      $("btnResume").addEventListener("click", function(){ doResume(false); });
+      $("sizeSeg").addEventListener("click", function(ev){
+        const b = ev.target.closest("button");
+        if (!b) return;
+        pendingSize = +b.dataset.size;
+        this.querySelectorAll("button").forEach(function(x){ x.classList.toggle("sel", x === b); });
+      });
+      // ghost stone under the cursor
+      const svg = $("board");
+      svg.addEventListener("pointermove", function(ev){
+        if (ev.pointerType === "touch") return;
+        const ghost = $("ghost");
+        if (!ghost) return;
+        const el = ev.target;
+        if (S.phase === "play" && el && el.dataset && el.dataset.i !== undefined){
+          if (!shell.isOnline() || (shell.net.connected && S.turn === shell.net.myColor)){
+            const i = +el.dataset.i;
+            if (S.board[i] === EMPTY && tryMove(i).ok){
+              const p = xy(i);
+              ghost.setAttribute("cx", p[0]); ghost.setAttribute("cy", p[1]);
+              ghost.setAttribute("opacity", "0.45");
+              return;
+            }
+          }
+        }
+        ghost.setAttribute("opacity", "0");
+      });
+      svg.addEventListener("pointerleave", function(){
+        const ghost = $("ghost");
+        if (ghost) ghost.setAttribute("opacity", "0");
+      });
+    },
+    applyStaticLang: function(){
+      if (shell.LANG === "en") return;
+      const t = shell.t;
+      document.querySelector("header .sub").textContent = t("sub");
+      $("nameB").placeholder = t("blackPh");
+      $("nameW").placeholder = t("whitePh");
+      document.querySelectorAll(".turn-pill").forEach(function(el){ el.textContent = t("toPlay"); });
+      [["capB","captured"],["winB","wins"],["capW","captured"],["winW","wins"]].forEach(function(p){
+        $(p[0]).parentNode.firstChild.nodeValue = t(p[1]);
+      });
+      $("youB").textContent = t("you"); $("youW").textContent = t("you");
+      $("btnPass").textContent = t("pass");
+      $("btnConfirm").textContent = t("confirmScore");
+      $("btnResume").textContent = t("resumePlay");
+      document.querySelector(".scorecard h3").textContent = t("score");
+      const ths = document.querySelectorAll("#scorecard tbody th");
+      if (ths[0]) ths[0].textContent = t("stonesOnBoard");
+      if (ths[1]) ths[1].textContent = t("territory");
+      const komiRow = ths[2] && ths[2].parentNode;
+      if (komiRow) komiRow.lastElementChild.textContent = "6,5";
+      const tfth = document.querySelector("#scorecard tfoot th");
+      if (tfth) tfth.textContent = t("total");
+      const rules = document.querySelector("details.rules");
+      rules.querySelector("summary").textContent = t("rulesSummary");
+      rules.querySelector("ul").innerHTML = t("rulesHtml");
+      document.querySelector("#setup h2").textContent = t("setupTitle");
+      document.querySelector("#setup .tag").textContent = t("setupTag");
+      const labelKeys = ["howPlaying","blackFirst","whiteKomi","yourName","gameCode","boardSize"];
+      document.querySelectorAll("#setup .field label").forEach(function(el, i){
+        if (labelKeys[i]) el.textContent = t(labelKeys[i]);
+      });
+      document.querySelectorAll("#sizeSeg button").forEach(function(b){
+        if (b.dataset.size === "9") b.textContent = t("size9");
+        if (b.dataset.size === "19") b.textContent = t("size19");
+      });
+      $("setupNameB").placeholder = t("phUncle");
+      $("setupNameW").placeholder = t("phNephew");
+      $("setupMyName").placeholder = t("phUncle");
+    }
+  }
+});
+
+shell.boot();
+
+})();
+</script>
+</body>
+</html>

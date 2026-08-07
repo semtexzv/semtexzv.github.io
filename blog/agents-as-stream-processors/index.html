@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Agents as Stream Processors · notes</title>
+<link rel="icon" type="image/svg+xml" href="/icons/blog.svg">
+<link rel="icon" type="image/png" sizes="128x128" href="/icons/blog.png">
+<meta name="description" content="Orchestrating many agents over data that keeps arriving is a stream-processing problem. Logs and offsets, per-agent watermarks, wake-on-advance, and Lamport-style causality — borrowed from Kafka Streams and Flink." />
+<meta name="keywords" content="agents, stream processing, distributed systems, orchestration, kafka streams, flink, causality" />
+<link rel="stylesheet" href="/site.css" />
+<link rel="stylesheet" href="/blog/blog.css" />
+</head>
+<body>
+  <header class="topbar">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a class="home" href="/blog/"><b>/</b> notes</a>
+      <span class="sep">/</span>
+      <span aria-current="page">Agents as Stream Processors</span>
+    </nav>
+    <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">THEME · <b id="themeName">DARK</b></button>
+  </header>
+
+  <article class="content">
+    <div class="post-kicker">stream processing</div>
+    <h1 class="post-title">Agents as Stream Processors</h1>
+    <div class="post-meta"><span>2026 · draft</span><span>~6 min</span></div>
+
+    <div class="post-body">
+      <p class="lede">
+        Distributed agents are hard. Not because any single agent is weak, but because coordinating a fleet of
+        them over a world that keeps changing is a real distributed-systems problem. Here is the shape of it, and
+        the one idea — an append-only log — that makes it tractable.
+      </p>
+
+      <p>The whole argument, before the details:</p>
+
+      <ul>
+        <li><b>Coordinating distributed agents is the hard part</b> — not making any one agent smart.
+          <ul>
+            <li>Letting a pool of agents share a repo and message or inject into each other does not hold up: no ordering, races, and no clear notion of who has seen what.</li>
+            <li>A single ultra-smart agent is appealing, but no one agent can attend to everything at once.</li>
+            <li>So disaggregate: <b>many focused agents beat one omniscient agent</b> — a smarter system, not a smarter model.</li>
+          </ul>
+        </li>
+        <li><b>That turns the problem into orchestration</b>: who sees what, who acts when, without stepping on each other.</li>
+        <li><b>Model every resource as an append-only log.</b> Give each agent offsets into the logs it cares about, and wake it when they advance.
+          <ul>
+            <li>An agent does not emit events. It acts on systems — it comments, commits, edits — and those systems append to their own logs.</li>
+            <li>Those appends are what advance other agents' inputs and wake them. The rest of this post is how that works.</li>
+          </ul>
+        </li>
+        <li><b>Bedrock</b> runs exactly this — agents over a monorepo that modifies itself, coordinated through logs — and as a core principle it holds up.</li>
+      </ul>
+
+      <p>
+        The reference model is stream processing. In Kafka Streams or Flink an <b>operator</b> keeps a little
+        state, reads one or more input logs, applies a function to new records in order, and writes outputs.
+        Treat each agent as an operator and the picture is concrete: three input logs, an agent holding an offset
+        into each, and the systems it writes to.
+      </p>
+
+            <figure class="fig" data-spec='{"gridH":3.5,"shapes":[{"id":"s0c0","x":1.35,"y":0.45,"w":0.56,"h":0.62,"color":"secondary","text":"a"},{"id":"s0c1","x":2.0100000000000002,"y":0.45,"w":0.56,"h":0.62,"color":"secondary","text":"b"},{"id":"s0c2","x":2.67,"y":0.45,"w":0.56,"h":0.62,"color":"secondary","text":"c"},{"id":"s0c3","x":3.33,"y":0.45,"w":0.56,"h":0.62,"color":"secondary","text":"d"},{"id":"s0c4","x":3.99,"y":0.45,"w":0.56,"h":0.62,"color":"secondary","text":"e"},{"id":"s0c5","x":4.65,"y":0.45,"w":0.56,"h":0.62,"color":"accent1","text":"f"},{"id":"wm0","x":4.565,"y":0.32,"w":0.06,"h":0.88,"color":"accent2"},{"id":"s1c0","x":1.35,"y":1.3,"w":0.56,"h":0.62,"color":"secondary","text":"a"},{"id":"s1c1","x":2.0100000000000002,"y":1.3,"w":0.56,"h":0.62,"color":"secondary","text":"b"},{"id":"s1c2","x":2.67,"y":1.3,"w":0.56,"h":0.62,"color":"secondary","text":"c"},{"id":"s1c3","x":3.33,"y":1.3,"w":0.56,"h":0.62,"color":"accent1","text":"d"},{"id":"s1c4","x":3.99,"y":1.3,"w":0.56,"h":0.62,"color":"accent1","text":"e"},{"id":"s1c5","x":4.65,"y":1.3,"w":0.56,"h":0.62,"color":"accent1","text":"f"},{"id":"wm1","x":3.245,"y":1.17,"w":0.06,"h":0.88,"color":"accent2"},{"id":"s2c0","x":1.35,"y":2.15,"w":0.56,"h":0.62,"color":"secondary","text":"a"},{"id":"s2c1","x":2.0100000000000002,"y":2.15,"w":0.56,"h":0.62,"color":"secondary","text":"b"},{"id":"s2c2","x":2.67,"y":2.15,"w":0.56,"h":0.62,"color":"secondary","text":"c"},{"id":"s2c3","x":3.33,"y":2.15,"w":0.56,"h":0.62,"color":"secondary","text":"d"},{"id":"s2c4","x":3.99,"y":2.15,"w":0.56,"h":0.62,"color":"accent1","text":"e"},{"id":"s2c5","x":4.65,"y":2.15,"w":0.56,"h":0.62,"color":"accent1","text":"f"},{"id":"wm2","x":3.9050000000000002,"y":2.02,"w":0.06,"h":0.88,"color":"accent2"},{"id":"agent","x":5.55,"y":0.45,"w":1.55,"h":2.32,"color":"accent2","text":"agent","sub":"operator"},{"id":"o0","x":7.6,"y":1.3,"w":0.56,"h":0.62,"color":"secondary","text":"a"},{"id":"o1","x":8.26,"y":1.3,"w":0.56,"h":0.62,"color":"accent1","text":"b"}],"connectors":[{"from":{"shape":"s0c5","anchor":"e"},"to":{"shape":"agent","anchor":"nw"},"color":"accent2"},{"from":{"shape":"s1c5","anchor":"e"},"to":{"shape":"agent","anchor":"w"},"color":"accent2"},{"from":{"shape":"s2c5","anchor":"e"},"to":{"shape":"agent","anchor":"sw"},"color":"accent2"},{"from":{"shape":"agent","anchor":"e"},"to":{"shape":"o0","anchor":"w"},"color":"accent2","label":"writes"}],"labels":[{"x":0.1,"y":0.87,"text":"comments","color":"primary","anchor":"start"},{"x":0.1,"y":1.72,"text":"documents","color":"primary","anchor":"start"},{"x":0.1,"y":2.57,"text":"builds","color":"primary","anchor":"start"},{"x":3,"y":3.08,"text":"offsets (watermarks)","color":"accent2","anchor":"middle"},{"x":8,"y":2.28,"text":"system log","color":"secondary","anchor":"middle"}]}'>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 252" class="diagram" role="img"><defs><marker id="d1-ar-primary" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L9,4 L0,8 Z" fill="var(--dg-primary)"/></marker><marker id="d1-ar-secondary" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L9,4 L0,8 Z" fill="var(--dg-secondary)"/></marker><marker id="d1-ar-accent1" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L9,4 L0,8 Z" fill="var(--dg-accent1)"/></marker><marker id="d1-ar-accent2" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L9,4 L0,8 Z" fill="var(--dg-accent2)"/></marker></defs><path d="M375.12 54.72 H 387.36 V 32.4 H 399.6" fill="none" stroke="var(--dg-accent2)" stroke-width="1.7" marker-end="url(#d1-ar-accent2)"/><path d="M375.12 115.91999999999999 H 399.6" fill="none" stroke="var(--dg-accent2)" stroke-width="1.7" marker-end="url(#d1-ar-accent2)"/><path d="M375.12 177.12 H 387.36 V 199.44 H 399.6" fill="none" stroke="var(--dg-accent2)" stroke-width="1.7" marker-end="url(#d1-ar-accent2)"/><path d="M511.20000000000005 115.91999999999999 H 547.2" fill="none" stroke="var(--dg-accent2)" stroke-width="1.7" marker-end="url(#d1-ar-accent2)"/><text x="529.2" y="108.91999999999999" fill="var(--dg-accent2)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="10" letter-spacing=".08em" text-anchor="middle">writes</text><g><rect x="97.2" y="32.4" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="117.36" y="54.72" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">a</text></g><g><rect x="144.72" y="32.4" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="164.88" y="54.72" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">b</text></g><g><rect x="192.24" y="32.4" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="212.4" y="54.72" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">c</text></g><g><rect x="239.76" y="32.4" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="259.92" y="54.72" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">d</text></g><g><rect x="287.28" y="32.4" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="307.44" y="54.72" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">e</text></g><g><rect x="334.8" y="32.4" width="40.32" height="44.64" fill="var(--dg-accent1)" fill-opacity="0.08" stroke="var(--dg-accent1)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="354.96000000000004" y="54.72" fill="var(--dg-accent1)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">f</text></g><g><rect x="328.68" y="23.04" width="4.32" height="63.36" fill="var(--dg-accent2)" fill-opacity="0.08" stroke="var(--dg-accent2)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="330.84000000000003" y="54.72" fill="var(--dg-accent2)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle"/></g><g><rect x="97.2" y="93.6" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="117.36" y="115.91999999999999" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">a</text></g><g><rect x="144.72" y="93.6" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="164.88" y="115.91999999999999" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">b</text></g><g><rect x="192.24" y="93.6" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="212.4" y="115.91999999999999" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">c</text></g><g><rect x="239.76" y="93.6" width="40.32" height="44.64" fill="var(--dg-accent1)" fill-opacity="0.08" stroke="var(--dg-accent1)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="259.92" y="115.91999999999999" fill="var(--dg-accent1)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">d</text></g><g><rect x="287.28" y="93.6" width="40.32" height="44.64" fill="var(--dg-accent1)" fill-opacity="0.08" stroke="var(--dg-accent1)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="307.44" y="115.91999999999999" fill="var(--dg-accent1)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">e</text></g><g><rect x="334.8" y="93.6" width="40.32" height="44.64" fill="var(--dg-accent1)" fill-opacity="0.08" stroke="var(--dg-accent1)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="354.96000000000004" y="115.91999999999999" fill="var(--dg-accent1)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">f</text></g><g><rect x="233.64" y="84.24" width="4.32" height="63.36" fill="var(--dg-accent2)" fill-opacity="0.08" stroke="var(--dg-accent2)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="235.79999999999998" y="115.91999999999999" fill="var(--dg-accent2)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle"/></g><g><rect x="97.2" y="154.8" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="117.36" y="177.12" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">a</text></g><g><rect x="144.72" y="154.8" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="164.88" y="177.12" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">b</text></g><g><rect x="192.24" y="154.8" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="212.4" y="177.12" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">c</text></g><g><rect x="239.76" y="154.8" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="259.92" y="177.12" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">d</text></g><g><rect x="287.28" y="154.8" width="40.32" height="44.64" fill="var(--dg-accent1)" fill-opacity="0.08" stroke="var(--dg-accent1)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="307.44" y="177.12" fill="var(--dg-accent1)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">e</text></g><g><rect x="334.8" y="154.8" width="40.32" height="44.64" fill="var(--dg-accent1)" fill-opacity="0.08" stroke="var(--dg-accent1)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="354.96000000000004" y="177.12" fill="var(--dg-accent1)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">f</text></g><g><rect x="281.16" y="145.44" width="4.32" height="63.36" fill="var(--dg-accent2)" fill-opacity="0.08" stroke="var(--dg-accent2)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="283.32000000000005" y="177.12" fill="var(--dg-accent2)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle"/></g><g><rect x="399.6" y="32.4" width="111.6" height="167.04" fill="var(--dg-accent2)" fill-opacity="0.08" stroke="var(--dg-accent2)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="455.40000000000003" y="99.21600000000001" fill="var(--dg-accent2)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">agent</text><text x="455.40000000000003" y="152.66879999999998" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="9.5" letter-spacing=".06em" text-anchor="middle" dominant-baseline="middle">OPERATOR</text></g><g><rect x="547.2" y="93.6" width="40.32" height="44.64" fill="var(--dg-secondary)" fill-opacity="0.08" stroke="var(--dg-secondary)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="567.36" y="115.91999999999999" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">a</text></g><g><rect x="594.72" y="93.6" width="40.32" height="44.64" fill="var(--dg-accent1)" fill-opacity="0.08" stroke="var(--dg-accent1)" stroke-width="1.5" shape-rendering="crispEdges"/><text x="614.88" y="115.91999999999999" fill="var(--dg-accent1)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="middle">b</text></g><text x="7.2" y="62.64" fill="var(--dg-primary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="11" text-anchor="start">comments</text><text x="7.2" y="123.84" fill="var(--dg-primary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="11" text-anchor="start">documents</text><text x="7.2" y="185.04" fill="var(--dg-primary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="11" text-anchor="start">builds</text><text x="216" y="221.76" fill="var(--dg-accent2)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="11" text-anchor="middle">offsets (watermarks)</text><text x="576" y="164.16" fill="var(--dg-secondary)" font-family="ui-monospace,&quot;SF Mono&quot;,Menlo,monospace" font-size="11" text-anchor="middle">system log</text></svg>
+        <figcaption>three input logs; the agent holds an offset into each, and writes to other systems whose logs advance in turn</figcaption>
+      </figure>
+
+      <p>
+        When those offsets fall behind, the runtime wakes the agent — and the gap <em>becomes</em> the prompt.
+        For the state in the diagram, the delivered message is roughly:
+      </p>
+      <pre data-lang="text"><code>wake — your registered resources advanced:
+
+  comments  new: f
+  documents new: d, e, f
+  builds    new: e, f
+
+review what changed and update your work.</code></pre>
+      <p>
+        The agent reads that and acts: it replies, revises a document, kicks off a job. It never emits an event
+        itself — the systems it touches do, and their appended entries are what wake the next agents.
+      </p>
+
+      <h2 class="num">Use logs, not loose events</h2>
+      <p>
+        The distinction matters. A loose event says that something happened. A log gives you an ordered,
+        append-only sequence and a stable position inside it. The runtime can ask concrete questions: what has
+        this agent seen, what is new since then, and what records must be delivered before the agent is current?
+      </p>
+      <p>
+        Each resource should expose an append-only changelog. A bug has a comments log. A document has a
+        revisions log. A build has status records. An agent conversation consumes those logs by offset or
+        high-water mark. Processing is then a ratchet: read the next items, update state, act on the systems it
+        owns, and advance the pointer only when the turn has completed.
+      </p>
+
+      <h2 class="num">Track registrations and watermarks</h2>
+      <p>
+        The runtime needs an explicit registration layer. When an agent starts, it has a goal and it declares
+        which resources it cares about: comments on this issue, changes to that document, updates from this
+        build, maybe a queue of tasks created by another agent. That declaration is the subscription set for
+        the conversation.
+      </p>
+      <p>
+        For every <code>(agent, stream)</code> pair, the runtime stores the agent's high-water mark. It does not
+        matter whether a source system sends a webhook or the runtime polls and compares previous state with
+        current state. Internally the rule is the same: if the stream head is ahead of the agent's mark, the
+        agent is behind.
+      </p>
+      <p>
+        Wakeup is then mechanical. A new bug comment arrives, a document revision is appended, or a CI result
+        lands. The pointer for that stream has advanced. The runtime finds agents registered on that stream and
+        schedules turns with the delta: "this resource changed; these are the records you have not seen." The
+        agent runs, then acts on the systems it owns — it comments, commits, edits — and finishes. The agent
+        never emits an event itself; the systems it touches append to their own logs, and those appends advance
+        other streams and wake other agents.
+      </p>
+
+      <h2 class="num">Keep causality explicit</h2>
+      <p>
+        This is where the distributed-systems vocabulary is useful. An agent acts inside a <b>causal window</b>:
+        the world up to the watermarks it was given when the turn started. While it runs, the outside world can
+        keep changing. That is fine. The runtime should not pretend the agent saw changes that arrived later; it
+        should deliver them in a later turn.
+      </p>
+      <p>
+        The main failure mode is self-wakeup. If an agent posts a comment on a bug it is watching, that comment
+        is also an append to one of its input streams. If treated as ordinary new input, the agent can wake
+        itself repeatedly. The runtime needs a clear rule for an agent's own effects.
+      </p>
+      <ul>
+        <li><b>append-after</b>: append the effect, but advance the producing agent's watermark past its own write so it is recorded without becoming a trigger.</li>
+        <li><b>inject</b>: fold the effect into the running turn's source view, so the agent accounts for it immediately and the later append is just durable history.</li>
+      </ul>
+      <p>
+        Both approaches are workable. The requirement is that self-produced records are causally accounted for
+        and do not create infinite notification loops.
+      </p>
+
+      <h2 class="num">Batch at the right level</h2>
+      <p>
+        When several inputs advance, the runtime has a delivery choice. <b>Edge-triggered</b> delivery wakes the
+        agent for one item or one stream transition at a time. <b>Level-triggered</b> delivery wakes the agent
+        with the current frontier across all changed resources: comments moved to offset 18, the document moved
+        to revision 7, and the build moved to result 42.
+      </p>
+      <p>
+        For LLM agents, level-triggered wakeups are usually the better default. They give the agent a coherent
+        batch of the current world instead of forcing it through a long sequence of small turns. Edge delivery is
+        still useful where strict per-record ordering is the product requirement.
+      </p>
+
+      <h2 class="num">Spawn agents in infrastructure</h2>
+      <p>
+        Some streams should not wake an existing agent. They should create a new one. A new bug in a bug list
+        might start one implementer conversation keyed by that bug. A new design request might start one design
+        conversation keyed by the request. This should be an infrastructural rule, not an LLM decision.
+      </p>
+      <p>
+        The rule looks like stream partitioning: for each new record on this stream, start or route to the agent
+        instance for this key. Once created, the agent owns an aspect of the resource. An implementer owns the
+        implementation work. A designer owns the design artifact. A reviewer owns review state. Each one can
+        create more resources, register interest in them, and receive wakeups until its job is done.
+      </p>
+      <p>
+        Some jobs never fully end. If the resource is long-lived, the owning agent may be long-lived too. It sits
+        at its current frontier and wakes when the resource advances. These are forever agents: ordinary stream
+        processors with durable state and no fixed terminal offset.
+      </p>
+
+      <div class="draft-note">
+        <b>deferred</b>: append-only streams need compaction eventually. Old history can be collapsed into the
+        state it implies, but compaction is a separate design problem from the orchestration model.
+      </div>
+
+      <h2 class="num">Where this runs</h2>
+      <p>
+        The practical version is simple: model every resource as a log, let agents register for the logs they
+        care about, store per-agent high-water marks, wake agents when those marks fall behind, and let the
+        systems agents touch append the records that wake the next ones. Orchestration becomes a
+        stream-processing runtime instead of a pile of ad hoc prompts and notifications.
+      </p>
+      <p>
+        <b>Bedrock</b> is this idea in production. Every resource — issues, designs, reviews, builds, and the
+        agents' own actions — is an append-only log over a single monorepo, and each agent is an operator with
+        offsets into the logs it owns. The twist is that the repo is self-modifying: the agents change the system
+        they run on by acting through the same logs everyone else reads. As a core principle, it holds up.
+      </p>
+    </div>
+  </article>
+
+  <script src="/site.js"></script>
+</body>
+</html>

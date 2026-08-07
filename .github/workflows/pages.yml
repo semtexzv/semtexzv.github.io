@@ -1,0 +1,34 @@
+name: pages
+
+# Automatic deploy: every push to main publishes the repo as-is to GitHub Pages.
+# Replaces the legacy branch-based builder, which had been failing intermittently
+# with log-less "Page build failed" errors (see 2026-07-02).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Stage site (everything except repo internals)
+        run: rsync -a --exclude .git --exclude .github ./ _site/
+      - uses: actions/upload-pages-artifact@v3
+      - id: deployment
+        uses: actions/deploy-pages@v4

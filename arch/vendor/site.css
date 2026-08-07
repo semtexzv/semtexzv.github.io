@@ -1,0 +1,53 @@
+/* ============================================================
+   site.css — shared design system for the CV, bedrock, and blog.
+   Token VALUES are identical everywhere; both naming conventions
+   are aliased (--fg/--ink, --muted/--dim) so each page keeps its
+   existing rules unchanged.
+   ============================================================ */
+:root[data-theme="dark"]{
+  --bg:#0a0a0a; --bg-elev:#121212;
+  --fg:#ededed; --ink:#ededed; --fg-strong:#ffffff;
+  --muted:#8a8a8a; --dim:#8a8a8a; --faint:#54545a;
+  --hair:rgba(255,255,255,.14); --hair-strong:rgba(255,255,255,.30); --chip:rgba(255,255,255,.03);
+  --accent:#e8643c; --accent-rgb:232,100,60; --accent-fg:#0a0a0a; --sel:rgba(232,100,60,.30);
+  --veil:10,10,10; --h1-top:#ffffff; --h1-mid:#cdccca;
+  --dg-primary:#d8d6d2; --dg-secondary:#8a8a8a; --dg-accent1:#e8643c; --dg-accent2:#46b3c2;
+}
+:root[data-theme="light"]{
+  --bg:#f4f2ec; --bg-elev:#ffffff;
+  --fg:#18130f; --ink:#18130f; --fg-strong:#000000;
+  --muted:#6b6258; --dim:#6b6258; --faint:#9a8f82;
+  --hair:rgba(0,0,0,.16); --hair-strong:rgba(0,0,0,.42); --chip:rgba(0,0,0,.04);
+  --accent:#c2461f; --accent-rgb:194,70,31; --accent-fg:#ffffff; --sel:rgba(194,70,31,.22);
+  --veil:244,242,236; --h1-top:#18130f; --h1-mid:#5a534b;
+  --dg-primary:#2a2622; --dg-secondary:#6b6258; --dg-accent1:#c2461f; --dg-accent2:#1f7d92;
+}
+
+/* ---- reset / base ---- */
+*, *::before, *::after { box-sizing: border-box; }
+html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; background:var(--bg); transition:background .25s ease; }
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Helvetica Neue", Helvetica, Arial, sans-serif; font-size:16px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  transition:background .25s ease, color .25s ease;
+}
+/* full-viewport bg layer — paints every iOS safe area at any scroll position */
+body::before{ content:""; position:fixed; inset:0; z-index:-1; background:var(--bg); transition:background .25s ease; }
+::selection{ background:var(--sel); }
+a{ color:inherit; text-decoration:none; }
+.mono{ font-family:ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; }
+
+/* ---- shared layout primitive ---- */
+.wrap{ max-width:1080px; margin:0 auto; padding:0 clamp(1.25rem,4vw,3rem); }
+
+/* ---- theme toggle (shared button; JS in site.js) ---- */
+.toggle{
+  position:fixed; top:1rem; right:1rem; z-index:50;
+  font-family:ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size:.72rem; letter-spacing:.1em; color:var(--muted);
+  background:var(--bg-elev); border:1px solid var(--hair); padding:.5em .8em;
+  cursor:pointer; text-transform:uppercase; transition:color .15s, border-color .15s;
+}
+.toggle:hover{ color:var(--fg-strong); border-color:var(--hair-strong); }
+.toggle b{ color:var(--accent); }
