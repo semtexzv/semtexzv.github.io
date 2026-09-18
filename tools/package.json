@@ -1,0 +1,7 @@
+{
+  "name": "site-tools",
+  "private": true,
+  "type": "module",
+  "scripts": { "pdf": "node build-pdf.mjs" },
+  "dependencies": { "playwright": "1.63.0-alpha-2026-08-05" }
+}
